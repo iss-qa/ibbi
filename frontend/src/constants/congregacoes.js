@@ -1,0 +1,15 @@
+export const CONGREGACOES = [
+  'Sede',
+  'São Cristóvão',
+  'Vida Nova',
+  'PQ São Paulo 1',
+  'PQ São Paulo 2',
+  'Capelão',
+  'Bairro da Paz',
+  'Dona Lindu',
+  'Portão',
+  'Olindina-BA',
+  'Crisópolis-BA',
+  'São Felipe-BA',
+  'São Sebastião do Passé - BA',
+];
