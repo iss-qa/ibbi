@@ -43,3 +43,5 @@ playwright/.cache/
 .npm
 .eslintcache
 .stylelintcache
+.vercel
+.env*.local
