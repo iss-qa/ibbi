@@ -38,22 +38,6 @@ npm run dev
 npm run seed
 ```
 
-O seed cria o usuário master e importa o CSV em `docs/churchcrm-export-20260315-222627.csv`.
-
-## Credenciais padrão
-
-Master (admin master):
-- Usuário: `Isaias`
-- Senha: `Is@i@s1989`
-
-Administrador:
-- Usuário: `elisa`
-- Senha: `IBBI2026`
-
-Usuário comum (exemplo):
-- Usuário: `joao`
-- Senha: `IBBI2026`
-
 ## Build do Frontend
 
 ```bash
@@ -75,12 +59,4 @@ npm run build
 - O envio em lote respeita o delay mínimo de 30s entre mensagens.
 
 
-mongoDB atlas - logado com conta ibbisede
-https://cloud.mongodb.com/v2/680e4da27be50a66a3cbac5f#/overview
 
-
-ibbi_db
-janio052829@IBBI
-
-
-mongodb+srv://ibbi_db:janio052829@IBBI@ibbicluster.yrebnpd.mongodb.net/?appName=ibbicluster
