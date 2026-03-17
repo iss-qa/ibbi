@@ -7,8 +7,21 @@
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "seed": "cd backend && node src/scripts/seed.js",
-    "build": "cd frontend && npm install && npm run build",
-    "vercel-build": "npm run build"
+    "build": "cd frontend && npm install && npm run build && mv dist ../dist"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "csv-parse": "^5.5.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^7.4.1",
+    "express-validator": "^7.2.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^1.4.5-lts.1",
+    "mongoose": "^8.5.4",
+    "node-cron": "^3.0.3"
   },
   "devDependencies": {
     "concurrently": "^8.2.2"
