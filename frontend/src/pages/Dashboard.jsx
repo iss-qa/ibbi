@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   ResponsiveContainer,
   LineChart,
@@ -23,6 +24,7 @@ const COLORS = ['#0b4dbf', '#c9a227', '#0a1f44', '#6b21a8', '#0f766e', '#b91c1c'
 const Skeleton = () => <div className="h-56 w-full animate-pulse bg-stone-100 rounded-xl" />;
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const [congregacao, setCongregacao] = useState('Sede');
   const [stats, setStats] = useState({ total: 0, ativos: 0, inativos: 0, aniversariantes: [] });
 
@@ -70,7 +72,7 @@ export default function Dashboard() {
   ];
 
   return (
-    <div>
+    <div className="animate-fade-in pb-10">
       <Header
         title="Dashboard"
         subtitle="Visão geral da igreja"
@@ -84,13 +86,44 @@ export default function Dashboard() {
         }
       />
 
-      <section className="grid gap-4 md:grid-cols-4">
+      <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {cards.map((item) => (
           <div key={item.label} className="bg-white rounded-xl border border-stone-100 p-4">
             <p className="text-sm text-slate-500">{item.label}</p>
             <p className="text-2xl font-semibold text-ibbiNavy mt-2">{item.value}</p>
           </div>
         ))}
+      </section>
+
+      <section className="mt-8 grid md:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border border-stone-100 p-6">
+          <h3 className="font-display text-xl text-ibbiNavy mb-4">Aniversariantes da semana</h3>
+          <div className="space-y-3">
+            {stats.aniversariantes.map((person) => (
+              <div key={person._id} className="flex justify-between text-sm">
+                <span>{person.nome}</span>
+                <span className="text-ibbiGold font-semibold">
+                  {new Date(person.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                </span>
+              </div>
+            ))}
+            {stats.aniversariantes.length === 0 && (
+              <p className="text-sm text-slate-500">Sem aniversariantes nos próximos 7 dias.</p>
+            )}
+          </div>
+        </div>
+        <div className="bg-gradient-to-br from-ibbiBlue via-ibbiNavy to-ibbiNavy text-white rounded-xl p-6">
+          <h3 className="font-display text-xl mb-3">Comunicação rápida</h3>
+          <p className="text-sm text-white/80 mb-6">
+            Envie avisos para grupos ou congregações diretamente do painel.
+          </p>
+          <button 
+            className="bg-ibbiGold hover:bg-yellow-400 transition text-ibbiNavy px-4 py-3 sm:py-2 min-h-[44px] rounded-lg font-semibold w-full sm:w-auto mt-2"
+            onClick={() => navigate('/communication')}
+          >
+            Ir para comunicação
+          </button>
+        </div>
       </section>
 
       <section className="mt-8 grid md:grid-cols-2 gap-6">
@@ -171,34 +204,6 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </div>
           )}
-        </div>
-      </section>
-
-      <section className="mt-8 grid md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl border border-stone-100 p-6">
-          <h3 className="font-display text-xl text-ibbiNavy mb-4">Aniversariantes da semana</h3>
-          <div className="space-y-3">
-            {stats.aniversariantes.map((person) => (
-              <div key={person._id} className="flex justify-between text-sm">
-                <span>{person.nome}</span>
-                <span className="text-ibbiGold font-semibold">
-                  {new Date(person.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
-                </span>
-              </div>
-            ))}
-            {stats.aniversariantes.length === 0 && (
-              <p className="text-sm text-slate-500">Sem aniversariantes nos próximos 7 dias.</p>
-            )}
-          </div>
-        </div>
-        <div className="bg-gradient-to-br from-ibbiBlue via-ibbiNavy to-ibbiNavy text-white rounded-xl p-6">
-          <h3 className="font-display text-xl mb-3">Comunicação rápida</h3>
-          <p className="text-sm text-white/80 mb-6">
-            Envie avisos para grupos ou congregações diretamente do painel.
-          </p>
-          <button className="bg-ibbiGold text-ibbiNavy px-4 py-2 rounded-lg font-semibold">
-            Ir para comunicação
-          </button>
         </div>
       </section>
     </div>

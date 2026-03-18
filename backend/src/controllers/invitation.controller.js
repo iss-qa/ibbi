@@ -34,6 +34,23 @@ const submitInvitation = async (req, res) => {
   ['sexo', 'tipo', 'grupo', 'estadoCivil', 'congregacao', 'status', 'motivoInativacao'].forEach((field) => {
     if (payload[field] === '') delete payload[field];
   });
+
+  // Validação de duplicidade: Mesmo nome e celular
+  if (payload.nome && payload.celular) {
+    // Escapa caracteres especiais do regex e busca com case-insensitive
+    const escapedNome = payload.nome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const exists = await Person.findOne({ 
+      nome: { $regex: new RegExp(`^${escapedNome}$`, 'i') }, 
+      celular: payload.celular 
+    });
+    
+    if (exists) {
+      return res.status(400).json({ 
+        message: `O membro "${payload.nome}" já possui um cadastro com o celular informado.` 
+      });
+    }
+  }
+
   const person = await Person.create(payload);
 
   invite.usedAt = new Date();

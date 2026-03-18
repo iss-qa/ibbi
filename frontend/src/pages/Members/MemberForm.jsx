@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { CONGREGACOES } from '../../constants/congregacoes';
 import { formatPhoneBR } from '../../utils/phoneMask';
+import api from '../../services/api';
 
 const initialState = {
   nome: '',
@@ -24,7 +25,7 @@ const initialState = {
 const TIPOS = ['congregado', 'membro', 'visitante', 'novo decidido', 'criança'];
 
 const fieldClass =
-  'w-full border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition placeholder:text-slate-300 h-8';
+  'w-full border border-slate-200 rounded-lg px-3 py-2.5 sm:py-1.5 text-lg sm:text-base text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition placeholder:text-slate-300 min-h-[44px] sm:min-h-[32px] sm:h-8';
 
 const labelClass = 'block text-xs font-medium text-slate-500 mb-1';
 
@@ -40,7 +41,18 @@ function Field({ label, children }) {
 export default function MemberForm({ initialData, onSubmit, onCancel }) {
   const [form, setForm] = useState({ ...initialState, ...initialData });
   const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState(initialData?.fotoUrl || '');
+  
+  // Inicializa o preview tratando URLs relativas
+  const getInitialPreview = () => {
+    if (!initialData?.fotoUrl) return '';
+    if (initialData.fotoUrl.startsWith('/uploads')) {
+      const baseUrl = api.defaults.baseURL.replace('/api', '');
+      return `${baseUrl}${initialData.fotoUrl}`;
+    }
+    return initialData.fotoUrl;
+  };
+  
+  const [preview, setPreview] = useState(getInitialPreview());
   const fileInputRef = useRef(null);
 
   const handleChange = (field, value) => {
@@ -60,19 +72,20 @@ export default function MemberForm({ initialData, onSubmit, onCancel }) {
     data.append('file', file);
     setUploading(true);
     try {
-      const response = await fetch('http://localhost:3001/api/uploads/person-photo', {
-        method: 'POST',
-        body: data,
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem('ibbi_token') || ''}`,
-        },
-      });
-      const result = await response.json();
-      if (result.url) {
-        const url = `http://localhost:3001${result.url}`;
-        handleChange('fotoUrl', url);
-        setPreview(url);
+      const response = await api.post('/uploads/person-photo', data);
+      
+      if (response.data.url) {
+        // Salva a URL relativa (ex: /uploads/123.jpg) no estado do formulário
+        const relativeUrl = response.data.url;
+        handleChange('fotoUrl', relativeUrl);
+        
+        // Para o preview, compõe com o baseUrl se necessário
+        const baseUrl = api.defaults.baseURL.replace('/api', '');
+        setPreview(`${baseUrl}${relativeUrl}`);
       }
+    } catch (err) {
+      console.error('Erro no upload:', err);
+      alert('Erro ao fazer upload da foto. Tente novamente.');
     } finally {
       setUploading(false);
     }
@@ -133,7 +146,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel }) {
       {/* ── Informações Pessoais ────────────────────────────── */}
       <div className="px-6 pt-3 pb-3">
         <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2.5">Informações pessoais</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-3 mb-4 sm:mb-3">
           <Field label="Nascimento">
             <input
               type="date"
@@ -174,7 +187,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel }) {
           </Field>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-3 mb-4 sm:mb-3">
           <Field label="Email">
             <input
               type="email"
@@ -212,7 +225,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel }) {
         <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2.5">Perfil na igreja</p>
 
         {/* Tipo — badges */}
-        <div className="mb-3">
+        <div className="mb-4 sm:mb-3">
           <label className={labelClass}>Tipo</label>
           <div className="flex flex-wrap gap-1.5">
             {TIPOS.map((t) => (
@@ -231,7 +244,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-3 mb-4 sm:mb-3">
           <Field label="Congregação">
             <select className={fieldClass} value={form.congregacao} onChange={(e) => handleChange('congregacao', e.target.value)}>
               {CONGREGACOES.map((c) => (
@@ -304,17 +317,17 @@ export default function MemberForm({ initialData, onSubmit, onCancel }) {
       </div>
 
       {/* ── Footer ─────────────────────────────────────────── */}
-      <div className="border-t border-slate-100 px-6 py-3 bg-slate-50 flex justify-end gap-2 rounded-b-xl">
+      <div className="border-t border-slate-100 px-6 py-4 bg-slate-50 flex flex-col sm:flex-row justify-end gap-3 sticky bottom-0 z-10 mt-auto w-full">
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 bg-white hover:bg-slate-50 transition"
+          className="px-4 py-3 sm:py-2 rounded-lg border border-slate-200 text-base sm:text-sm font-medium text-slate-600 bg-white hover:bg-slate-50 transition min-h-[44px] w-full sm:w-auto"
         >
           Cancelar
         </button>
         <button
           type="submit"
-          className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium transition"
+          className="px-5 py-3 sm:py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-base sm:text-sm font-medium transition min-h-[44px] w-full sm:w-auto"
         >
           Salvar membro
         </button>

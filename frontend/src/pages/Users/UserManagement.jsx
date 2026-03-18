@@ -58,7 +58,7 @@ export default function UserManagement() {
         title="Usuários"
         subtitle="Gerenciamento de acessos"
         action={
-          <button className="bg-ibbiBlue text-white px-4 py-2 rounded-lg" onClick={() => setShowCreate(true)}>
+          <button className="bg-ibbiBlue text-white px-4 py-3 sm:py-2 min-h-[44px] rounded-lg font-medium" onClick={() => setShowCreate(true)}>
             Novo usuário
           </button>
         }
@@ -66,34 +66,83 @@ export default function UserManagement() {
 
       <div className="bg-white rounded-xl shadow-soft p-4 mb-4">
         <input
-          className="w-full border rounded-lg px-3 py-2"
+          className="w-full border rounded-lg px-3 py-3 sm:py-2 min-h-[44px] appearance-none focus:ring-2 focus:ring-blue-100 outline-none"
           placeholder="Buscar por nome"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
-      <div className="bg-white rounded-xl shadow-soft overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-slate-50 text-left">
-            <tr>
-              <th className="px-4 py-3">Nome</th>
-              <th className="px-4 py-3">Login</th>
-              <th className="px-4 py-3">Role</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Ações</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users
-              .filter((user) => user.nome?.toLowerCase().includes(search.toLowerCase()))
-              .map((user) => (
-              <tr key={user._id} className="border-t hover:bg-slate-50">
-                <td className="px-4 py-3">{user.nome}</td>
-                <td className="px-4 py-3">{user.login}</td>
-                <td className="px-4 py-3">
+      <div className="bg-white rounded-xl flex flex-col overflow-hidden shadow-soft">
+        <div className="hidden md:block">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-left border-y border-slate-100">
+              <tr>
+                <th className="px-4 py-3">Nome</th>
+                <th className="px-4 py-3">Login</th>
+                <th className="px-4 py-3">Role</th>
+                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users
+                .filter((user) => user.nome?.toLowerCase().includes(search.toLowerCase()))
+                .map((user) => (
+                <tr key={user._id} className="border-b hover:bg-slate-50 transition">
+                  <td className="px-4 py-3">{user.nome}</td>
+                  <td className="px-4 py-3">{user.login}</td>
+                  <td className="px-4 py-3">
+                    <select
+                      className="border rounded-lg px-2 py-1 bg-white cursor-pointer"
+                      value={user.role}
+                      onChange={(e) => updateRole(user._id, e.target.value)}
+                    >
+                      <option value="user">user</option>
+                      <option value="admin">admin</option>
+                      <option value="master">master</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3">
+                    <select
+                      className="border rounded-lg px-2 py-1 bg-white cursor-pointer"
+                      value={user.ativo ? 'ativo' : 'inativo'}
+                      onChange={(e) => updateStatus(user._id, e.target.value === 'ativo')}
+                    >
+                      <option value="ativo">ativo</option>
+                      <option value="inativo">inativo</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <button className="text-red-500 hover:text-red-700 font-medium" onClick={() => removeUser(user._id)}>
+                      Excluir
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="md:hidden flex flex-col gap-3">
+          {users
+            .filter((user) => user.nome?.toLowerCase().includes(search.toLowerCase()))
+            .map((user) => (
+            <div key={user._id} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-3 bg-white">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-slate-800">{user.nome}</p>
+                  <p className="text-xs text-slate-500">{user.login}</p>
+                </div>
+                <button className="text-red-500 bg-red-50 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-100 transition" onClick={() => removeUser(user._id)}>
+                  Excluir
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-3 mt-1 pt-3 border-t border-slate-50">
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-slate-500 font-medium">Permissão (Role)</span>
                   <select
-                    className="border rounded-lg px-2 py-1"
+                    className="border rounded-lg px-3 py-2 text-lg sm:text-base bg-slate-50 min-h-[44px]"
                     value={user.role}
                     onChange={(e) => updateRole(user._id, e.target.value)}
                   >
@@ -101,56 +150,57 @@ export default function UserManagement() {
                     <option value="admin">admin</option>
                     <option value="master">master</option>
                   </select>
-                </td>
-                <td className="px-4 py-3">
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs text-slate-500 font-medium">Status</span>
                   <select
-                    className="border rounded-lg px-2 py-1"
+                    className="border rounded-lg px-3 py-2 text-lg sm:text-base bg-slate-50 min-h-[44px]"
                     value={user.ativo ? 'ativo' : 'inativo'}
                     onChange={(e) => updateStatus(user._id, e.target.value === 'ativo')}
                   >
                     <option value="ativo">ativo</option>
                     <option value="inativo">inativo</option>
                   </select>
-                </td>
-                <td className="px-4 py-3">
-                  <button className="text-red-600" onClick={() => removeUser(user._id)}>
-                    Excluir
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
 
       {showCreate && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6">
-          <div className="bg-white rounded-xl shadow-soft p-6 max-w-lg w-full">
-            <h2 className="font-display text-xl text-ibbiNavy mb-4">Adicionar administrador</h2>
-            <input
-              className="w-full border rounded-lg px-3 py-2"
-              placeholder="Buscar membro"
-              value={memberSearch}
-              onChange={(e) => searchMembers(e.target.value)}
-            />
-            <div className="mt-3 max-h-40 overflow-y-auto">
-              {memberResults.map((member) => (
-                <button
-                  key={member._id}
-                  className={`w-full text-left px-3 py-2 rounded-lg hover:bg-slate-50 ${
-                    selectedMember?._id === member._id ? 'bg-slate-100' : ''
-                  }`}
-                  onClick={() => setSelectedMember(member)}
-                >
-                  {member.nome}
-                </button>
-              ))}
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-6 z-50">
+          <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-soft max-w-lg w-full h-[90dvh] sm:h-auto flex flex-col overflow-hidden">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between sticky top-0 bg-white">
+              <h2 className="font-display text-lg font-semibold text-ibbiNavy">Adicionar administrador</h2>
+              <button className="text-slate-400 hover:text-slate-600 p-2 -mr-2" onClick={() => setShowCreate(false)}>X</button>
             </div>
-            <div className="flex justify-end gap-2 mt-4">
-              <button className="border rounded-lg px-4 py-2" onClick={() => setShowCreate(false)}>
+            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-4">
+              <input
+                className="w-full border rounded-lg px-4 py-3 text-lg sm:text-base min-h-[44px] appearance-none focus:ring-2 focus:ring-blue-100 outline-none"
+                placeholder="Buscar membro pelo nome..."
+                value={memberSearch}
+                onChange={(e) => searchMembers(e.target.value)}
+              />
+              <div className="flex flex-col gap-2 flex-1">
+                {memberResults.map((member) => (
+                  <button
+                    key={member._id}
+                    className={`w-full text-left px-4 py-3 rounded-xl border transition min-h-[44px] ${
+                      selectedMember?._id === member._id ? 'bg-blue-50 border-blue-200 text-blue-700 font-medium' : 'bg-white border-slate-100 hover:bg-slate-50 text-slate-700'
+                    }`}
+                    onClick={() => setSelectedMember(member)}
+                  >
+                    {member.nome}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row justify-end gap-3 sticky bottom-0 bg-white w-full">
+              <button className="border rounded-lg px-4 py-3 sm:py-2 min-h-[44px] w-full sm:w-auto font-medium text-slate-600 hover:bg-slate-50" onClick={() => setShowCreate(false)}>
                 Cancelar
               </button>
-              <button className="bg-ibbiBlue text-white rounded-lg px-4 py-2" onClick={createUser}>
+              <button className="bg-ibbiBlue text-white rounded-lg px-4 py-3 sm:py-2 min-h-[44px] w-full sm:w-auto font-medium" onClick={createUser} disabled={!selectedMember}>
                 Adicionar
               </button>
             </div>

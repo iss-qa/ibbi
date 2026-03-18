@@ -13,7 +13,7 @@ const TIPO_STYLE = {
 };
 
 const inputClass =
-  'border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition placeholder:text-slate-400';
+  'border border-slate-200 rounded-lg px-3 py-2 text-base sm:text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition placeholder:text-slate-400 min-h-[44px]';
 
 function Avatar({ nome, fotoUrl, size = 'md' }) {
   const sz = size === 'lg' ? 'w-11 h-11 text-sm' : 'w-9 h-9 text-xs';
@@ -27,10 +27,18 @@ function Avatar({ nome, fotoUrl, size = 'md' }) {
     'bg-slate-200 text-slate-600',
   ];
   const color = colors[(nome?.charCodeAt(0) || 0) % colors.length];
+
+  // Trata fotoUrl se for relativa
+  let fullFotoUrl = fotoUrl;
+  if (fotoUrl && fotoUrl.startsWith('/uploads')) {
+    const baseUrl = api.defaults.baseURL.replace('/api', '');
+    fullFotoUrl = `${baseUrl}${fotoUrl}`;
+  }
+
   return (
     <div className={`${sz} rounded-full overflow-hidden flex items-center justify-center font-semibold shrink-0 ${color}`}>
       {fotoUrl ? (
-        <img src={fotoUrl} alt={nome} className="w-full h-full object-cover" />
+        <img src={fullFotoUrl} alt={nome} className="w-full h-full object-cover" />
       ) : (
         initials
       )}
@@ -166,10 +174,10 @@ export default function MemberList() {
         }
       />
 
-      <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-5">
+      <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-5 overflow-x-hidden">
 
         {/* Stats */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
             { label: 'Total', value: items.length, icon: '👥', bg: 'bg-white', text: 'text-slate-700' },
             { label: 'Ativos', value: ativos, icon: '✅', bg: 'bg-emerald-50', text: 'text-emerald-700' },
@@ -272,7 +280,7 @@ export default function MemberList() {
             <thead>
               <tr className="bg-stone-50 text-left">
                 <th className="px-4 py-2.5 text-xs font-medium text-slate-400 uppercase tracking-wide">Membro</th>
-                <th className="px-4 py-2.5 text-xs font-medium text-slate-400 uppercase tracking-wide">Tipo</th>
+                <th className="px-4 py-2.5 text-xs font-medium text-slate-400 uppercase tracking-wide hidden md:table-cell">Tipo</th>
                 <th className="px-4 py-2.5 text-xs font-medium text-slate-400 uppercase tracking-wide hidden md:table-cell">Grupo</th>
                 <th className="px-4 py-2.5 text-xs font-medium text-slate-400 uppercase tracking-wide">Status</th>
                 <th className="px-4 py-2.5 text-xs font-medium text-slate-400 uppercase tracking-wide text-right">Ações</th>
@@ -316,7 +324,7 @@ export default function MemberList() {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 hidden md:table-cell">
                       <span className={`inline-block text-xs font-medium px-2.5 py-1 rounded-full border capitalize ${TIPO_STYLE[row.tipo] || 'bg-slate-100 text-slate-500 border-slate-200'}`}>
                         {row.tipo}
                       </span>
@@ -325,7 +333,8 @@ export default function MemberList() {
                       <span className="text-sm text-slate-500 capitalize">{row.grupo || '—'}</span>
                     </td>
                     <td className="px-4 py-3">
-                      <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${row.status === 'ativo'
+                      <span className={`inline-flex items-center justify-center w-3 h-3 rounded-full md:hidden ${row.status === 'ativo' ? 'bg-emerald-500' : 'bg-red-500'}`} title={row.status} />
+                      <span className={`hidden md:inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full ${row.status === 'ativo'
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
                           : 'bg-stone-100 text-slate-500 border border-stone-200'
                         }`}>
@@ -334,7 +343,35 @@ export default function MemberList() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-1">
+                      {/* Mobile Actions Dropdown */}
+                      <div className="md:hidden flex justify-end relative group">
+                        <button className="w-10 h-10 flex items-center justify-center text-slate-500 hover:bg-slate-100 rounded-full">
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"></path></svg>
+                        </button>
+                        <div className="hidden group-hover:flex group-focus-within:flex flex-col gap-1 absolute right-0 top-10 bg-white border border-slate-200 shadow-lg rounded-xl p-2 z-10 w-32">
+                          <button
+                            onClick={() => {
+                              setEditing({
+                                ...row,
+                                dataNascimento: toDateInput(row.dataNascimento),
+                                dataBatismo: toDateInput(row.dataBatismo),
+                              });
+                              setShowForm(true);
+                            }}
+                            className="text-left px-3 py-2 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-600 rounded-lg"
+                          >
+                            Editar
+                          </button>
+                          <button
+                            onClick={() => handleDelete(row)}
+                            className="text-left px-3 py-2 text-sm text-slate-600 hover:bg-red-50 hover:text-red-600 rounded-lg"
+                          >
+                            Excluir
+                          </button>
+                        </div>
+                      </div>
+                      {/* Desktop Actions */}
+                      <div className="hidden md:flex items-center justify-end gap-1">
                         <button
                           onClick={() => {
                             setEditing({
@@ -373,14 +410,14 @@ export default function MemberList() {
       {/* Modal */}
       {showForm && (
         <div
-          className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center sm:p-4 z-50"
           onClick={() => { setShowForm(false); setEditing(null); }}
         >
           <div
-            className="bg-white rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto md:overflow-visible md:max-h-none"
+            className="bg-white sm:rounded-2xl shadow-xl w-full max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10 shrink-0">
               <div>
                 <h2 className="text-base font-semibold text-slate-800">
                   {editing ? 'Editar membro' : 'Novo membro'}
@@ -403,11 +440,13 @@ export default function MemberList() {
                 {error}
               </div>
             )}
-            <MemberForm
-              initialData={editing}
-              onSubmit={handleSave}
-              onCancel={() => { setShowForm(false); setEditing(null); }}
-            />
+            <div className="flex-1 overflow-y-auto">
+              <MemberForm
+                initialData={editing}
+                onSubmit={handleSave}
+                onCancel={() => { setShowForm(false); setEditing(null); }}
+              />
+            </div>
           </div>
         </div>
       )}

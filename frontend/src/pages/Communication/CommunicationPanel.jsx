@@ -29,10 +29,10 @@ const TIPO_ICON = {
 };
 
 const inputClass =
-  'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition placeholder:text-slate-400';
+  'w-full border border-slate-200 rounded-lg px-3 py-2 text-lg sm:text-base text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition placeholder:text-slate-400 min-h-[44px] appearance-none';
 
 const textareaClass =
-  'w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition placeholder:text-slate-400 resize-none';
+  'w-full border border-slate-200 rounded-lg px-3 py-2 text-base sm:text-sm text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition placeholder:text-slate-400 resize-none min-h-[44px]';
 
 function SectionCard({ children, className = '' }) {
   return (
@@ -47,7 +47,7 @@ function SendTab({ label, icon, active, onClick }) {
     <button
       type="button"
       onClick={onClick}
-      className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${active
+      className={`flex items-center justify-center gap-2 px-4 py-3 sm:py-2 rounded-lg text-sm font-medium transition flex-1 sm:flex-none ${active
         ? 'bg-blue-600 text-white shadow-sm'
         : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100'
         }`}
@@ -198,7 +198,7 @@ export default function CommunicationPanel() {
                   <button
                     onClick={handleByGroup}
                     disabled={sending || !grupo || !mensagemGrupo}
-                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium py-2.5 rounded-lg transition flex items-center justify-center gap-2"
+                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-base sm:text-sm font-medium py-3 sm:py-2.5 rounded-lg transition flex items-center justify-center gap-2 min-h-[44px]"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -223,7 +223,7 @@ export default function CommunicationPanel() {
                   <button
                     onClick={handleByCongregation}
                     disabled={sending || !mensagemCongregacao}
-                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium py-2.5 rounded-lg transition flex items-center justify-center gap-2"
+                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-base sm:text-sm font-medium py-3 sm:py-2.5 rounded-lg transition flex items-center justify-center gap-2 min-h-[44px]"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -251,7 +251,7 @@ export default function CommunicationPanel() {
                   <button
                     onClick={handleIndividual}
                     disabled={sending || !individual.celular || !mensagemIndividual}
-                    className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white text-sm font-medium py-2.5 rounded-lg transition flex items-center justify-center gap-2"
+                    className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white text-base sm:text-sm font-medium py-3 sm:py-2.5 rounded-lg transition flex items-center justify-center gap-2 min-h-[44px]"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
@@ -271,7 +271,7 @@ export default function CommunicationPanel() {
               </div>
               <button
                 onClick={sendBirthdayNow}
-                className="bg-ibbiBlue text-white text-xs font-semibold px-3 py-2 rounded-lg"
+                className="bg-ibbiBlue text-white text-sm sm:text-xs font-semibold px-4 py-3 sm:py-2 rounded-lg min-h-[44px] flex items-center justify-center"
               >
                 Enviar agora
               </button>
@@ -282,7 +282,7 @@ export default function CommunicationPanel() {
           <SectionCard>
             <button
               onClick={() => setShowPrayer((s) => !s)}
-              className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-xl transition"
+              className="w-full flex items-center justify-between px-4 py-4 sm:py-3 text-sm font-medium text-slate-700 hover:bg-slate-50 rounded-xl transition min-h-[44px]"
             >
               <div className="flex items-center gap-2">
                 <span>🙏</span>
@@ -317,7 +317,7 @@ export default function CommunicationPanel() {
         <div className="lg:col-span-3 flex flex-col gap-4">
 
           {/* Stats */}
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
               { label: 'Total', value: stats.total, color: 'text-slate-700', bg: 'bg-white' },
               { label: 'Enviados', value: stats.concluido, color: 'text-emerald-700', bg: 'bg-emerald-50' },
@@ -337,7 +337,7 @@ export default function CommunicationPanel() {
             <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-100 flex-wrap">
               <h2 className="text-sm font-semibold text-slate-700 mr-auto">Histórico de envios</h2>
               <select
-                className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+                className="border border-slate-200 rounded-lg px-3 py-3 sm:py-2 min-h-[44px] sm:min-h-0 text-lg sm:text-base text-slate-600 bg-white focus:outline-none w-full sm:w-auto mt-2 sm:mt-0"
                 value={filters.tipo}
                 onChange={(e) => setFilters((f) => ({ ...f, tipo: e.target.value }))}
               >
@@ -350,7 +350,7 @@ export default function CommunicationPanel() {
                 <option value="personalizada">personalizada</option>
               </select>
               <select
-                className="border border-slate-200 rounded-lg px-2.5 py-1.5 text-xs text-slate-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100"
+                className="border border-slate-200 rounded-lg px-3 py-3 sm:py-2 min-h-[44px] sm:min-h-0 text-lg sm:text-base text-slate-600 bg-white focus:outline-none w-full sm:w-auto mt-2 sm:mt-0"
                 value={filters.status}
                 onChange={(e) => setFilters((f) => ({ ...f, status: e.target.value }))}
               >
@@ -376,41 +376,46 @@ export default function CommunicationPanel() {
                 filteredLog.map((row) => (
                   <div
                     key={row._id}
-                    className="flex items-center gap-3 px-4 py-3.5 hover:bg-slate-50 transition group cursor-pointer"
+                    className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-4 hover:bg-slate-50 transition group cursor-pointer border-b border-slate-50 last:border-0 relative"
                     onClick={() => setShowMessage(row)}
                   >
-                    {/* Ícone do tipo */}
-                    <div className="w-9 h-9 rounded-lg bg-slate-100 flex items-center justify-center text-base shrink-0">
-                      {TIPO_ICON[row.tipo] || '💬'}
-                    </div>
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-sm font-medium text-slate-700 capitalize">{row.tipo}</span>
-                        <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${STATUS_STYLE[row.status] || 'bg-slate-100 text-slate-500'}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[row.status] || 'bg-slate-400'}`} />
-                          {row.status}
-                        </span>
+                    <div className="flex items-start gap-4 w-full overflow-hidden">
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-lg shrink-0 mt-1">
+                        {TIPO_ICON[row.tipo] || '💬'}
                       </div>
-                      <p className="text-xs text-slate-400 truncate">{row.conteudo || '—'}</p>
+                      
+                      <div className="flex flex-col min-w-0 flex-1 pr-6">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
+                          <span className="text-sm font-semibold text-slate-700 capitalize truncate">{row.tipo}</span>
+                          <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_STYLE[row.status] || 'bg-slate-100 text-slate-500'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[row.status] || 'bg-slate-400'}`} />
+                            {row.status}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 line-clamp-2">{row.conteudo || '—'}</p>
+                      </div>
                     </div>
 
-                    {/* Data */}
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-slate-500">{new Date(row.criadoEm).toLocaleDateString('pt-BR')}</p>
-                      <p className="text-[10px] text-slate-400">{new Date(row.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+                    <div className="flex items-center justify-between w-full sm:w-auto mt-2 sm:mt-0 pt-2 sm:pt-0 border-t border-slate-100 sm:border-0 shrink-0">
+                      <div className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
+                        {new Date(row.criadoEm).toLocaleDateString('pt-BR')}
+                        <span className="text-[10px] text-slate-400 font-semibold bg-slate-100 px-1.5 py-0.5 rounded-md">{new Date(row.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button
+                          className="text-xs text-amber-600 font-semibold px-3 py-2 rounded-lg hover:bg-amber-50 active:bg-amber-100 transition border border-amber-200"
+                          onClick={(e) => { e.stopPropagation(); resend(row._id); }}
+                        >
+                          Reenviar
+                        </button>
+                        <svg className="w-5 h-5 text-slate-300 group-hover:text-slate-400 transition hidden sm:block" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
                     </div>
-
-                    <button
-                      className="text-xs text-amber-600 px-2 py-1 rounded-lg hover:bg-amber-50"
-                      onClick={(e) => { e.stopPropagation(); resend(row._id); }}
-                    >
-                      Reenviar
-                    </button>
-
-                    {/* Arrow */}
-                    <svg className="w-4 h-4 text-slate-300 group-hover:text-slate-400 transition shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    
+                    {/* Arrow no topo com posição absoluta para o mobile */}
+                    <svg className="w-5 h-5 text-slate-300 group-hover:text-slate-400 transition absolute top-5 right-4 sm:hidden" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                     </svg>
                   </div>
@@ -448,7 +453,7 @@ export default function CommunicationPanel() {
             <div className="flex justify-end mt-4">
               <button
                 onClick={() => setShowMessage(null)}
-                className="px-4 py-2 rounded-lg border border-slate-200 text-sm text-slate-600 hover:bg-slate-50 transition"
+                className="px-4 py-3 sm:py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-600 hover:bg-slate-50 transition w-full sm:w-auto min-h-[44px]"
               >
                 Fechar
               </button>

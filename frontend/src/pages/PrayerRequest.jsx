@@ -31,8 +31,8 @@ export default function PrayerRequest() {
             onChange={(e) => setMensagem(e.target.value)}
             required
           />
-          <button className="bg-ibbiBlue text-white px-4 py-2 rounded-lg" type="submit">
-            Enviar pedido
+          <button className="bg-ibbiBlue hover:bg-ibbiNavy transition text-white px-4 py-3 sm:py-2 min-h-[44px] rounded-lg w-full sm:w-auto font-medium" type="submit">
+            {status === 'enviando' ? 'Enviando...' : 'Enviar pedido'}
           </button>
           {status === 'ok' && <p className="text-sm text-green-600">Pedido enviado com sucesso.</p>}
           {status === 'erro' && <p className="text-sm text-red-600">Falha ao enviar.</p>}

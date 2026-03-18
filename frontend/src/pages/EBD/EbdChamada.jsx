@@ -136,46 +136,75 @@ export default function EbdChamada() {
         </div>
 
         <div className="mt-6">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-50 text-left">
-              <tr>
-                <th className="px-4 py-3">Presença</th>
-                <th className="px-4 py-3">Aluno</th>
-                <th className="px-4 py-3">Congregação</th>
-                <th className="px-4 py-3">Observação</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(aula.presencas || []).map((p, idx) => (
-                <tr key={p.personId} className="border-b">
-                  <td className="px-4 py-3">
-                    <input type="checkbox" checked={p.presente} onChange={(e) => togglePresenca(idx, e.target.checked)} />
-                  </td>
-                  <td className="px-4 py-3">{p.nome}</td>
-                  <td className="px-4 py-3">{p.congregacao || '-'}</td>
-                  <td className="px-4 py-3">
-                    {!p.presente ? (
-                      <select className="border rounded-lg px-2 py-1" value={p.justificativa || ''} onChange={(e) => updateObs(idx, e.target.value)}>
-                        <option value="">Selecione</option>
-                        {OBS_OPTIONS.map((opt) => (
-                          <option key={opt} value={opt.toLowerCase()}>{opt}</option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="text-xs text-slate-400">—</span>
-                    )}
-                  </td>
+          <div className="hidden md:block">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 text-left">
+                <tr>
+                  <th className="px-4 py-3">Presença</th>
+                  <th className="px-4 py-3">Aluno</th>
+                  <th className="px-4 py-3">Congregação</th>
+                  <th className="px-4 py-3">Observação</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {(aula.presencas || []).map((p, idx) => (
+                  <tr key={p.personId} className="border-b hover:bg-stone-50 transition">
+                    <td className="px-4 py-3">
+                      <input type="checkbox" className="w-4 h-4 cursor-pointer" checked={p.presente} onChange={(e) => togglePresenca(idx, e.target.checked)} />
+                    </td>
+                    <td className="px-4 py-3">{p.nome}</td>
+                    <td className="px-4 py-3">{p.congregacao || '-'}</td>
+                    <td className="px-4 py-3">
+                      {!p.presente ? (
+                        <select className="border rounded-lg px-2 py-2 text-lg sm:text-sm" value={p.justificativa || ''} onChange={(e) => updateObs(idx, e.target.value)}>
+                          <option value="">Selecione</option>
+                          {OBS_OPTIONS.map((opt) => (
+                            <option key={opt} value={opt.toLowerCase()}>{opt}</option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className="text-xs text-slate-400">—</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="md:hidden flex flex-col gap-3">
+            {(aula.presencas || []).map((p, idx) => (
+              <div key={p.personId} className={`border rounded-xl p-4 flex flex-col gap-3 transition ${p.presente ? 'bg-emerald-50/30 border-emerald-100' : 'bg-white border-slate-200'}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0 pr-4">
+                    <p className="text-sm font-semibold text-slate-800 line-clamp-2">{p.nome}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{p.congregacao || '-'}</p>
+                  </div>
+                  <label className="flex items-center gap-2 cursor-pointer bg-white px-3 py-2 rounded-lg border border-slate-200 shrink-0 shadow-sm active:scale-95 transition-transform">
+                    <input type="checkbox" className="w-5 h-5 accent-blue-600 rounded" checked={p.presente} onChange={(e) => togglePresenca(idx, e.target.checked)} />
+                    <span className="text-sm font-medium text-slate-700 select-none hidden xs:inline">{p.presente ? 'Presente' : 'Marcar'}</span>
+                  </label>
+                </div>
+                {!p.presente && (
+                  <div className="mt-2 pt-3 border-t border-slate-100 flex flex-col gap-2">
+                    <label className="text-xs text-slate-500 font-medium">Observação / Justificativa:</label>
+                    <select className="w-full border rounded-lg px-3 py-2.5 text-lg sm:text-base bg-slate-50 min-h-[44px]" value={p.justificativa || ''} onChange={(e) => updateObs(idx, e.target.value)}>
+                      <option value="">Nenhuma</option>
+                      {OBS_OPTIONS.map((opt) => (
+                        <option key={opt} value={opt.toLowerCase()}>{opt}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="mt-6 flex items-center gap-3">
-          <button className="bg-ibbiBlue text-white px-4 py-2 rounded-lg" onClick={save} disabled={saving}>
-            {saving ? 'Salvando...' : 'Salvar chamada'}
+        <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+          <button className="bg-ibbiBlue text-white px-4 py-3 sm:py-2 rounded-lg font-semibold min-h-[44px] w-full sm:w-auto shadow-sm" onClick={save} disabled={saving}>
+            {saving ? 'Salvando...' : 'Salvar presença'}
           </button>
-          {message && <p className={`text-sm ${message.includes('sucesso') ? 'text-green-600' : 'text-red-600'}`}>{message}</p>}
+          {message && <p className={`text-sm text-center sm:text-left ${message.includes('sucesso') ? 'text-green-600' : 'text-red-600'}`}>{message}</p>}
         </div>
       </div>
     </div>

@@ -64,7 +64,7 @@ export default function EbdList() {
         title="EBD"
         subtitle="Lista de domingos e aulas"
         action={
-          <button className="bg-ibbiBlue text-white px-4 py-2 rounded-lg" onClick={() => setShowForm(true)}>
+          <button className="bg-ibbiBlue text-white px-4 py-3 sm:py-2 rounded-lg font-medium min-h-[44px]" onClick={() => setShowForm(true)}>
             + Nova Aula
           </button>
         }
@@ -135,28 +135,45 @@ export default function EbdList() {
       </div>
 
       {showForm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6">
-          <div className="bg-white rounded-xl shadow-soft p-6 max-w-lg w-full">
-            <h2 className="font-display text-xl text-ibbiNavy mb-4">{editing ? 'Editar Aula' : 'Nova Aula'}</h2>
-            <div className="space-y-3">
-              <input type="date" className="w-full border rounded-lg px-3 py-2" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} />
-              <select className="w-full border rounded-lg px-3 py-2" value={form.classe} onChange={(e) => setForm({ ...form, classe: e.target.value })}>
-                {classes.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-              <select className="w-full border rounded-lg px-3 py-2" value={form.congregacao} onChange={(e) => setForm({ ...form, congregacao: e.target.value })}>
-                {CONGREGACOES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-              <input className="w-full border rounded-lg px-3 py-2" placeholder="Tema" value={form.tema} onChange={(e) => setForm({ ...form, tema: e.target.value })} />
-              <textarea className="w-full border rounded-lg px-3 py-2" placeholder="Descrição" value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
-              {error && <p className="text-sm text-red-600">{error}</p>}
-              <div className="flex justify-end gap-2">
-                <button className="border rounded-lg px-4 py-2" onClick={() => { setShowForm(false); resetForm(); }}>Cancelar</button>
-                <button className="bg-ibbiBlue text-white rounded-lg px-4 py-2" onClick={saveAula}>Salvar</button>
+        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center sm:p-6 z-50">
+          <div className="bg-white rounded-t-2xl sm:rounded-xl shadow-soft w-full max-w-lg h-[90dvh] sm:h-auto flex flex-col">
+            <div className="px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10 sm:rounded-t-xl shrink-0">
+              <h2 className="font-display text-xl text-ibbiNavy">{editing ? 'Editar Aula' : 'Nova Aula'}</h2>
+            </div>
+            <div className="p-6 overflow-y-auto flex-1 space-y-4">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-slate-500">Data da aula</label>
+                <input type="date" className="w-full border rounded-lg px-3 py-2.5 sm:py-2 text-lg sm:text-base min-h-[44px] appearance-none" value={form.data} onChange={(e) => setForm({ ...form, data: e.target.value })} />
               </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-slate-500">Classe</label>
+                <select className="w-full border rounded-lg px-3 py-2.5 sm:py-2 text-lg sm:text-base min-h-[44px] appearance-none" value={form.classe} onChange={(e) => setForm({ ...form, classe: e.target.value })}>
+                  {classes.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-slate-500">Congregação</label>
+                <select className="w-full border rounded-lg px-3 py-2.5 sm:py-2 text-lg sm:text-base min-h-[44px] appearance-none" value={form.congregacao} onChange={(e) => setForm({ ...form, congregacao: e.target.value })}>
+                  {CONGREGACOES.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-slate-500">Tema (Opcional)</label>
+                <input className="w-full border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm min-h-[44px] appearance-none" placeholder="Tema" value={form.tema} onChange={(e) => setForm({ ...form, tema: e.target.value })} />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium text-slate-500">Descrição (Opcional)</label>
+                <textarea className="w-full border rounded-lg px-3 py-2.5 sm:py-2 text-base sm:text-sm min-h-[44px] resize-none" placeholder="Descrição" value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
+              </div>
+              {error && <p className="text-sm text-red-600">{error}</p>}
+            </div>
+            <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row justify-end gap-3 sticky bottom-0 bg-white z-10 w-full shrink-0 items-center">
+              <button className="border rounded-lg px-4 py-3 sm:py-2 min-h-[44px] w-full sm:w-auto font-medium text-slate-600 hover:bg-slate-50 text-base sm:text-sm" onClick={() => { setShowForm(false); resetForm(); }}>Cancelar</button>
+              <button className="bg-ibbiBlue hover:bg-ibbiNavy transition text-white rounded-lg px-4 py-3 sm:py-2 min-h-[44px] w-full sm:w-auto font-medium text-base sm:text-sm" onClick={saveAula}>Salvar aula</button>
             </div>
           </div>
         </div>
