@@ -28,8 +28,14 @@ function AniversarianteModal({ person, onClose }) {
   const [format, setFormat] = useState('portrait');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
+  const [imageLoading, setImageLoading] = useState(true);
+  const [cacheBust] = useState(() => Date.now());
 
-  const imageUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/images/aniversariante/${person._id}?format=${format}`;
+  const imageUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/images/aniversariante/${person._id}?format=${format}&cb=${cacheBust}`;
+
+  useEffect(() => {
+    setImageLoading(true);
+  }, [imageUrl]);
 
   const sendNow = async () => {
     try {
@@ -90,11 +96,22 @@ function AniversarianteModal({ person, onClose }) {
             </button>
           </div>
 
-          <div className="mb-6 flex justify-center bg-stone-50 rounded-xl p-4 min-h-[400px]">
+          <div className="mb-6 flex justify-center items-center bg-stone-50 rounded-xl p-4 min-h-[400px] relative overflow-hidden">
+            {imageLoading && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-stone-50 text-slate-500 z-10">
+                <svg className="w-6 h-6 animate-spin text-slate-300" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                </svg>
+                <span className="text-sm font-medium">Carregando imagem...</span>
+              </div>
+            )}
             <img 
               key={imageUrl} 
               src={imageUrl} 
               alt="Cartão de Aniversário" 
+              onLoad={() => setImageLoading(false)}
+              onError={() => setImageLoading(false)}
               className={`object-contain rounded shadow ${format === 'portrait' ? 'max-h-[500px]' : 'w-full max-w-[500px]'}`} 
             />
           </div>

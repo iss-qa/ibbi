@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { onlyDigits } from '../../utils/phoneMask';
 import MemberForm from './MemberForm';
 import useAuth from '../../hooks/useAuth';
+import doveDefault from '../../assets/dove_ia.png';
 
 const TIPO_STYLE = {
   membro: 'bg-blue-50 text-blue-700 border-blue-100',
@@ -18,7 +19,6 @@ const inputClass =
 
 function Avatar({ nome, fotoUrl, size = 'md' }) {
   const sz = size === 'lg' ? 'w-11 h-11 text-sm' : 'w-9 h-9 text-xs';
-  const initials = nome?.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
   const colors = [
     'bg-blue-100 text-blue-700',
     'bg-violet-100 text-violet-700',
@@ -38,11 +38,7 @@ function Avatar({ nome, fotoUrl, size = 'md' }) {
 
   return (
     <div className={`${sz} rounded-full overflow-hidden flex items-center justify-center font-semibold shrink-0 ${color}`}>
-      {fotoUrl ? (
-        <img src={fullFotoUrl} alt={nome} className="w-full h-full object-cover" />
-      ) : (
-        initials
-      )}
+      <img src={fullFotoUrl || doveDefault} alt={nome} className="w-full h-full object-cover" />
     </div>
   );
 }

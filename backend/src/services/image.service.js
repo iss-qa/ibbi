@@ -3,8 +3,19 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 
-async function getBase64Image(urlOrPath) {
+async function tryFetchImageAsBase64(url) {
+  try {
+    const resp = await axios.get(url, { responseType: 'arraybuffer' });
+    const mime = resp.headers['content-type'] || 'image/jpeg';
+    return `data:${mime};base64,${Buffer.from(resp.data).toString('base64')}`;
+  } catch {
+    return null;
+  }
+}
+
+async function getBase64Image(urlOrPath, options = {}) {
   if (!urlOrPath) return null;
+  const { origin } = options;
 
   const normalized = String(urlOrPath).trim();
 
@@ -13,29 +24,38 @@ async function getBase64Image(urlOrPath) {
   }
 
   if (normalized.startsWith('http')) {
-    try {
-      const resp = await axios.get(normalized, { responseType: 'arraybuffer' });
-      const mime = resp.headers['content-type'] || 'image/jpeg';
-      return `data:${mime};base64,${Buffer.from(resp.data).toString('base64')}`;
-    } catch {
-      return null;
-    }
+    return tryFetchImageAsBase64(normalized);
   }
 
-  const cleanPath = normalized.replace(/^\/?uploads\//, '');
+  const cleanPath = normalized.replace(/^\/?(api\/)?uploads\//, '');
   const candidates = [
     path.resolve(__dirname, '../../../uploads', cleanPath),
     path.resolve(__dirname, '../../../../uploads', cleanPath),
   ];
 
   const finalPath = candidates.find((candidate) => fs.existsSync(candidate));
-  if (!finalPath) {
-    return null;
+  if (finalPath) {
+    const ext = path.extname(finalPath).substring(1) || 'jpeg';
+    const data = fs.readFileSync(finalPath);
+    return `data:image/${ext};base64,${data.toString('base64')}`;
   }
 
-  const ext = path.extname(finalPath).substring(1) || 'jpeg';
-  const data = fs.readFileSync(finalPath);
-  return `data:image/${ext};base64,${data.toString('base64')}`;
+  const remoteCandidates = [];
+  if (origin && normalized.startsWith('/')) {
+    remoteCandidates.push(new URL(normalized, origin).toString());
+    if (!normalized.startsWith('/api/')) {
+      remoteCandidates.push(new URL(`/api${normalized}`, origin).toString());
+    }
+  }
+
+  for (const candidate of remoteCandidates) {
+    const remoteImage = await tryFetchImageAsBase64(candidate);
+    if (remoteImage) {
+      return remoteImage;
+    }
+  }
+
+  return null;
 }
 
 function escapeHtml(value) {
@@ -54,6 +74,16 @@ function buildTemplateBackground(templatePath) {
 
   const data = fs.readFileSync(templatePath);
   return `background-image: url('data:image/png;base64,${data.toString('base64')}'); background-size: cover; background-position: center;`;
+}
+
+function getDefaultPhotoBase64() {
+  const defaultPhotoPath = path.resolve(__dirname, '../../../frontend/src/assets/dove_ia.png');
+  if (!fs.existsSync(defaultPhotoPath)) {
+    return null;
+  }
+
+  const data = fs.readFileSync(defaultPhotoPath);
+  return `data:image/png;base64,${data.toString('base64')}`;
 }
 
 function getFontUrl(fileName) {
@@ -360,13 +390,13 @@ function renderHtml({ person, isPortrait, width, height, bgCss, b64Photo }) {
   `;
 }
 
-const generateBirthdayCard = async (person, format = 'portrait') => {
+const generateBirthdayCard = async (person, format = 'portrait', options = {}) => {
   const isPortrait = format === 'portrait';
   const width = isPortrait ? 1080 : 1920;
   const height = isPortrait ? 1920 : 1080;
   const templatePath = path.join(__dirname, '../assets/templates', isPortrait ? 'portrait.png' : 'landscape.png');
   const bgCss = buildTemplateBackground(templatePath);
-  const b64Photo = await getBase64Image(person.fotoUrl);
+  const b64Photo = (await getBase64Image(person.fotoUrl, options)) || getDefaultPhotoBase64();
 
   const browser = await puppeteer.launch({
     headless: 'new',

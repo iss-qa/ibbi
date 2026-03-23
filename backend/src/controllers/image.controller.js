@@ -11,10 +11,11 @@ const renderBirthdayCard = async (req, res) => {
       return res.status(404).json({ message: 'Pessoa não encontrada' });
     }
 
-    const imageBuffer = await generateBirthdayCard(person, format || 'portrait');
+    const origin = `${req.protocol}://${req.get('host')}`;
+    const imageBuffer = await generateBirthdayCard(person, format || 'portrait', { origin });
 
     res.setHeader('Content-Type', 'image/png');
-    res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache format requests
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
     res.send(imageBuffer);
   } catch (error) {
     console.error('Erro ao gerar imagem:', error);

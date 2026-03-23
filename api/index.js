@@ -22,6 +22,7 @@ const exportRoutes = require('../backend/src/routes/export.routes');
 const ebdRoutes = require('../backend/src/routes/ebd.routes');
 const testRoutes = require('../backend/src/routes/test.routes');
 const statsRoutes = require('../backend/src/routes/stats.routes');
+const imageRoutes = require('../backend/src/routes/image.routes');
 
 const app = express();
 
@@ -85,6 +86,7 @@ app.use('/api/export', exportRoutes);
 app.use('/api/ebd', ebdRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/images', imageRoutes);
 
 // Error Handling
 app.use((err, req, res, next) => {

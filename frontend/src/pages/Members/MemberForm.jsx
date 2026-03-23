@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import { CONGREGACOES } from '../../constants/congregacoes';
 import { formatPhoneBR } from '../../utils/phoneMask';
 import api from '../../services/api';
+import doveDefault from '../../assets/dove_ia.png';
 
 const initialState = {
   nome: '',
@@ -91,7 +92,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
   
   // Inicializa o preview tratando URLs relativas
   const getInitialPreview = () => {
-    if (!initialData?.fotoUrl) return '';
+    if (!initialData?.fotoUrl) return doveDefault;
     if (initialData.fotoUrl.startsWith('/uploads')) {
       const baseUrl = api.defaults.baseURL.replace('/api', '');
       return `${baseUrl}${initialData.fotoUrl}`;
