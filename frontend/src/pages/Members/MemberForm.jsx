@@ -33,11 +33,51 @@ const labelClass = 'block text-xs font-medium text-slate-500 mb-1';
 
 function Field({ label, children }) {
   return (
-    <div>
+    <div className="min-w-0">
       <label className={labelClass}>{label}</label>
       {children}
     </div>
   );
+}
+
+async function optimizeImage(file) {
+  const imageUrl = URL.createObjectURL(file);
+
+  try {
+    const bitmap = await new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = imageUrl;
+    });
+
+    const maxSide = 1200;
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * scale));
+    const height = Math.max(1, Math.round(bitmap.height * scale));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return file;
+
+    ctx.drawImage(bitmap, 0, 0, width, height);
+
+    const blob = await new Promise((resolve) => {
+      canvas.toBlob(resolve, 'image/jpeg', 0.82);
+    });
+
+    if (!blob) return file;
+
+    return new File([blob], `${file.name.replace(/\.[^.]+$/, '') || 'foto'}.jpg`, {
+      type: 'image/jpeg',
+      lastModified: Date.now(),
+    });
+  } finally {
+    URL.revokeObjectURL(imageUrl);
+  }
 }
 
 export default function MemberForm({ initialData, onSubmit, onCancel, lockedCongregacao }) {
@@ -118,10 +158,11 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
 
   const handlePhotoUpload = async (file) => {
     if (!file) return;
-    const previewUrl = URL.createObjectURL(file);
+    const optimizedFile = await optimizeImage(file);
+    const previewUrl = URL.createObjectURL(optimizedFile);
     setPreview(previewUrl);
     const data = new FormData();
-    data.append('file', file);
+    data.append('file', optimizedFile);
     setUploading(true);
     try {
       const response = await api.post('/uploads/person-photo', data);
@@ -133,21 +174,21 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
         
         // Para o preview, compõe com o baseUrl se necessário
         const baseUrl = api.defaults.baseURL.replace('/api', '');
-        setPreview(`${baseUrl}${relativeUrl}`);
+        setPreview(relativeUrl.startsWith('data:image/') ? relativeUrl : `${baseUrl}${relativeUrl}`);
       }
     } catch (err) {
       console.error('Erro no upload:', err);
-      alert('Erro ao fazer upload da foto. Tente novamente.');
+      alert(err?.response?.data?.message || 'Erro ao fazer upload da foto. Tente novamente.');
     } finally {
       setUploading(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-0">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-0 w-full max-w-full overflow-x-hidden">
 
       {/* ── Header: Foto + Nome ─────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 px-6 pt-5 pb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 px-4 sm:px-6 pt-5 pb-4 w-full max-w-full overflow-x-hidden">
         {/* Foto */}
         <div className="flex flex-col items-center gap-1 shrink-0">
           <input
@@ -181,7 +222,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
         </div>
 
         {/* Nome */}
-        <div className="flex-1 w-full">
+        <div className="flex-1 w-full min-w-0">
           <label className="block text-xs font-medium text-slate-500 mb-1">Nome completo</label>
           <input
             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-base text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition placeholder:text-slate-300"
@@ -191,8 +232,8 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
             required
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-3 mt-4">
-            <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-3 mt-4 w-full">
+            <div className="min-w-0">
               <label className={labelClass}>Tipo</label>
               <div className="flex flex-wrap gap-1.5">
                 {TIPOS.map((t) => (
@@ -225,10 +266,10 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
       <div className="border-t border-slate-100 mx-6" />
 
       {/* ── Informações Pessoais ────────────────────────────── */}
-      <div className="px-6 pt-3 pb-3">
+      <div className="px-4 sm:px-6 pt-3 pb-3 w-full max-w-full overflow-x-hidden">
         <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2.5">Informações pessoais</p>
         {isCompactTipo ? (
-          <div className="grid grid-cols-1 gap-4 sm:gap-3 mb-4 sm:mb-3">
+          <div className="grid grid-cols-1 gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
             {form.tipo === 'visitante' && (
               <Field label="Data da visita">
                 <input
@@ -268,7 +309,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-3 mb-4 sm:mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
               <Field label="Nascimento">
                 <input
                   type="date"
@@ -309,7 +350,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
               </Field>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-3 mb-4 sm:mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
               <Field label="Email">
                 <input
                   type="email"
@@ -347,10 +388,10 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
           <div className="border-t border-slate-100 mx-6" />
 
           {/* ── Perfil na Igreja ────────────────────────────────── */}
-          <div className="px-6 pt-3 pb-3">
+          <div className="px-4 sm:px-6 pt-3 pb-3 w-full max-w-full overflow-x-hidden">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2.5">Perfil na igreja</p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-3 mb-4 sm:mb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
           <Field label="Ministério">
             <input
               className={fieldClass}
@@ -417,7 +458,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
       )}
 
       {/* ── Footer ─────────────────────────────────────────── */}
-      <div className="border-t border-slate-100 px-6 py-4 bg-slate-50 flex flex-col sm:flex-row justify-end gap-3 sticky bottom-0 z-10 mt-auto w-full">
+      <div className="border-t border-slate-100 px-4 sm:px-6 py-4 bg-slate-50 flex flex-col sm:flex-row justify-end gap-3 sticky bottom-0 z-10 mt-auto w-full max-w-full overflow-x-hidden">
         {onCancel && (
           <button
             type="button"

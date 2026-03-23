@@ -8,6 +8,10 @@ async function getBase64Image(urlOrPath) {
 
   const normalized = String(urlOrPath).trim();
 
+  if (normalized.startsWith('data:image/')) {
+    return normalized;
+  }
+
   if (normalized.startsWith('http')) {
     try {
       const resp = await axios.get(normalized, { responseType: 'arraybuffer' });

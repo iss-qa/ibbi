@@ -436,7 +436,7 @@ export default function MemberList() {
           onClick={() => { setShowForm(false); setEditing(null); }}
         >
           <div
-            className="bg-white sm:rounded-2xl shadow-xl w-full max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-hidden flex flex-col"
+            className="bg-white sm:rounded-2xl shadow-xl w-full max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-x-hidden overflow-y-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10 shrink-0">
@@ -462,7 +462,7 @@ export default function MemberList() {
                 {error}
               </div>
             )}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden">
               <MemberForm
                 initialData={editing}
                 onSubmit={handleSave}
