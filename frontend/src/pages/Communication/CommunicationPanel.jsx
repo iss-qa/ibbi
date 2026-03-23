@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Header from '../../components/Header';
 import api from '../../services/api';
 import { CONGREGACOES } from '../../constants/congregacoes';
+import useAuth from '../../hooks/useAuth';
 
 const grupos = ['criança', 'adolescente', 'jovem', 'adulto 1', 'adulto 2', 'idoso', 'ancião'];
 
@@ -59,6 +60,8 @@ function SendTab({ label, icon, active, onClick }) {
 }
 
 export default function CommunicationPanel() {
+  const { user } = useAuth();
+  const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
   const [activeTab, setActiveTab] = useState('grupo');
   const [grupo, setGrupo] = useState('');
   const [congregacao, setCongregacao] = useState('Sede');
@@ -93,6 +96,12 @@ export default function CommunicationPanel() {
     loadLog();
     loadPrayerLog();
   }, []);
+
+  useEffect(() => {
+    if (lockedCongregacao) {
+      setCongregacao(lockedCongregacao);
+    }
+  }, [lockedCongregacao]);
 
   const handleByGroup = async () => {
     setSending(true);
@@ -210,7 +219,7 @@ export default function CommunicationPanel() {
 
               {activeTab === 'congregacao' && (
                 <>
-                  <select className={inputClass} value={congregacao} onChange={(e) => setCongregacao(e.target.value)}>
+                  <select className={`${inputClass} disabled:bg-slate-100 disabled:text-slate-500`} value={congregacao} onChange={(e) => setCongregacao(e.target.value)} disabled={Boolean(lockedCongregacao)}>
                     {CONGREGACOES.map((c) => <option key={c} value={c}>{c}</option>)}
                   </select>
                   <textarea
@@ -301,7 +310,7 @@ export default function CommunicationPanel() {
                   prayerLog.map((row) => (
                     <div key={row._id} className="px-4 py-3">
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-medium text-slate-700">{row.nome}</span>
+                        <span className="text-xs font-medium text-slate-700">{row.nome}{row.congregacao ? ` - ${row.congregacao}` : ''}</span>
                         <span className="text-[10px] text-slate-400">{new Date(row.data).toLocaleDateString('pt-BR')}</span>
                       </div>
                       <p className="text-xs text-slate-500">{row.conteudo}</p>

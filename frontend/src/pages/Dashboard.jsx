@@ -18,13 +18,114 @@ import {
 import Header from '../components/Header';
 import api from '../services/api';
 import { CONGREGACOES } from '../constants/congregacoes';
+import useAuth from '../hooks/useAuth';
 
 const COLORS = ['#0b4dbf', '#c9a227', '#0a1f44', '#6b21a8', '#0f766e', '#b91c1c', '#6d28d9'];
 
 const Skeleton = () => <div className="h-56 w-full animate-pulse bg-stone-100 rounded-xl" />;
 
+function AniversarianteModal({ person, onClose }) {
+  const [format, setFormat] = useState('portrait');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState(null);
+
+  const imageUrl = `${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/images/aniversariante/${person._id}?format=${format}`;
+
+  const sendNow = async () => {
+    try {
+      setSending(true);
+      setError(null);
+      await api.post('/messages/send-birthday-image', { personId: person._id });
+      alert('Mensagem e imagem enviadas com sucesso!');
+      onClose();
+    } catch (err) {
+      setError(err.response?.data?.message || 'Erro ao enviar');
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const downloadImage = async () => {
+    try {
+      const resp = await fetch(imageUrl);
+      const blob = await resp.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Aniversario-${person.nome.split(' ')[0]}-${format}.png`;
+      a.click();
+    } catch (err) {
+      console.error(err);
+      alert('Erro ao baixar imagem');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto">
+      <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden relative mt-10">
+        <div className="flex justify-between items-center p-4 border-b">
+          <h2 className="text-xl font-display text-ibbiNavy font-semibold">
+            Aniversário de {person.nome.split(' ')[0]}
+          </h2>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:bg-slate-100 rounded-full transition">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+        
+        <div className="p-6">
+          <div className="flex bg-slate-100 p-1 rounded-lg mb-6 w-max mx-auto">
+            <button 
+              className={`px-4 py-2 text-sm rounded-md transition ${format === 'portrait' ? 'bg-white shadow text-ibbiNavy font-semibold' : 'text-slate-500 hover:text-ibbiNavy'}`}
+              onClick={() => setFormat('portrait')}
+            >
+              Portrait (Mobile/Insta)
+            </button>
+            <button 
+              className={`px-4 py-2 text-sm rounded-md transition ${format === 'landscape' ? 'bg-white shadow text-ibbiNavy font-semibold' : 'text-slate-500 hover:text-ibbiNavy'}`}
+              onClick={() => setFormat('landscape')}
+            >
+              Landscape (TV)
+            </button>
+          </div>
+
+          <div className="mb-6 flex justify-center bg-stone-50 rounded-xl p-4 min-h-[400px]">
+            <img 
+              key={imageUrl} 
+              src={imageUrl} 
+              alt="Cartão de Aniversário" 
+              className={`object-contain rounded shadow ${format === 'portrait' ? 'max-h-[500px]' : 'w-full max-w-[500px]'}`} 
+            />
+          </div>
+
+          {error && <p className="text-red-500 text-sm mb-4 text-center">{error}</p>}
+
+          <div className="flex gap-4 justify-end">
+            <button 
+              onClick={downloadImage}
+              className="px-6 py-2 border border-slate-300 text-slate-700 rounded-lg font-medium hover:bg-slate-50 transition"
+            >
+              Baixar Imagem
+            </button>
+            <button 
+              onClick={sendNow}
+              disabled={sending}
+              className="px-6 py-2 bg-ibbiBlue text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50"
+            >
+              {sending ? 'Enviando...' : 'Enviar Agora via WhatsApp'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
   const [congregacao, setCongregacao] = useState('Sede');
   const [stats, setStats] = useState({ total: 0, ativos: 0, inativos: 0, aniversariantes: [] });
 
@@ -34,6 +135,8 @@ export default function Dashboard() {
   const [retention, setRetention] = useState([]);
 
   const [loading, setLoading] = useState({ growth: true, congregation: true, group: true, retention: true });
+  
+  const [selectedBirthdayPerson, setSelectedBirthdayPerson] = useState(null);
 
   const load = async () => {
     const params = congregacao === 'Todos' ? {} : { congregacao };
@@ -61,6 +164,14 @@ export default function Dashboard() {
   }, [congregacao]);
 
   useEffect(() => {
+    if (lockedCongregacao) {
+      setCongregacao(lockedCongregacao);
+    } else {
+      setCongregacao('Todos');
+    }
+  }, [lockedCongregacao]);
+
+  useEffect(() => {
     loadCharts();
   }, []);
 
@@ -77,8 +188,8 @@ export default function Dashboard() {
         title="Dashboard"
         subtitle="Visão geral da igreja"
         action={
-          <select className="border rounded-lg px-3 py-2" value={congregacao} onChange={(e) => setCongregacao(e.target.value)}>
-            <option value="Todos">Todos</option>
+          <select className="border rounded-lg px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500" value={congregacao} onChange={(e) => setCongregacao(e.target.value)} disabled={Boolean(lockedCongregacao)}>
+            {!lockedCongregacao && <option value="Todos">Todos</option>}
             {CONGREGACOES.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
@@ -100,8 +211,8 @@ export default function Dashboard() {
           <h3 className="font-display text-xl text-ibbiNavy mb-4">Aniversariantes da semana</h3>
           <div className="space-y-3">
             {stats.aniversariantes.map((person) => (
-              <div key={person._id} className="flex justify-between text-sm">
-                <span>{person.nome}</span>
+              <div key={person._id} className="flex justify-between items-center text-sm py-1 border-b border-slate-50 last:border-0 hover:bg-slate-50 px-2 rounded -mx-2 transition cursor-pointer" onClick={() => setSelectedBirthdayPerson(person)}>
+                <span className="text-ibbiBlue hover:underline underline-offset-2 font-medium">{person.nome}</span>
                 <span className="text-ibbiGold font-semibold">
                   {new Date(person.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
                 </span>
@@ -206,6 +317,13 @@ export default function Dashboard() {
           )}
         </div>
       </section>
+
+      {selectedBirthdayPerson && (
+        <AniversarianteModal 
+          person={selectedBirthdayPerson} 
+          onClose={() => setSelectedBirthdayPerson(null)} 
+        />
+      )}
     </div>
   );
 }

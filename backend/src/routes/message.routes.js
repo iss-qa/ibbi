@@ -18,6 +18,7 @@ router.post(
   controller.sendByCongregation
 );
 router.post('/send-birthday-now', controller.sendBirthdayNow);
+router.post('/send-birthday-image', controller.sendBirthdayImage);
 router.post('/resend/:id', controller.resendMessage);
 router.get('/log', controller.log);
 router.get('/prayer-log', controller.prayerLog);

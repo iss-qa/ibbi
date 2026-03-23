@@ -3,6 +3,7 @@ import Header from '../../components/Header';
 import api from '../../services/api';
 import { onlyDigits } from '../../utils/phoneMask';
 import MemberForm from './MemberForm';
+import useAuth from '../../hooks/useAuth';
 
 const TIPO_STYLE = {
   membro: 'bg-blue-50 text-blue-700 border-blue-100',
@@ -47,6 +48,8 @@ function Avatar({ nome, fotoUrl, size = 'md' }) {
 }
 
 export default function MemberList() {
+  const { user } = useAuth();
+  const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
   const [items, setItems] = useState([]);
   const [filters, setFilters] = useState({ search: '', tipo: '', grupo: '' });
   const [loading, setLoading] = useState(false);
@@ -77,12 +80,15 @@ export default function MemberList() {
     };
     const data = {
       ...payload,
+      congregacao: lockedCongregacao || payload.congregacao,
       celular: onlyDigits(payload.celular),
       dataNascimento: normalizeDate(payload.dataNascimento),
       dataBatismo: normalizeDate(payload.dataBatismo),
+      dataVisita: normalizeDate(payload.dataVisita),
+      dataDecisao: normalizeDate(payload.dataDecisao),
     };
     if (data.status !== 'inativo') delete data.motivoInativacao;
-    if (data.tipo === 'visitante') {
+    if (data.tipo === 'visitante' || data.tipo === 'novo decidido') {
       delete data.email;
       delete data.grupo;
       delete data.estadoCivil;
@@ -90,6 +96,18 @@ export default function MemberList() {
       delete data.ministerio;
       delete data.batizado;
       delete data.dataBatismo;
+      delete data.status;
+      delete data.motivoInativacao;
+    }
+    if (data.tipo === 'visitante') {
+      delete data.dataDecisao;
+    }
+    if (data.tipo === 'novo decidido') {
+      delete data.dataVisita;
+    }
+    if (data.tipo === 'membro' || data.tipo === 'congregado' || data.tipo === 'criança') {
+      delete data.dataVisita;
+      delete data.dataDecisao;
     }
     try {
       if (editing) {
@@ -355,6 +373,8 @@ export default function MemberList() {
                                 ...row,
                                 dataNascimento: toDateInput(row.dataNascimento),
                                 dataBatismo: toDateInput(row.dataBatismo),
+                                dataVisita: toDateInput(row.dataVisita),
+                                dataDecisao: toDateInput(row.dataDecisao),
                               });
                               setShowForm(true);
                             }}
@@ -378,6 +398,8 @@ export default function MemberList() {
                               ...row,
                               dataNascimento: toDateInput(row.dataNascimento),
                               dataBatismo: toDateInput(row.dataBatismo),
+                              dataVisita: toDateInput(row.dataVisita),
+                              dataDecisao: toDateInput(row.dataDecisao),
                             });
                             setShowForm(true);
                           }}
@@ -445,6 +467,7 @@ export default function MemberList() {
                 initialData={editing}
                 onSubmit={handleSave}
                 onCancel={() => { setShowForm(false); setEditing(null); }}
+                lockedCongregacao={lockedCongregacao}
               />
             </div>
           </div>
@@ -475,6 +498,8 @@ export default function MemberList() {
               <div><strong>Grupo:</strong> {viewing.grupo || '-'}</div>
               <div><strong>Status:</strong> {viewing.status || '-'}</div>
               <div><strong>Estado civil:</strong> {viewing.estadoCivil || '-'}</div>
+              <div><strong>Data da visita:</strong> {viewing.dataVisita ? new Date(viewing.dataVisita).toLocaleDateString('pt-BR') : '-'}</div>
+              <div><strong>Data da decisão:</strong> {viewing.dataDecisao ? new Date(viewing.dataDecisao).toLocaleDateString('pt-BR') : '-'}</div>
               <div className="md:col-span-2"><strong>Endereço:</strong> {viewing.endereco || '-'}</div>
               <div className="md:col-span-2"><strong>Ministério:</strong> {viewing.ministerio || '-'}</div>
             </div>

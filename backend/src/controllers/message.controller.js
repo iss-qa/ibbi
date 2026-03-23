@@ -3,6 +3,8 @@ const Person = require('../models/Person.model');
 const Message = require('../models/Message.model');
 const whatsapp = require('../services/whatsapp.service');
 const { sendBirthdayMessages } = require('../services/scheduler.service');
+const templates = require('../templates/messages.templates');
+const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
 
 const applyVariables = (template, person) => {
   if (!template) return '';
@@ -50,6 +52,9 @@ const sendIndividual = async (req, res) => {
 
   if (personId) person = await Person.findById(personId);
   if (!person && celular) person = await Person.findOne({ celular: String(celular).replace(/\D/g, '') });
+  if (person) {
+    await assertPersonAccess(req.user, person);
+  }
 
   const destinatario = {
     nome: person?.nome || 'Membro',
@@ -89,7 +94,8 @@ const sendByGroup = async (req, res) => {
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
   const { grupo, mensagem } = req.body;
-  const pessoas = await Person.find({ grupo, status: 'ativo', celular: { $ne: '' } });
+  const filter = await applyScopedCongregacaoFilter(req.user, { grupo, status: 'ativo', celular: { $ne: '' } });
+  const pessoas = await Person.find(filter);
   const destinatarios = pessoas.map((p) => ({
     nome: p.nome,
     celular: p.celular,
@@ -111,7 +117,9 @@ const sendByCongregation = async (req, res) => {
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
   const { congregacao, mensagem } = req.body;
-  const pessoas = await Person.find({ congregacao, status: 'ativo', celular: { $ne: '' } });
+  const scopedCongregacao = await getUserCongregacao(req.user);
+  const filter = await applyScopedCongregacaoFilter(req.user, { status: 'ativo', celular: { $ne: '' } }, congregacao);
+  const pessoas = await Person.find(filter);
   const destinatarios = pessoas.map((p) => ({
     nome: p.nome,
     celular: p.celular,
@@ -125,7 +133,7 @@ const sendByCongregation = async (req, res) => {
     enviadoPor: req.user._id,
   });
 
-  return res.json({ message: 'Envio enfileirado', log });
+  return res.json({ message: 'Envio enfileirado', log, congregacao: scopedCongregacao || congregacao });
 };
 
 const log = async (req, res) => {
@@ -134,11 +142,15 @@ const log = async (req, res) => {
 };
 
 const prayerLog = async (req, res) => {
-  const items = await Message.find({ tipo: 'oracao' }).sort({ criadoEm: -1 }).limit(200).populate('enviadoPor', 'nome');
+  const filter = req.user.role === 'master'
+    ? { tipo: 'oracao' }
+    : { tipo: 'oracao', origemCongregacao: await getUserCongregacao(req.user) };
+  const items = await Message.find(filter).sort({ criadoEm: -1 }).limit(200).populate('enviadoPor', 'nome');
   const mapped = items.map((item) => ({
     _id: item._id,
     data: item.criadoEm,
-    nome: item.enviadoPor?.nome || 'Usuário',
+    nome: item.origemNome || item.enviadoPor?.nome || 'Usuário',
+    congregacao: item.origemCongregacao || '',
     conteudo: item.conteudo,
   }));
   res.json(mapped);
@@ -156,6 +168,39 @@ const cancelQueue = (req, res) => {
 const sendBirthdayNow = async (req, res) => {
   await sendBirthdayMessages();
   res.json({ message: 'Envio de aniversários disparado' });
+};
+
+const sendBirthdayImage = async (req, res) => {
+  try {
+    const { personId } = req.body;
+    const person = await Person.findById(personId);
+    if (!person || !person.celular) {
+      return res.status(400).json({ message: 'Membro inválido ou sem celular' });
+    }
+
+    // Send the text
+    const textContent = templates.aniversario(person.nome);
+    await whatsapp.sendSingle(person.celular, textContent);
+
+    // Send the generated portrait image
+    const localUrl = `http://localhost:${process.env.PORT || 3001}/api/images/aniversariante/${person._id}?format=portrait`;
+    await whatsapp.sendMedia(person.celular, '', localUrl);
+    
+    // Log the manual send
+    await Message.create({
+      tipo: 'aniversario',
+      destinatarios: [{ nome: person.nome, celular: person.celular }],
+      conteudo: 'Envio manual de aniversário (texto + imagem)',
+      status: 'concluido',
+      enviadoPor: req.user._id,
+      concluidoEm: new Date(),
+    });
+
+    res.json({ message: 'Mensagem e cartão de aniversário enviados com sucesso' });
+  } catch (err) {
+    console.error('Erro ao enviar imagem e texto de aniversário:', err);
+    res.status(500).json({ message: err.message || 'Erro ao enviar' });
+  }
 };
 
 const resendMessage = async (req, res) => {
@@ -184,5 +229,6 @@ module.exports = {
   queueStatus,
   cancelQueue,
   sendBirthdayNow,
+  sendBirthdayImage,
   resendMessage,
 };

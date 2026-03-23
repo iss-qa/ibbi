@@ -49,6 +49,7 @@ const PersonSchema = new mongoose.Schema(
     ministerio: { type: String, trim: true },
     fotoUrl: { type: String, trim: true },
     dataVisita: { type: Date },
+    dataDecisao: { type: Date },
     acompanhadoTipo: { type: String, enum: ['membro', 'manual'] },
     acompanhadoPersonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Person' },
     acompanhadoNome: { type: String, trim: true },

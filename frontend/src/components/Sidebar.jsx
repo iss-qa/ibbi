@@ -8,15 +8,20 @@ const navItemsByRole = (role) => {
       { to: '/prayer', label: 'Pedido de Oração' },
     ];
   }
-  return [
+  const items = [
     { to: '/dashboard', label: 'Dashboard' },
     { to: '/members', label: 'Membros' },
     { to: '/communication', label: 'Comunicação' },
     { to: '/ebd', label: 'EBD' },
     { to: '/prayer', label: 'Pedido de Oração' },
-    { to: '/users', label: 'Usuários' },
     { to: '/profile', label: 'Meu perfil' },
   ];
+
+  if (role === 'master') {
+    items.splice(5, 0, { to: '/users', label: 'Usuários' });
+  }
+
+  return items;
 };
 
 export default function Sidebar({ user, isOpen, onClose }) {

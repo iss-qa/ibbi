@@ -1,6 +1,15 @@
 const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const User = require('../models/User.model');
+const Person = require('../models/Person.model');
+
+const serializeUser = async (user) => {
+  const person = user.personId ? await Person.findById(user.personId).select('congregacao').lean() : null;
+  return {
+    ...user.toJSON(),
+    congregacao: person?.congregacao || '',
+  };
+};
 
 const login = async (req, res) => {
   console.log('[AUTH] Recebendo tentativa de login:', req.body.login);
@@ -34,7 +43,7 @@ const login = async (req, res) => {
       expiresIn: process.env.JWT_EXPIRES_IN || '7d',
     });
 
-    return res.json({ token, user: user.toJSON() });
+    return res.json({ token, user: await serializeUser(user) });
   } catch (error) {
     console.error('[AUTH ERROR]', error.message);
     return res.status(500).json({ message: error.message || 'Erro interno no login' });
@@ -42,7 +51,7 @@ const login = async (req, res) => {
 };
 
 const me = async (req, res) => {
-  return res.json({ user: req.user.toJSON() });
+  return res.json({ user: await serializeUser(req.user) });
 };
 
 module.exports = { login, me };

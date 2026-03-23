@@ -146,6 +146,50 @@ const sendText = async (number, text) => {
   }
 };
 
+const sendMedia = async (number, caption, mediaUrl) => {
+  const baseUrl = process.env.EVOLUTION_API_URL;
+  const instance = process.env.EVOLUTION_INSTANCE;
+  const apiKey = process.env.EVOLUTION_API_KEY;
+
+  if (!baseUrl || !instance || !apiKey) {
+    throw new Error('Configuração Evolution API incompleta');
+  }
+
+  const url = `${baseUrl}/message/sendMedia/${instance}`;
+  
+  let base64Media = '';
+  try {
+    const response = await axios.get(mediaUrl, { responseType: 'arraybuffer' });
+    base64Media = Buffer.from(response.data, 'binary').toString('base64');
+  } catch (e) {
+    throw new Error('Falha ao obter mídia');
+  }
+
+  const payload = { 
+    number: resolveRecipient(number),
+    mediatype: 'image',
+    media: base64Media,
+    caption
+  };
+
+  const allowSelfSigned = process.env.EVOLUTION_ALLOW_SELF_SIGNED === 'true';
+  const httpsAgent = allowSelfSigned ? new https.Agent({ rejectUnauthorized: false }) : undefined;
+
+  try {
+    const response = await axios.post(url, payload, {
+      headers: {
+        apikey: apiKey,
+        'Content-Type': 'application/json',
+      },
+      timeout: 25000,
+      httpsAgent,
+    });
+    return response.data;
+  } catch (err) {
+    throw new Error(err?.response?.data?.message || err.message || 'Falha ao enviar WhatsAppMedia');
+  }
+};
+
 const sendSingle = async (celular, mensagem) => {
   await sendText(celular, mensagem);
 };
@@ -170,4 +214,5 @@ module.exports = {
   sendBatch,
   cancelQueue,
   getQueueStatus,
+  sendMedia,
 };

@@ -11,7 +11,7 @@ const upload = multer();
 router.use(auth);
 
 router.get('/', requireRole('admin', 'master'), controller.list);
-router.get('/:id', requireRole('admin', 'master'), controller.getById);
+router.get('/:id', requireRole('user', 'admin', 'master'), controller.getById);
 
 router.post(
   '/',
@@ -20,7 +20,7 @@ router.post(
   controller.create
 );
 
-router.put('/:id', requireRole('admin', 'master'), controller.update);
+router.put('/:id', requireRole('user', 'admin', 'master'), controller.update);
 router.delete('/:id', requireRole('master'), controller.remove);
 
 router.post(

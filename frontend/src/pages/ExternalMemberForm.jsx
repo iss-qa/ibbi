@@ -32,7 +32,7 @@ export default function ExternalMemberForm() {
       <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-soft p-6">
         <h1 className="font-display text-xl text-ibbiNavy mb-4">Cadastro de membro</h1>
         {status && <p className="text-sm text-red-600 mb-2">{status}</p>}
-        <MemberForm onSubmit={handleSubmit} onCancel={() => {}} />
+        <MemberForm onSubmit={handleSubmit} />
       </div>
     </div>
   );

@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
 import Header from '../../components/Header';
 import api from '../../services/api';
+import useAuth from '../../hooks/useAuth';
 
 export default function UserManagement() {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [memberSearch, setMemberSearch] = useState('');
@@ -79,6 +81,7 @@ export default function UserManagement() {
             <thead className="bg-slate-50 text-left border-y border-slate-100">
               <tr>
                 <th className="px-4 py-3">Nome</th>
+                <th className="px-4 py-3">Congregação</th>
                 <th className="px-4 py-3">Login</th>
                 <th className="px-4 py-3">Role</th>
                 <th className="px-4 py-3">Status</th>
@@ -91,12 +94,14 @@ export default function UserManagement() {
                 .map((user) => (
                 <tr key={user._id} className="border-b hover:bg-slate-50 transition">
                   <td className="px-4 py-3">{user.nome}</td>
+                  <td className="px-4 py-3">{user.congregacao || '-'}</td>
                   <td className="px-4 py-3">{user.login}</td>
                   <td className="px-4 py-3">
                     <select
                       className="border rounded-lg px-2 py-1 bg-white cursor-pointer"
                       value={user.role}
                       onChange={(e) => updateRole(user._id, e.target.value)}
+                      disabled={currentUser?.role !== 'master' && user.role === 'master'}
                     >
                       <option value="user">user</option>
                       <option value="admin">admin</option>
@@ -108,6 +113,7 @@ export default function UserManagement() {
                       className="border rounded-lg px-2 py-1 bg-white cursor-pointer"
                       value={user.ativo ? 'ativo' : 'inativo'}
                       onChange={(e) => updateStatus(user._id, e.target.value === 'ativo')}
+                      disabled={currentUser?.role !== 'master' && user.role === 'master'}
                     >
                       <option value="ativo">ativo</option>
                       <option value="inativo">inativo</option>
@@ -133,6 +139,7 @@ export default function UserManagement() {
                 <div>
                   <p className="text-sm font-semibold text-slate-800">{user.nome}</p>
                   <p className="text-xs text-slate-500">{user.login}</p>
+                  <p className="text-xs text-slate-400 mt-1">{user.congregacao || '-'}</p>
                 </div>
                 <button className="text-red-500 bg-red-50 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-100 transition" onClick={() => removeUser(user._id)}>
                   Excluir
@@ -145,6 +152,7 @@ export default function UserManagement() {
                     className="border rounded-lg px-3 py-2 text-lg sm:text-base bg-slate-50 min-h-[44px]"
                     value={user.role}
                     onChange={(e) => updateRole(user._id, e.target.value)}
+                    disabled={currentUser?.role !== 'master' && user.role === 'master'}
                   >
                     <option value="user">user</option>
                     <option value="admin">admin</option>
@@ -157,6 +165,7 @@ export default function UserManagement() {
                     className="border rounded-lg px-3 py-2 text-lg sm:text-base bg-slate-50 min-h-[44px]"
                     value={user.ativo ? 'ativo' : 'inativo'}
                     onChange={(e) => updateStatus(user._id, e.target.value === 'ativo')}
+                    disabled={currentUser?.role !== 'master' && user.role === 'master'}
                   >
                     <option value="ativo">ativo</option>
                     <option value="inativo">inativo</option>
@@ -191,7 +200,8 @@ export default function UserManagement() {
                     }`}
                     onClick={() => setSelectedMember(member)}
                   >
-                    {member.nome}
+                    <div className="font-medium">{member.nome}</div>
+                    <div className="text-xs text-slate-500 mt-1">{member.congregacao || '-'}</div>
                   </button>
                 ))}
               </div>

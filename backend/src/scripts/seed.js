@@ -5,6 +5,7 @@ const { parse } = require('csv-parse/sync');
 const dotenv = require('dotenv');
 const Person = require('../models/Person.model');
 const User = require('../models/User.model');
+const { buildUniqueLogin } = require('../utils/login');
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '..', '.env') });
 
@@ -182,12 +183,12 @@ const main = async () => {
       ministerio: row['Ministério'] || undefined,
     });
 
-    const firstName = nome.split(' ')[0].toLowerCase();
-    const loginExists = await User.findOne({ login: firstName });
+    const generatedLogin = await buildUniqueLogin(nome);
+    const loginExists = await User.findOne({ login: generatedLogin });
     if (!loginExists) {
       await User.create({
         nome,
-        login: firstName,
+        login: generatedLogin,
         senha: 'IBBI2026',
         role: 'user',
         personId: person._id,

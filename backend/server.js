@@ -17,6 +17,7 @@ const exportRoutes = require('./src/routes/export.routes');
 const ebdRoutes = require('./src/routes/ebd.routes');
 const testRoutes = require('./src/routes/test.routes');
 const statsRoutes = require('./src/routes/stats.routes');
+const imageRoutes = require('./src/routes/image.routes');
 const { startScheduler } = require('./src/services/scheduler.service');
 
 dotenv.config({ path: require('path').join(__dirname, '..', '.env') });
@@ -58,6 +59,7 @@ app.use('/api/export', exportRoutes);
 app.use('/api/ebd', ebdRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/stats', statsRoutes);
+app.use('/api/images', imageRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);

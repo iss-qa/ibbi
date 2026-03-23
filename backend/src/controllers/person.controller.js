@@ -1,6 +1,11 @@
 const { validationResult } = require('express-validator');
 const { parse } = require('csv-parse/sync');
 const Person = require('../models/Person.model');
+const User = require('../models/User.model');
+const Message = require('../models/Message.model');
+const { buildUniqueLogin } = require('../utils/login');
+const whatsapp = require('../services/whatsapp.service');
+const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
 
 const normalizePhone = (value) => (value ? String(value).replace(/\D/g, '') : '');
 
@@ -48,6 +53,33 @@ const cleanEmptyEnums = (payload) => {
   });
 };
 
+const clearFieldsByTipo = (payload) => {
+  if (payload.tipo === 'visitante' || payload.tipo === 'novo decidido') {
+    delete payload.email;
+    delete payload.grupo;
+    delete payload.estadoCivil;
+    delete payload.endereco;
+    delete payload.ministerio;
+    delete payload.batizado;
+    delete payload.dataBatismo;
+    delete payload.status;
+    delete payload.motivoInativacao;
+  }
+
+  if (payload.tipo === 'visitante') {
+    delete payload.dataDecisao;
+  }
+
+  if (payload.tipo === 'novo decidido') {
+    delete payload.dataVisita;
+  }
+
+  if (payload.tipo !== 'visitante' && payload.tipo !== 'novo decidido') {
+    delete payload.dataVisita;
+    delete payload.dataDecisao;
+  }
+};
+
 const mapEstadoCivil = (value) => {
   if (!value) return undefined;
   const v = String(value).toLowerCase().replace(/\s+/g, ' ').trim();
@@ -88,11 +120,10 @@ const mapCongregacao = (value) => {
 
 const list = async (req, res) => {
   const { page = 1, limit = 20, search, tipo, grupo, congregacao, status, batizado } = req.query;
-  const filter = {};
+  let filter = {};
 
   if (tipo) filter.tipo = tipo;
   if (grupo) filter.grupo = grupo;
-  if (congregacao) filter.congregacao = congregacao;
   if (status) filter.status = status;
   if (batizado !== undefined) filter.batizado = batizado === 'true';
 
@@ -105,6 +136,8 @@ const list = async (req, res) => {
       { celular: new RegExp(search, 'i') },
     ];
   }
+
+  filter = await applyScopedCongregacaoFilter(req.user, filter, congregacao);
 
   const skip = (Number(page) - 1) * Number(limit);
   const [items, total] = await Promise.all([
@@ -123,6 +156,7 @@ const list = async (req, res) => {
 const getById = async (req, res) => {
   const person = await Person.findById(req.params.id);
   if (!person) return res.status(404).json({ message: 'Pessoa não encontrada' });
+  await assertPersonAccess(req.user, person);
   return res.json(person);
 };
 
@@ -135,6 +169,10 @@ const create = async (req, res) => {
   if (payload.status !== 'inativo') delete payload.motivoInativacao;
   if (payload.motivoInativacao === '') delete payload.motivoInativacao;
   cleanEmptyEnums(payload);
+  clearFieldsByTipo(payload);
+  if (req.user.role === 'admin') {
+    payload.congregacao = await getUserCongregacao(req.user);
+  }
 
   // Validação de duplicidade: Mesmo nome e celular
   if (payload.nome && payload.celular) {
@@ -153,21 +191,70 @@ const create = async (req, res) => {
   }
 
   const person = await Person.create(payload);
+
+  if (person.celular) {
+    try {
+      const userLogin = await buildUniqueLogin(person.nome);
+      const defaultPassword = 'IBBI2026';
+      
+      const createdUser = await User.create({
+        nome: person.nome,
+        login: userLogin,
+        senha: defaultPassword,
+        role: 'user',
+        personId: person._id,
+        ativo: true,
+      });
+
+      const msgText = `🙏 Bem-vindo(a) à Comunidade IBBI!
+Que alegria ter você conosco! Seus dados de acesso estão prontos:
+🔗 Portal: https://ibbi.issqa.com.br/login
+👤 Usuário: ${userLogin}
+🔑 Senha: ${defaultPassword}
+
+Através do portal você pode:
+✅ Realizar seu pedido de oração
+✏️ Atualizar seus dados cadastrais
+Qualquer dúvida, estamos aqui! 💙`;
+
+      await whatsapp.sendSingle(person.celular, msgText);
+
+      await Message.create({
+        tipo: 'aviso',
+        destinatarios: [{ nome: person.nome, celular: person.celular }],
+        conteudo: msgText,
+        status: 'concluido',
+        enviadoPor: req.user._id,
+        criadoEm: new Date(),
+        concluidoEm: new Date(),
+      });
+    } catch (err) {
+      console.error('Erro ao gerar usuário/enviar mensagem no cadastro:', err);
+    }
+  }
+
   return res.status(201).json(person);
 };
 
 const update = async (req, res) => {
+  const existing = await Person.findById(req.params.id);
+  if (!existing) return res.status(404).json({ message: 'Pessoa não encontrada' });
+  await assertPersonAccess(req.user, existing);
+
   const payload = { ...req.body };
   if (payload.celular) payload.celular = normalizePhone(payload.celular);
   if (payload.status !== 'inativo') delete payload.motivoInativacao;
   if (payload.motivoInativacao === '') delete payload.motivoInativacao;
   cleanEmptyEnums(payload);
+  clearFieldsByTipo(payload);
+  if (req.user.role === 'admin') {
+    payload.congregacao = await getUserCongregacao(req.user);
+  }
 
   const person = await Person.findByIdAndUpdate(req.params.id, payload, {
     new: true,
     runValidators: true,
   });
-  if (!person) return res.status(404).json({ message: 'Pessoa não encontrada' });
   return res.json(person);
 };
 

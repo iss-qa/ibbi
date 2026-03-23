@@ -7,7 +7,7 @@ const controller = require('../controllers/user.controller');
 const router = express.Router();
 
 router.use(auth);
-router.use(requireRole('admin', 'master'));
+router.use(requireRole('master'));
 
 router.get('/', controller.list);
 router.post('/', body('personId').notEmpty(), controller.createUser);

@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import api from '../../services/api';
 import { CONGREGACOES } from '../../constants/congregacoes';
+import useAuth from '../../hooks/useAuth';
 
 const classes = ['Crianças', 'Adolescentes', 'Jovens', 'Adultos 1', 'Adultos 2', 'Idosos', 'Anciãos'];
 
 export default function EbdList() {
+  const { user } = useAuth();
+  const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
   const [aulas, setAulas] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -31,9 +34,16 @@ export default function EbdList() {
     load();
   }, [filters.search, filters.month, filters.year, filters.congregacao]);
 
+  useEffect(() => {
+    if (lockedCongregacao) {
+      setFilters((f) => ({ ...f, congregacao: lockedCongregacao }));
+      setForm((prev) => ({ ...prev, congregacao: lockedCongregacao }));
+    }
+  }, [lockedCongregacao]);
+
   const resetForm = () => {
     setEditing(null);
-    setForm({ data: '', classe: 'Jovens', congregacao: 'Sede', tema: '', descricao: '' });
+    setForm({ data: '', classe: 'Jovens', congregacao: lockedCongregacao || 'Sede', tema: '', descricao: '' });
     setError('');
   };
 
@@ -90,8 +100,8 @@ export default function EbdList() {
               <option key={y} value={y}>{y}</option>
             ))}
           </select>
-          <select className="border rounded-lg px-3 py-2" value={filters.congregacao} onChange={(e) => setFilters((f) => ({ ...f, congregacao: e.target.value }))}>
-            <option value="">Todas as congregações</option>
+          <select className="border rounded-lg px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500" value={filters.congregacao} onChange={(e) => setFilters((f) => ({ ...f, congregacao: e.target.value }))} disabled={Boolean(lockedCongregacao)}>
+            {!lockedCongregacao && <option value="">Todas as congregações</option>}
             {CONGREGACOES.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
@@ -117,7 +127,7 @@ export default function EbdList() {
                   setForm({
                     data: new Date(aula.data).toISOString().slice(0, 10),
                     classe: aula.classe,
-                    congregacao: aula.congregacao || 'Sede',
+                    congregacao: lockedCongregacao || aula.congregacao || 'Sede',
                     tema: aula.tema || '',
                     descricao: aula.descricao || '',
                   });
@@ -155,7 +165,7 @@ export default function EbdList() {
               </div>
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-slate-500">Congregação</label>
-                <select className="w-full border rounded-lg px-3 py-2.5 sm:py-2 text-lg sm:text-base min-h-[44px] appearance-none" value={form.congregacao} onChange={(e) => setForm({ ...form, congregacao: e.target.value })}>
+                <select className="w-full border rounded-lg px-3 py-2.5 sm:py-2 text-lg sm:text-base min-h-[44px] appearance-none disabled:bg-slate-100 disabled:text-slate-500" value={lockedCongregacao || form.congregacao} onChange={(e) => setForm({ ...form, congregacao: e.target.value })} disabled={Boolean(lockedCongregacao)}>
                   {CONGREGACOES.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}

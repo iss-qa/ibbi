@@ -1,11 +1,11 @@
 const Person = require('../models/Person.model');
+const { applyScopedCongregacaoFilter } = require('../utils/access');
 
 const exportCsv = async (req, res) => {
   const { search, tipo, grupo, congregacao, status } = req.query;
   const filter = {};
   if (tipo) filter.tipo = tipo;
   if (grupo) filter.grupo = grupo;
-  if (congregacao) filter.congregacao = congregacao;
   if (status) filter.status = status;
   if (search) {
     filter.$or = [
@@ -15,7 +15,9 @@ const exportCsv = async (req, res) => {
     ];
   }
 
-  const persons = await Person.find(filter).sort({ nome: 1 });
+  const scopedFilter = await applyScopedCongregacaoFilter(req.user, filter, congregacao);
+
+  const persons = await Person.find(scopedFilter).sort({ nome: 1 });
 
   const header = [
     'nome',

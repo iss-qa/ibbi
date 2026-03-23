@@ -1,5 +1,6 @@
 const EbdAula = require('../models/EbdAula.model');
 const Person = require('../models/Person.model');
+const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
 
 const ensureSunday = (date) => {
   const d = new Date(`${date}T12:00:00`);
@@ -18,10 +19,9 @@ const canEditAula = (aula, user) => {
 
 const list = async (req, res) => {
   const { data, classe, congregacao, search, month, year } = req.query;
-  const filter = {};
+  let filter = {};
   if (data) filter.data = new Date(data);
   if (classe) filter.classe = classe;
-  if (congregacao) filter.congregacao = congregacao;
   if (search) {
     filter.$or = [
       { tema: new RegExp(search, 'i') },
@@ -33,6 +33,7 @@ const list = async (req, res) => {
     const end = new Date(Number(year), Number(month), 0, 23, 59, 59);
     filter.data = { $gte: start, $lte: end };
   }
+  filter = await applyScopedCongregacaoFilter(req.user, filter, congregacao);
   const aulas = await EbdAula.find(filter).sort({ data: -1 });
   res.json(aulas);
 };
@@ -40,13 +41,17 @@ const list = async (req, res) => {
 const getById = async (req, res) => {
   const aula = await EbdAula.findById(req.params.id);
   if (!aula) return res.status(404).json({ message: 'Aula não encontrada' });
+  await assertPersonAccess(req.user, { congregacao: aula.congregacao });
   res.json(aula);
 };
 
 const create = async (req, res) => {
   try {
     const data = ensureSunday(req.body.data);
-    const { tema, descricao, professor, classe, congregacao } = req.body;
+    const { tema, descricao, professor, classe } = req.body;
+    const congregacao = req.user.role === 'master'
+      ? req.body.congregacao
+      : await getUserCongregacao(req.user);
 
     const existing = await EbdAula.findOne({ data, classe, congregacao });
     if (existing) return res.status(409).json({ message: 'Aula já registrada para essa classe' });
@@ -78,6 +83,7 @@ const create = async (req, res) => {
 const update = async (req, res) => {
   const aula = await EbdAula.findById(req.params.id);
   if (!aula) return res.status(404).json({ message: 'Aula não encontrada' });
+  await assertPersonAccess(req.user, { congregacao: aula.congregacao });
   if (!canEditAula(aula, req.user)) return res.status(403).json({ message: 'Edição bloqueada' });
 
   const updates = { ...req.body };
@@ -88,6 +94,9 @@ const update = async (req, res) => {
       return res.status(400).json({ message: err.message });
     }
   }
+  if (req.user.role !== 'master') {
+    updates.congregacao = await getUserCongregacao(req.user);
+  }
 
   const updated = await EbdAula.findByIdAndUpdate(req.params.id, updates, { new: true });
   res.json(updated);
@@ -96,6 +105,7 @@ const update = async (req, res) => {
 const updatePresencas = async (req, res) => {
   const aula = await EbdAula.findById(req.params.id);
   if (!aula) return res.status(404).json({ message: 'Aula não encontrada' });
+  await assertPersonAccess(req.user, { congregacao: aula.congregacao });
   if (!canEditAula(aula, req.user)) return res.status(403).json({ message: 'Edição bloqueada' });
 
   aula.presencas = req.body.presencas || [];
@@ -111,13 +121,15 @@ const remove = async (req, res) => {
 
 const getBySunday = async (req, res) => {
   const data = new Date(req.params.date);
-  const aulas = await EbdAula.find({ data });
+  const filter = await applyScopedCongregacaoFilter(req.user, { data });
+  const aulas = await EbdAula.find(filter);
   res.json(aulas);
 };
 
 const reportByClasse = async (req, res) => {
   const { grupo } = req.params;
-  const aulas = await EbdAula.find({ classe: grupo });
+  const filter = await applyScopedCongregacaoFilter(req.user, { classe: grupo });
+  const aulas = await EbdAula.find(filter);
   const stats = {};
   aulas.forEach((aula) => {
     aula.presencas.forEach((p) => {
@@ -134,7 +146,8 @@ const reportByClasse = async (req, res) => {
 
 const reportByPessoa = async (req, res) => {
   const { id } = req.params;
-  const aulas = await EbdAula.find({ 'presencas.personId': id });
+  const filter = await applyScopedCongregacaoFilter(req.user, { 'presencas.personId': id });
+  const aulas = await EbdAula.find(filter);
   const history = aulas.map((aula) => {
     const pres = aula.presencas.find((p) => String(p.personId) === id);
     return { data: aula.data, classe: aula.classe, presente: pres?.presente ?? false };
@@ -143,7 +156,8 @@ const reportByPessoa = async (req, res) => {
 };
 
 const reportGeral = async (req, res) => {
-  const aulas = await EbdAula.find();
+  const filter = await applyScopedCongregacaoFilter(req.user);
+  const aulas = await EbdAula.find(filter);
   const summary = {};
   aulas.forEach((aula) => {
     if (!summary[aula.classe]) summary[aula.classe] = { classe: aula.classe, total: 0, presentes: 0 };

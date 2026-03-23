@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import api from '../services/api';
 
 const AuthContext = createContext(null);
@@ -21,6 +21,29 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('ibbi_user');
     setUser(null);
   };
+
+  useEffect(() => {
+    const token = localStorage.getItem('ibbi_token');
+    if (!token) return;
+
+    let active = true;
+    api.get('/auth/me')
+      .then(({ data }) => {
+        if (!active) return;
+        localStorage.setItem('ibbi_user', JSON.stringify(data.user));
+        setUser(data.user);
+      })
+      .catch(() => {
+        if (!active) return;
+        localStorage.removeItem('ibbi_token');
+        localStorage.removeItem('ibbi_user');
+        setUser(null);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const value = useMemo(() => ({ user, login, logout }), [user]);
 

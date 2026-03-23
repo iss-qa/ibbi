@@ -10,6 +10,8 @@ const MessageSchema = new mongoose.Schema({
   conteudo: { type: String, required: true },
   status: { type: String, enum: ['pendente', 'enviando', 'concluido', 'erro'], default: 'pendente' },
   enviadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  origemNome: { type: String },
+  origemCongregacao: { type: String },
   criadoEm: { type: Date, default: Date.now },
   concluidoEm: { type: Date },
   erros: [{ celular: String, motivo: String }],

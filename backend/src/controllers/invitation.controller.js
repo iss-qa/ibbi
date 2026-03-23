@@ -2,21 +2,52 @@ const crypto = require('crypto');
 const Invitation = require('../models/Invitation.model');
 const Person = require('../models/Person.model');
 
-const createInvitation = async (req, res) => {
-  const token = crypto.randomBytes(24).toString('hex');
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7);
+const clearFieldsByTipo = (payload) => {
+  if (payload.tipo === 'visitante' || payload.tipo === 'novo decidido') {
+    delete payload.email;
+    delete payload.grupo;
+    delete payload.estadoCivil;
+    delete payload.endereco;
+    delete payload.ministerio;
+    delete payload.batizado;
+    delete payload.dataBatismo;
+    delete payload.status;
+    delete payload.motivoInativacao;
+  }
 
-  const invite = await Invitation.create({
-    token,
-    createdBy: req.user?._id,
-    expiresAt,
-  });
+  if (payload.tipo === 'visitante') {
+    delete payload.dataDecisao;
+  }
+
+  if (payload.tipo === 'novo decidido') {
+    delete payload.dataVisita;
+  }
+
+  if (payload.tipo !== 'visitante' && payload.tipo !== 'novo decidido') {
+    delete payload.dataVisita;
+    delete payload.dataDecisao;
+  }
+};
+
+const createInvitation = async (req, res) => {
+  let invite = await Invitation.findOne({ createdBy: req.user?._id }).sort({ createdAt: -1 });
+
+  if (!invite) {
+    const token = crypto.randomBytes(24).toString('hex');
+
+    invite = await Invitation.create({
+      token,
+      createdBy: req.user?._id,
+    });
+  } else if (invite.expiresAt) {
+    invite.expiresAt = undefined;
+    await invite.save();
+  }
 
   const origin = req.headers.origin || 'http://localhost:4173';
-  const link = `${origin}/external/${token}`;
+  const link = `${origin}/external/${invite.token}`;
 
-  res.json({ token: invite.token, link, expiresAt });
+  res.json({ token: invite.token, link, expiresAt: invite.expiresAt || null });
 };
 
 const submitInvitation = async (req, res) => {
@@ -24,7 +55,6 @@ const submitInvitation = async (req, res) => {
   const invite = await Invitation.findOne({ token });
 
   if (!invite) return res.status(404).json({ message: 'Convite inválido' });
-  if (invite.usedAt) return res.status(400).json({ message: 'Convite já utilizado' });
   if (invite.expiresAt && invite.expiresAt < new Date()) {
     return res.status(400).json({ message: 'Convite expirado' });
   }
@@ -34,6 +64,7 @@ const submitInvitation = async (req, res) => {
   ['sexo', 'tipo', 'grupo', 'estadoCivil', 'congregacao', 'status', 'motivoInativacao'].forEach((field) => {
     if (payload[field] === '') delete payload[field];
   });
+  clearFieldsByTipo(payload);
 
   // Validação de duplicidade: Mesmo nome e celular
   if (payload.nome && payload.celular) {
@@ -52,9 +83,6 @@ const submitInvitation = async (req, res) => {
   }
 
   const person = await Person.create(payload);
-
-  invite.usedAt = new Date();
-  await invite.save();
 
   res.json({ message: 'Cadastro realizado', personId: person._id });
 };

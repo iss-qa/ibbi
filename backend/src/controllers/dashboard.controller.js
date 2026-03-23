@@ -1,4 +1,5 @@
 const Person = require('../models/Person.model');
+const { applyScopedCongregacaoFilter } = require('../utils/access');
 
 const isBirthdayInRange = (birthDate, start, end) => {
   if (!birthDate) return false;
@@ -13,8 +14,7 @@ const isBirthdayInRange = (birthDate, start, end) => {
 
 const getDashboard = async (req, res) => {
   const { congregacao } = req.query;
-  const filter = {};
-  if (congregacao && congregacao !== 'Todos') filter.congregacao = congregacao;
+  const filter = await applyScopedCongregacaoFilter(req.user, {}, congregacao);
 
   const [total, ativos, inativos, pessoas] = await Promise.all([
     Person.countDocuments(filter),

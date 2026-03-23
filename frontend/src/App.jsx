@@ -54,7 +54,7 @@ export default function App() {
                         <Route path="/ebd" element={<EbdList />} />
                         <Route path="/ebd/:id" element={<EbdChamada />} />
                         <Route path="/ebd/relatorios" element={<EbdRelatorio />} />
-                        <Route path="/users" element={<UserManagement />} />
+                        {user?.role === 'master' && <Route path="/users" element={<UserManagement />} />}
                       </>
                     )}
                     <Route path="/prayer" element={<PrayerRequest />} />

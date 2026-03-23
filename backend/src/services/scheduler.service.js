@@ -42,6 +42,17 @@ const sendBirthdayMessages = async () => {
       erros.push({ celular: dest.celular, motivo: err.message });
     } else {
       enviados += 1;
+      // Send image right after text
+      try {
+        const person = aniversariantes.find(p => p.celular === dest.celular);
+        if (person) {
+          // Send media using the local api url
+          const localUrl = `http://localhost:${process.env.PORT || 3001}/api/images/aniversariante/${person._id}?format=portrait`;
+          await whatsapp.sendMedia(dest.celular, '', localUrl);
+        }
+      } catch (mediaErr) {
+        console.error(`Failed to send media to ${dest.celular}:`, mediaErr.message);
+      }
     }
 
     if (enviados + erros.length === destinatarios.length) {
