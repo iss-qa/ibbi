@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const MessageSchema = new mongoose.Schema({
   tipo: {
     type: String,
-    enum: ['aniversario', 'aviso', 'reunião', 'ata', 'documento', 'convite', 'oracao', 'personalizada', 'aviso - novo membro'],
+    enum: ['aniversario', 'aviso', 'reunião', 'ata', 'documento', 'convite', 'oracao', 'personalizada', 'aviso - novo membro', 'novo cadastro'],
     required: true,
   },
   destinatarios: [{ nome: String, celular: String }],

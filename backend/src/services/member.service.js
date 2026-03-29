@@ -40,7 +40,7 @@ Qualquer dúvida, estamos aqui! 💙`;
     await whatsapp.sendSingle(person.celular, msgText);
 
     await Message.create({
-      tipo: 'aviso - novo cadastro', // Alterado conforme solicitação do usuário
+      tipo: 'novo cadastro',
       destinatarios: [{ nome: person.nome, celular: person.celular }],
       conteudo: msgText,
       status: 'concluido',
