@@ -88,6 +88,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
     congregacao: lockedCongregacao || initialData?.congregacao || initialState.congregacao,
   });
   const [uploading, setUploading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const isCompactTipo = form.tipo === 'visitante' || form.tipo === 'novo decidido';
   
   // Inicializa o preview tratando URLs relativas
@@ -152,9 +153,14 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSubmit({ ...form, congregacao: lockedCongregacao || form.congregacao });
+    setSubmitting(true);
+    try {
+      await onSubmit?.({ ...form, congregacao: lockedCongregacao || form.congregacao });
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handlePhotoUpload = async (file) => {
@@ -508,9 +514,18 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
         {!readOnly && (
           <button
             type="submit"
-            className="px-5 py-3 sm:py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-base sm:text-sm font-medium transition min-h-[44px] w-full sm:w-auto disabled:opacity-50"
+            disabled={submitting}
+            className="px-5 py-3 sm:py-2 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-70 text-white text-base sm:text-sm font-medium transition min-h-[44px] w-full sm:w-auto flex items-center justify-center gap-2"
           >
-            Salvar
+            {submitting ? (
+              <>
+                <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                </svg>
+                Enviando dados...
+              </>
+            ) : 'Salvar'}
           </button>
         )}
       </div>

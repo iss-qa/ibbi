@@ -56,15 +56,21 @@ export default function MemberList() {
   const [error, setError] = useState('');
   const [viewingForm, setViewingForm] = useState(false);
   const [newCredentials, setNewCredentials] = useState(null);
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [total, setTotal] = useState(0);
+  const totalPages = Math.ceil(total / limit);
 
   const load = async () => {
     setLoading(true);
-    const { data } = await api.get('/persons', { params: { ...filters, limit: 100 } });
+    const { data } = await api.get('/persons', { params: { ...filters, page, limit } });
     setItems(data.items || []);
+    setTotal(data.total || 0);
     setLoading(false);
   };
 
-  useEffect(() => { load(); }, [filters.search, filters.tipo, filters.grupo]);
+  useEffect(() => { setPage(1); }, [filters.search, filters.tipo, filters.grupo]);
+  useEffect(() => { load(); }, [filters.search, filters.tipo, filters.grupo, page, limit]);
 
   const handleSave = async (payload) => {
     const normalizeDate = (value) => {
@@ -178,7 +184,7 @@ export default function MemberList() {
     link.remove();
   };
 
-  const ativos = items.filter((i) => i.status === 'ativo').length;
+  const ativos = total; // from server
   const inativos = items.filter((i) => i.status === 'inativo').length;
 
   return (
@@ -216,9 +222,9 @@ export default function MemberList() {
         {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {[
-            { label: 'Total', value: items.length, icon: '👥', bg: 'bg-white', text: 'text-slate-700' },
-            { label: 'Ativos', value: ativos, icon: '✅', bg: 'bg-emerald-50', text: 'text-emerald-700' },
-            { label: 'Inativos', value: inativos, icon: '⏸️', bg: 'bg-white', text: 'text-slate-500' },
+            { label: 'Total', value: total, icon: '👥', bg: 'bg-white', text: 'text-slate-700' },
+            { label: 'Ativos', value: items.filter(i => i.status === 'ativo').length, icon: '✅', bg: 'bg-emerald-50', text: 'text-emerald-700' },
+            { label: 'Inativos', value: items.filter(i => i.status === 'inativo').length, icon: '⏸️', bg: 'bg-white', text: 'text-slate-500' },
           ].map((s) => (
             <div key={s.label} className={`${s.bg} rounded-xl border border-slate-100 px-4 py-3 flex items-center gap-3`}>
               <span className="text-xl">{s.icon}</span>
@@ -299,9 +305,21 @@ export default function MemberList() {
         {/* Tabela */}
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
-            <span className="text-sm font-medium text-slate-700">
-              {loading ? 'Carregando...' : `${items.length} membros`}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-slate-700">
+                {loading ? 'Carregando...' : `${total} membros`}
+              </span>
+              <select
+                className="border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-600 bg-white focus:outline-none"
+                value={limit}
+                onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
+              >
+                <option value={10}>10 / página</option>
+                <option value={15}>15 / página</option>
+                <option value={20}>20 / página</option>
+                <option value={50}>50 / página</option>
+              </select>
+            </div>
             <button
               onClick={handleExport}
               className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-700 border border-slate-200 px-3 py-1.5 rounded-lg hover:bg-stone-50 transition"
@@ -427,6 +445,47 @@ export default function MemberList() {
               )}
             </tbody>
           </table>
+
+          {/* Paginação */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-stone-50">
+              <p className="text-xs text-slate-500">
+                Página {page} de {totalPages} &mdash; {total} registro{total !== 1 ? 's' : ''}
+              </p>
+              <div className="flex gap-1">
+                <button
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 transition"
+                >
+                  ‹
+                </button>
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const start = Math.max(1, Math.min(page - 2, totalPages - 4));
+                  return start + i;
+                }).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPage(p)}
+                    className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-medium transition ${
+                      p === page
+                        ? 'bg-ibbiNavy text-white'
+                        : 'border border-slate-200 text-slate-600 hover:bg-slate-100'
+                    }`}
+                  >
+                    {p}
+                  </button>
+                ))}
+                <button
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page === totalPages}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 transition"
+                >
+                  ›
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

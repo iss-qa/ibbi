@@ -7,14 +7,28 @@ export default function ExternalMemberForm() {
   const { token } = useParams();
   const [successData, setSuccessData] = useState(null);
   const [status, setStatus] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [submittedName, setSubmittedName] = useState('');
+
+  // Deriva o login igual ao backend: primeiroNome + segundoNome (sem acento, lowercase)
+  const deriveLogin = (nome) => {
+    if (!nome) return '';
+    const parts = nome.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/\s+/).filter(Boolean);
+    if (parts.length === 0) return '';
+    return parts.length > 1 ? `${parts[0]}${parts[1]}` : parts[0];
+  };
 
   const handleSubmit = async (payload) => {
+    setSubmitting(true);
+    setSubmittedName(payload.nome || '');
     try {
       const response = await api.post(`/public/invitations/${token}/submit`, payload);
       setSuccessData(response.data);
       setStatus('ok');
     } catch (err) {
       setStatus(err?.response?.data?.message || 'Falha ao enviar');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -45,7 +59,7 @@ export default function ExternalMemberForm() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs text-slate-500 mb-1">Usuário</p>
-                  <p className="font-mono font-medium text-slate-800">{successData?.generatedUser?.login || '-'}</p>
+                  <p className="font-mono font-medium text-slate-800">{successData?.generatedUser?.login || deriveLogin(submittedName) || '-'}</p>
                 </div>
                 <div>
                   <p className="text-xs text-slate-500 mb-1">Senha Padrão</p>

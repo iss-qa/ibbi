@@ -22,14 +22,23 @@ const STATUS_DOT = {
 
 const TIPO_ICON = {
   aniversario: '🎂',
-  aviso: '📢',
+  'novo cadastro': '✨',
   'aviso - novo cadastro': '✨',
-  'aviso - novo membro': '📢',
+  'aviso - novo membro': '✨',
+  aviso: '📢',
   reunião: '📅',
   convite: '✉️',
   oracao: '🙏',
   personalizada: '💬',
 };
+
+// Normaliza tipo para exibicao
+const normalizeTipo = (tipo) => {
+  if (['aviso - novo cadastro', 'aviso - novo membro'].includes(tipo)) return 'novo cadastro';
+  return tipo;
+};
+
+const LOG_PAGE_SIZE = 10;
 
 const inputClass =
   'w-full border border-slate-200 rounded-lg px-3 py-2 text-lg sm:text-base text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition placeholder:text-slate-400 min-h-[44px] appearance-none';
@@ -78,6 +87,7 @@ export default function CommunicationPanel() {
   const [prayerLog, setPrayerLog] = useState([]);
   const [showPrayer, setShowPrayer] = useState(false);
   const [sending, setSending] = useState(false);
+  const [logPage, setLogPage] = useState(1);
 
   const showToast = (msg) => {
     setToast(msg);
@@ -150,10 +160,13 @@ export default function CommunicationPanel() {
   };
 
   const filteredLog = log.filter((item) => {
-    if (filters.tipo && item.tipo !== filters.tipo) return false;
+    if (filters.tipo && normalizeTipo(item.tipo) !== filters.tipo && item.tipo !== filters.tipo) return false;
     if (filters.status && item.status !== filters.status) return false;
     return true;
   });
+
+  const logTotalPages = Math.ceil(filteredLog.length / LOG_PAGE_SIZE);
+  const pagedLog = filteredLog.slice((logPage - 1) * LOG_PAGE_SIZE, logPage * LOG_PAGE_SIZE);
 
   const stats = {
     total: log.length,
@@ -352,11 +365,9 @@ export default function CommunicationPanel() {
                 value={filters.tipo}
                 onChange={(e) => setFilters((f) => ({ ...f, tipo: e.target.value }))}
               >
-                <option value="">Todos os tipos</option>
+              <option value="">Todos os tipos</option>
                 <option value="aniversario">aniversário</option>
-                <option value="aviso">aviso</option>
-                <option value="aviso - novo cadastro">aviso - novo cadastro</option>
-                <option value="aviso - novo membro">aviso - novo membro</option>
+                <option value="novo cadastro">novo cadastro</option>
                 <option value="reunião">reunião</option>
                 <option value="convite">convite</option>
                 <option value="oracao">oração</option>
@@ -386,7 +397,7 @@ export default function CommunicationPanel() {
                   <p className="text-sm">Nenhuma mensagem encontrada</p>
                 </div>
               ) : (
-                filteredLog.map((row) => (
+                filteredLog.slice((logPage - 1) * LOG_PAGE_SIZE, logPage * LOG_PAGE_SIZE).map((row) => (
                   <div
                     key={row._id}
                     className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-4 hover:bg-slate-50 transition group cursor-pointer border-b border-slate-50 last:border-0 relative"
@@ -399,7 +410,7 @@ export default function CommunicationPanel() {
                       
                       <div className="flex flex-col min-w-0 flex-1 pr-6">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="text-sm font-semibold text-slate-700 capitalize truncate">{row.tipo}</span>
+                          <span className="text-sm font-semibold text-slate-700 capitalize truncate">{normalizeTipo(row.tipo)}</span>
                           <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full whitespace-nowrap ${STATUS_STYLE[row.status] || 'bg-slate-100 text-slate-500'}`}>
                             <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[row.status] || 'bg-slate-400'}`} />
                             {row.status}
@@ -435,6 +446,47 @@ export default function CommunicationPanel() {
                 ))
               )}
             </div>
+
+            {/* Paginação do histórico */}
+            {logTotalPages > 1 && (
+              <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-stone-50">
+                <p className="text-xs text-slate-500">
+                  Página {logPage} de {logTotalPages}
+                </p>
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setLogPage((p) => Math.max(1, p - 1))}
+                    disabled={logPage === 1}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 transition text-sm"
+                  >
+                    ‹
+                  </button>
+                  {Array.from({ length: Math.min(5, logTotalPages) }, (_, i) => {
+                    const start = Math.max(1, Math.min(logPage - 2, logTotalPages - 4));
+                    return start + i;
+                  }).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => setLogPage(p)}
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-medium transition ${
+                        p === logPage
+                          ? 'bg-ibbiNavy text-white'
+                          : 'border border-slate-200 text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {p}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setLogPage((p) => Math.min(logTotalPages, p + 1))}
+                    disabled={logPage === logTotalPages}
+                    className="w-8 h-8 flex items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-100 disabled:opacity-30 transition text-sm"
+                  >
+                    ›
+                  </button>
+                </div>
+              </div>
+            )}
           </SectionCard>
         </div>
       </div>
