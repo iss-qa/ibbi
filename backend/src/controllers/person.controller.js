@@ -3,7 +3,7 @@ const { parse } = require('csv-parse/sync');
 const Person = require('../models/Person.model');
 const User = require('../models/User.model');
 const Message = require('../models/Message.model');
-const { buildUniqueLogin } = require('../utils/login');
+const { onboardMember } = require('../services/member.service');
 const whatsapp = require('../services/whatsapp.service');
 const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
 
@@ -208,50 +208,15 @@ const create = async (req, res) => {
   const person = await Person.create(payload);
 
   if (person.celular) {
-    try {
-      const userLogin = await buildUniqueLogin(person.nome);
-      const defaultPassword = 'IBBI2026';
-      
-      const createdUser = await User.create({
-        nome: person.nome,
-        login: userLogin,
-        senha: defaultPassword,
-        role: 'user',
-        personId: person._id,
-        ativo: true,
-      });
-
-      const msgText = `🙏 Bem-vindo(a) à Comunidade IBBI!
-Que alegria ter você conosco! Seus dados de acesso estão prontos:
-🔗 Portal: https://ibbi.issqa.com.br/login
-👤 Usuário: ${userLogin}
-🔑 Senha: ${defaultPassword}
-
-Através do portal você pode:
-✅ Realizar seu pedido de oração
-✏️ Atualizar seus dados cadastrais
-Qualquer dúvida, estamos aqui! 💙`;
-
-      await whatsapp.sendSingle(person.celular, msgText);
-
-      await Message.create({
-        tipo: 'aviso - novo membro',
-        destinatarios: [{ nome: person.nome, celular: person.celular }],
-        conteudo: msgText,
-        status: 'concluido',
-        enviadoPor: req.user._id,
-        criadoEm: new Date(),
-        concluidoEm: new Date(),
-      });
+    const credentials = await onboardMember(person, req.user._id);
+    if (credentials) {
       return res.status(201).json({
         ...person.toJSON(),
         generatedUser: {
-          login: userLogin,
-          senha: defaultPassword,
+          login: credentials.login,
+          senha: credentials.password,
         }
       });
-    } catch (err) {
-      console.error('Erro ao gerar usuário/enviar mensagem no cadastro:', err);
     }
   }
 

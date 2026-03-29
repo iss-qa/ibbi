@@ -5,11 +5,13 @@ import MemberForm from './Members/MemberForm';
 
 export default function ExternalMemberForm() {
   const { token } = useParams();
+  const [successData, setSuccessData] = useState(null);
   const [status, setStatus] = useState('');
 
   const handleSubmit = async (payload) => {
     try {
-      await api.post(`/public/invitations/${token}/submit`, payload);
+      const response = await api.post(`/public/invitations/${token}/submit`, payload);
+      setSuccessData(response.data);
       setStatus('ok');
     } catch (err) {
       setStatus(err?.response?.data?.message || 'Falha ao enviar');
@@ -18,10 +20,52 @@ export default function ExternalMemberForm() {
 
   if (status === 'ok') {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="bg-white shadow-soft rounded-xl p-6">
-          <h1 className="font-display text-xl text-ibbiNavy">Cadastro enviado com sucesso</h1>
-          <p className="text-sm text-slate-500">Obrigado! Seus dados foram recebidos.</p>
+      <div className="min-h-screen bg-ibbiCream flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-white shadow-xl rounded-2xl p-8 text-center animate-in fade-in zoom-in duration-300">
+          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+            <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          
+          <h1 className="font-display text-2xl text-ibbiNavy mb-2">Bem-vindo(a)!</h1>
+          <p className="text-slate-600 mb-8">Seu cadastro foi realizado com sucesso.</p>
+
+          <div className="bg-slate-50 border border-slate-100 rounded-xl p-6 mb-8 text-left">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Dados de Acesso</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Portal</p>
+                <a href="https://ibbi.issqa.com.br/login" className="text-ibbiGold font-medium hover:underline">
+                  ibbi.issqa.com.br/login
+                </a>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Usuário</p>
+                  <p className="font-mono font-medium text-slate-800">{successData?.generatedUser?.login || '-'}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500 mb-1">Senha Padrão</p>
+                  <p className="font-mono font-medium text-slate-800">{successData?.generatedUser?.senha || 'IBBI2026'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-sm text-slate-500 leading-relaxed mb-8">
+            Agora você já pode acessar o portal para <strong>editar sua foto</strong>, 
+            atualizar seu <strong>cadastro</strong> e enviar <strong>pedidos de oração</strong>.
+          </p>
+
+          <a 
+            href="/login" 
+            className="block w-full bg-ibbiNavy text-white font-medium py-3 rounded-xl hover:bg-opacity-90 transition-all shadow-md"
+          >
+            Ir para o Login
+          </a>
         </div>
       </div>
     );

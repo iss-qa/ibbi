@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const Invitation = require('../models/Invitation.model');
 const Person = require('../models/Person.model');
+const { onboardMember } = require('../services/member.service');
 
 const clearFieldsByTipo = (payload) => {
   if (payload.tipo === 'visitante' || payload.tipo === 'novo decidido') {
@@ -87,8 +88,16 @@ const submitInvitation = async (req, res) => {
   }
 
   const person = await Person.create(payload);
+  const credentials = await onboardMember(person, null); // null pois é cadastro externo, não há "autor" logado
 
-  res.json({ message: 'Cadastro realizado', personId: person._id });
+  res.json({ 
+    message: 'Cadastro realizado', 
+    personId: person._id,
+    generatedUser: credentials ? {
+      login: credentials.login,
+      senha: credentials.password
+    } : null
+  });
 };
 
 module.exports = { createInvitation, submitInvitation };

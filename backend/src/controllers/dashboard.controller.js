@@ -16,11 +16,15 @@ const getDashboard = async (req, res) => {
   const { congregacao } = req.query;
   const filter = await applyScopedCongregacaoFilter(req.user, {}, congregacao);
 
-  const [total, ativos, inativos, pessoas] = await Promise.all([
+  const seteDiasAtras = new Date();
+  seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
+
+  const [total, ativos, inativos, pessoas, novosCadastros] = await Promise.all([
     Person.countDocuments(filter),
     Person.countDocuments({ ...filter, status: 'ativo' }),
     Person.countDocuments({ ...filter, status: 'inativo' }),
     Person.find({ ...filter, status: 'ativo', dataNascimento: { $ne: null } }).select('nome dataNascimento'),
+    Person.countDocuments({ ...filter, createdAt: { $gte: seteDiasAtras } })
   ]);
 
   const hoje = new Date();
@@ -40,6 +44,7 @@ const getDashboard = async (req, res) => {
     ativos,
     inativos,
     aniversariantes,
+    novosCadastros,
   });
 };
 

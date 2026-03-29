@@ -144,7 +144,7 @@ export default function Dashboard() {
   const { user } = useAuth();
   const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
   const [congregacao, setCongregacao] = useState('Todos');
-  const [stats, setStats] = useState({ total: 0, ativos: 0, inativos: 0, aniversariantes: [] });
+  const [stats, setStats] = useState({ total: 0, ativos: 0, inativos: 0, aniversariantes: [], novosCadastros: 0 });
 
   const [growth, setGrowth] = useState([]);
   const [byCongregation, setByCongregation] = useState([]);
@@ -200,7 +200,16 @@ export default function Dashboard() {
   return (
     <div className="animate-fade-in pb-10">
       <Header
-        title="Dashboard"
+        title={
+          <div className="flex items-center gap-3">
+            <span>Dashboard</span>
+            {stats.novosCadastros > 0 && (
+              <span className="bg-red-500 text-white text-[10px] sm:text-xs font-bold px-2 py-0.5 rounded-full animate-bounce shadow-lg">
+                {stats.novosCadastros} {stats.novosCadastros === 1 ? 'NOVO CADASTRO' : 'NOVOS CADASTROS'}
+              </span>
+            )}
+          </div>
+        }
         subtitle="Visão geral da igreja"
         action={
           <select className="border rounded-lg px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500" value={congregacao} onChange={(e) => setCongregacao(e.target.value)} disabled={Boolean(lockedCongregacao)}>
