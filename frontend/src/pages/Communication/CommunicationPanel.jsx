@@ -23,6 +23,7 @@ const STATUS_DOT = {
 const TIPO_ICON = {
   aniversario: '🎂',
   aviso: '📢',
+  'aviso - novo membro': '📢',
   reunião: '📅',
   convite: '✉️',
   oracao: '🙏',
@@ -353,6 +354,7 @@ export default function CommunicationPanel() {
                 <option value="">Todos os tipos</option>
                 <option value="aniversario">aniversário</option>
                 <option value="aviso">aviso</option>
+                <option value="aviso - novo membro">aviso - novo membro</option>
                 <option value="reunião">reunião</option>
                 <option value="convite">convite</option>
                 <option value="oracao">oração</option>

@@ -157,7 +157,22 @@ const getById = async (req, res) => {
   const person = await Person.findById(req.params.id);
   if (!person) return res.status(404).json({ message: 'Pessoa não encontrada' });
   await assertPersonAccess(req.user, person);
-  return res.json(person);
+
+  const responseData = person.toJSON();
+
+  if (req.user.role === 'master' || req.user.role === 'admin') {
+    const linkedUser = await User.findOne({ personId: person._id });
+    if (linkedUser) {
+      responseData.userCredentials = { login: linkedUser.login };
+      
+      if (req.user.role === 'master') {
+        const isDefault = await linkedUser.comparePassword('IBBI2026');
+        responseData.userCredentials.senha = isDefault ? 'IBBI2026' : '(Alterada pelo membro)';
+      }
+    }
+  }
+
+  return res.json(responseData);
 };
 
 const create = async (req, res) => {
@@ -220,13 +235,20 @@ Qualquer dúvida, estamos aqui! 💙`;
       await whatsapp.sendSingle(person.celular, msgText);
 
       await Message.create({
-        tipo: 'aviso',
+        tipo: 'aviso - novo membro',
         destinatarios: [{ nome: person.nome, celular: person.celular }],
         conteudo: msgText,
         status: 'concluido',
         enviadoPor: req.user._id,
         criadoEm: new Date(),
         concluidoEm: new Date(),
+      });
+      return res.status(201).json({
+        ...person.toJSON(),
+        generatedUser: {
+          login: userLogin,
+          senha: defaultPassword,
+        }
       });
     } catch (err) {
       console.error('Erro ao gerar usuário/enviar mensagem no cadastro:', err);

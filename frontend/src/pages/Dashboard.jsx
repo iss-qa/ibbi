@@ -143,7 +143,7 @@ export default function Dashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
-  const [congregacao, setCongregacao] = useState('Sede');
+  const [congregacao, setCongregacao] = useState('Todos');
   const [stats, setStats] = useState({ total: 0, ativos: 0, inativos: 0, aniversariantes: [] });
 
   const [growth, setGrowth] = useState([]);
@@ -163,11 +163,12 @@ export default function Dashboard() {
 
   const loadCharts = async () => {
     setLoading({ growth: true, congregation: true, group: true, retention: true });
+    const params = congregacao === 'Todos' ? {} : { congregacao };
     const [g, c, gr, r] = await Promise.all([
-      api.get('/stats/growth'),
-      api.get('/stats/by-congregation'),
-      api.get('/stats/by-group'),
-      api.get('/stats/retention'),
+      api.get('/stats/growth', { params }),
+      api.get('/stats/by-congregation', { params }),
+      api.get('/stats/by-group', { params }),
+      api.get('/stats/retention', { params }),
     ]);
     setGrowth(g.data);
     setByCongregation(c.data);
@@ -177,20 +178,17 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    load();
-  }, [congregacao]);
-
-  useEffect(() => {
-    if (lockedCongregacao) {
-      setCongregacao(lockedCongregacao);
-    } else {
-      setCongregacao('Todos');
+    if (user) {
+      load();
+      loadCharts();
     }
-  }, [lockedCongregacao]);
+  }, [congregacao, user]);
 
   useEffect(() => {
-    loadCharts();
-  }, []);
+    if (user && lockedCongregacao) {
+      setCongregacao(lockedCongregacao);
+    }
+  }, [lockedCongregacao, user]);
 
   const cards = [
     { label: 'Membros ativos', value: stats.ativos },

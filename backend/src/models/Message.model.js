@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const MessageSchema = new mongoose.Schema({
   tipo: {
     type: String,
-    enum: ['aniversario', 'aviso', 'reunião', 'ata', 'documento', 'convite', 'oracao', 'personalizada'],
+    enum: ['aniversario', 'aviso', 'reunião', 'ata', 'documento', 'convite', 'oracao', 'personalizada', 'aviso - novo membro'],
     required: true,
   },
   destinatarios: [{ nome: String, celular: String }],
@@ -17,4 +17,4 @@ const MessageSchema = new mongoose.Schema({
   erros: [{ celular: String, motivo: String }],
 });
 
-module.exports = mongoose.model('Message', MessageSchema);
+module.exports = mongoose.models.Message || mongoose.model('Message', MessageSchema);

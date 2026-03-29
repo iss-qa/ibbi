@@ -49,7 +49,8 @@ const authLimiter = rateLimit({
 
 // Conexão com MongoDB via Middleware (garante que está conectado antes de cada rota)
 app.use(async (req, res, next) => {
-  if (mongoose.connection.readyState === 1) {
+  // 1 = connected, 2 = connecting
+  if (mongoose.connection.readyState === 1 || mongoose.connection.readyState === 2) {
     return next();
   }
   try {

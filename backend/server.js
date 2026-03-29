@@ -27,17 +27,31 @@ const PORT = process.env.PORT || 3001;
 
 app.use(cors({
   origin: (origin, callback) => {
+    // Permitir requisições sem origin (como mobile apps ou curl)
     if (!origin) return callback(null, true);
-    const allowed = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
-    return callback(null, allowed);
+    
+    // Lista de origens permitidas
+    const allowedOrigins = [
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
+      /\.vercel\.app$/, // Se estiver usando Vercel
+      /wastezero\.com\.br$/, // Seus domínios
+    ];
+
+    const isAllowed = allowedOrigins.some(regex => regex.test(origin));
+    
+    if (isAllowed || process.env.NODE_ENV === 'development') {
+      return callback(null, true);
+    }
+    
+    return callback(new Error('CORS não permitido para esta origem: ' + origin));
   },
   credentials: true,
 }));
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '10mb' }));
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 30,
+  max: 100, // Aumentado para evitar bloqueios legítimos
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -62,8 +76,17 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/images', imageRoutes);
 
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(err.status || 500).json({ message: err.message || 'Erro interno' });
+  console.error('[SERVER ERROR]', {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method,
+    body: req.body,
+  });
+  res.status(err.status || 500).json({ 
+    message: err.message || 'Erro interno no servidor',
+    error: process.env.NODE_ENV === 'development' ? err : undefined
+  });
 });
 
 connectDb()

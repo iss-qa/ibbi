@@ -54,6 +54,17 @@ export default function UserManagement() {
     await load();
   };
 
+  const resetPassword = async (userId) => {
+    if (!confirm('Tem certeza que deseja resetar a senha deste usuário para o padrão (IBBI2026)?')) return;
+    try {
+      await api.put(`/users/${userId}/reset-password`);
+      alert('Senha resetada com sucesso para IBBI2026!');
+    } catch (err) {
+      alert('Erro ao resetar senha.');
+    }
+  };
+
+
   return (
     <div>
       <Header
@@ -119,7 +130,10 @@ export default function UserManagement() {
                       <option value="inativo">inativo</option>
                     </select>
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-3 text-right flex justify-end gap-3">
+                    <button className="text-orange-500 hover:text-orange-700 font-medium" onClick={() => resetPassword(user._id)}>
+                      Resetar Senha
+                    </button>
                     <button className="text-red-500 hover:text-red-700 font-medium" onClick={() => removeUser(user._id)}>
                       Excluir
                     </button>
@@ -141,9 +155,14 @@ export default function UserManagement() {
                   <p className="text-xs text-slate-500">{user.login}</p>
                   <p className="text-xs text-slate-400 mt-1">{user.congregacao || '-'}</p>
                 </div>
-                <button className="text-red-500 bg-red-50 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-100 transition" onClick={() => removeUser(user._id)}>
-                  Excluir
-                </button>
+                <div className="flex gap-2">
+                  <button className="text-orange-500 bg-orange-50 px-3 py-2 rounded-lg text-sm font-medium hover:bg-orange-100 transition" onClick={() => resetPassword(user._id)}>
+                    Resetar
+                  </button>
+                  <button className="text-red-500 bg-red-50 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-100 transition" onClick={() => removeUser(user._id)}>
+                    Excluir
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-2 gap-3 mt-1 pt-3 border-t border-slate-50">
                 <div className="flex flex-col gap-1">

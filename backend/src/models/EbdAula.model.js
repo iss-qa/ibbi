@@ -44,4 +44,4 @@ EbdAulaSchema.virtual('percentualPresenca').get(function percentualPresenca() {
   return Math.round((this.totalPresentes / total) * 100);
 });
 
-module.exports = mongoose.model('EbdAula', EbdAulaSchema);
+module.exports = mongoose.models.EbdAula || mongoose.model('EbdAula', EbdAulaSchema);

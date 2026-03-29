@@ -54,7 +54,8 @@ export default function MemberList() {
   const [inviteLink, setInviteLink] = useState('');
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
-  const [viewing, setViewing] = useState(null);
+  const [viewingForm, setViewingForm] = useState(false);
+  const [newCredentials, setNewCredentials] = useState(null);
 
   const load = async () => {
     setLoading(true);
@@ -109,9 +110,13 @@ export default function MemberList() {
       if (editing) {
         await api.put(`/persons/${editing._id}`, data);
       } else {
-        await api.post('/persons', data);
+        const response = await api.post('/persons', data);
+        if (response.data?.generatedUser) {
+          setNewCredentials(response.data.generatedUser);
+        }
       }
       setShowForm(false);
+      setViewingForm(false);
       setEditing(null);
       setError('');
       await load();
@@ -124,6 +129,24 @@ export default function MemberList() {
     if (!confirm(`Excluir ${person.nome}?`)) return;
     await api.delete(`/persons/${person._id}`);
     await load();
+  };
+
+  const handleOpenForm = async (row, isReadOnly = false) => {
+    try {
+      const { data } = await api.get(`/persons/${row._id}`);
+      setEditing({
+        ...data,
+        dataNascimento: toDateInput(data.dataNascimento),
+        dataBatismo: toDateInput(data.dataBatismo),
+        dataVisita: toDateInput(data.dataVisita),
+        dataDecisao: toDateInput(data.dataDecisao),
+      });
+      setViewingForm(isReadOnly);
+      setShowForm(true);
+    } catch (err) {
+      console.error(err);
+      setError('Erro ao carregar os detalhes do membro.');
+    }
   };
 
   const toDateInput = (value) => {
@@ -176,7 +199,7 @@ export default function MemberList() {
               Link externo
             </button>
             <button
-              onClick={() => { setEditing(null); setShowForm(true); }}
+              onClick={() => { setEditing(null); setViewingForm(false); setShowForm(true); }}
               className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
@@ -329,7 +352,7 @@ export default function MemberList() {
                       <div className="flex items-center gap-3">
                         <Avatar nome={row.nome} fotoUrl={row.fotoUrl} />
                         <div>
-                          <button className="font-medium text-slate-800 text-sm leading-tight text-left" onClick={() => setViewing(row)}>
+                          <button className="font-medium text-slate-800 text-sm leading-tight text-left" onClick={() => handleOpenForm(row, true)}>
                             {row.nome}
                           </button>
                           {row.congregacao && (
@@ -364,16 +387,7 @@ export default function MemberList() {
                         </button>
                         <div className="hidden group-hover:flex group-focus-within:flex flex-col gap-1 absolute right-0 top-10 bg-white border border-slate-200 shadow-lg rounded-xl p-2 z-10 w-32">
                           <button
-                            onClick={() => {
-                              setEditing({
-                                ...row,
-                                dataNascimento: toDateInput(row.dataNascimento),
-                                dataBatismo: toDateInput(row.dataBatismo),
-                                dataVisita: toDateInput(row.dataVisita),
-                                dataDecisao: toDateInput(row.dataDecisao),
-                              });
-                              setShowForm(true);
-                            }}
+                            onClick={() => handleOpenForm(row, false)}
                             className="text-left px-3 py-2 text-sm text-slate-600 hover:bg-blue-50 hover:text-blue-600 rounded-lg"
                           >
                             Editar
@@ -389,16 +403,7 @@ export default function MemberList() {
                       {/* Desktop Actions */}
                       <div className="hidden md:flex items-center justify-end gap-1">
                         <button
-                          onClick={() => {
-                            setEditing({
-                              ...row,
-                              dataNascimento: toDateInput(row.dataNascimento),
-                              dataBatismo: toDateInput(row.dataBatismo),
-                              dataVisita: toDateInput(row.dataVisita),
-                              dataDecisao: toDateInput(row.dataDecisao),
-                            });
-                            setShowForm(true);
-                          }}
+                          onClick={() => handleOpenForm(row, false)}
                           className="flex items-center gap-1 text-xs text-slate-500 hover:text-blue-600 px-2.5 py-1.5 rounded-lg hover:bg-blue-50 transition"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -429,7 +434,7 @@ export default function MemberList() {
       {showForm && (
         <div
           className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center sm:p-4 z-50"
-          onClick={() => { setShowForm(false); setEditing(null); }}
+          onClick={() => { setShowForm(false); setViewingForm(false); setEditing(null); }}
         >
           <div
             className="bg-white sm:rounded-2xl shadow-xl w-full max-w-5xl h-[100dvh] sm:h-auto sm:max-h-[90vh] overflow-x-hidden overflow-y-hidden flex flex-col"
@@ -438,14 +443,14 @@ export default function MemberList() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10 shrink-0">
               <div>
                 <h2 className="text-base font-semibold text-slate-800">
-                  {editing ? 'Editar membro' : 'Novo membro'}
+                  {editing && viewingForm ? 'Visualizar membro' : editing ? 'Editar membro' : 'Novo membro'}
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {editing ? 'Atualize as informações do membro' : 'Preencha os dados para cadastrar'}
+                  {editing && viewingForm ? 'Dados preenchidos do membro' : editing ? 'Atualize as informações do membro' : 'Preencha os dados para cadastrar'}
                 </p>
               </div>
               <button
-                onClick={() => { setShowForm(false); setEditing(null); }}
+                onClick={() => { setShowForm(false); setViewingForm(false); setEditing(null); }}
                 className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-stone-100 text-slate-400 hover:text-slate-600 transition"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -462,43 +467,43 @@ export default function MemberList() {
               <MemberForm
                 initialData={editing}
                 onSubmit={handleSave}
-                onCancel={() => { setShowForm(false); setEditing(null); }}
+                onCancel={() => { setShowForm(false); setViewingForm(false); setEditing(null); }}
                 lockedCongregacao={lockedCongregacao}
+                readOnly={viewingForm}
               />
             </div>
           </div>
         </div>
       )}
 
-      {viewing && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50" onClick={() => setViewing(null)}>
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 pt-5 pb-4 border-b border-slate-100">
-              <div className="flex items-center gap-3">
-                <Avatar nome={viewing.nome} fotoUrl={viewing.fotoUrl} size="lg" />
-                <div>
-                  <h2 className="text-base font-semibold text-slate-800">{viewing.nome}</h2>
-                  <p className="text-xs text-slate-400">{viewing.congregacao || '-'}</p>
-                </div>
-              </div>
-              <button className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-stone-100 text-slate-400 hover:text-slate-600 transition" onClick={() => setViewing(null)}>
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+      {newCredentials && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[60]" onClick={() => setNewCredentials(null)}>
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col items-center text-center" onClick={(e) => e.stopPropagation()}>
+            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                 <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
             </div>
-            <div className="p-6 grid md:grid-cols-2 gap-3 text-sm text-slate-600">
-              <div><strong>Email:</strong> {viewing.email || '-'}</div>
-              <div><strong>Celular:</strong> {viewing.celular || '-'}</div>
-              <div><strong>Tipo:</strong> {viewing.tipo || '-'}</div>
-              <div><strong>Grupo:</strong> {viewing.grupo || '-'}</div>
-              <div><strong>Status:</strong> {viewing.status || '-'}</div>
-              <div><strong>Estado civil:</strong> {viewing.estadoCivil || '-'}</div>
-              <div><strong>Data da visita:</strong> {viewing.dataVisita ? new Date(viewing.dataVisita).toLocaleDateString('pt-BR') : '-'}</div>
-              <div><strong>Data da decisão:</strong> {viewing.dataDecisao ? new Date(viewing.dataDecisao).toLocaleDateString('pt-BR') : '-'}</div>
-              <div className="md:col-span-2"><strong>Endereço:</strong> {viewing.endereco || '-'}</div>
-              <div className="md:col-span-2"><strong>Ministério:</strong> {viewing.ministerio || '-'}</div>
+            <h3 className="text-lg font-semibold text-slate-800 mb-1">Cadastro realizado!</h3>
+            <p className="text-sm text-slate-500 mb-6">O membro foi criado e os acessos gerados (uma mensagem via WhatsApp também foi agendada).</p>
+            
+            <div className="bg-slate-50 w-full p-4 rounded-xl border border-slate-100 flex flex-col gap-2 mb-6">
+               <div className="flex justify-between items-center text-sm">
+                 <span className="text-slate-500 font-medium">Usuário:</span>
+                 <span className="text-slate-800 font-bold">{newCredentials.login}</span>
+               </div>
+               <div className="flex justify-between items-center text-sm">
+                 <span className="text-slate-500 font-medium">Senha padrão:</span>
+                 <span className="text-slate-800 font-mono font-bold bg-white px-2 py-0.5 rounded border border-slate-200">{newCredentials.senha}</span>
+               </div>
             </div>
+
+            <button
+               onClick={() => setNewCredentials(null)}
+               className="w-full bg-ibbiBlue hover:bg-blue-700 text-white font-medium py-2.5 rounded-lg transition"
+            >
+               Entendi
+            </button>
           </div>
         </div>
       )}

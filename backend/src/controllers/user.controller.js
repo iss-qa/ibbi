@@ -120,4 +120,38 @@ const remove = async (req, res) => {
   return res.json({ message: 'Usuário removido' });
 };
 
-module.exports = { list, createUser, updateRole, updateStatus, remove };
+const updateMyPassword = async (req, res) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+
+  const { senhaNova } = req.body;
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
+
+  user.senha = senhaNova;
+  await user.save(); // Dispara o pre-save do hash
+  
+  return res.json({ message: 'Senha atualizada com sucesso' });
+};
+
+const resetPassword = async (req, res) => {
+  const target = await User.findById(req.params.id).populate('personId', 'congregacao');
+  if (!target) return res.status(404).json({ message: 'Usuário não encontrado' });
+  
+  if (req.user.role !== 'master') {
+    if (target.role === 'master') {
+      return res.status(403).json({ message: 'Apenas master pode resetar senha de outro master' });
+    }
+    const userCongregacao = await getUserCongregacao(req.user);
+    if (target.personId?.congregacao !== userCongregacao) {
+      return res.status(403).json({ message: 'Você só pode resetar senha de usuários da sua congregação' });
+    }
+  }
+
+  target.senha = 'IBBI2026';
+  await target.save(); // Dispara o pre-save do hash
+
+  return res.json({ message: 'Senha resetada para IBBI2026 com sucesso' });
+};
+
+module.exports = { list, createUser, updateRole, updateStatus, remove, updateMyPassword, resetPassword };

@@ -16,7 +16,8 @@ const lastMonths = (count) => {
 };
 
 const growth = async (req, res) => {
-  const baseFilter = await applyScopedCongregacaoFilter(req.user);
+  const { congregacao } = req.query;
+  const baseFilter = await applyScopedCongregacaoFilter(req.user, {}, congregacao);
   const months = lastMonths(6);
   const data = await Promise.all(
     months.map(async (m) => {
@@ -30,7 +31,8 @@ const growth = async (req, res) => {
 };
 
 const byCongregation = async (req, res) => {
-  const scopedFilter = await applyScopedCongregacaoFilter(req.user);
+  const { congregacao } = req.query;
+  const scopedFilter = await applyScopedCongregacaoFilter(req.user, {}, congregacao);
   const data = await Person.aggregate([
     { $match: scopedFilter },
     { $group: { _id: '$congregacao', total: { $sum: 1 } } },
@@ -41,7 +43,8 @@ const byCongregation = async (req, res) => {
 };
 
 const byGroup = async (req, res) => {
-  const scopedFilter = await applyScopedCongregacaoFilter(req.user);
+  const { congregacao } = req.query;
+  const scopedFilter = await applyScopedCongregacaoFilter(req.user, {}, congregacao);
   const data = await Person.aggregate([
     { $match: scopedFilter },
     { $group: { _id: '$grupo', total: { $sum: 1 } } },
@@ -52,7 +55,8 @@ const byGroup = async (req, res) => {
 };
 
 const retention = async (req, res) => {
-  const baseFilter = await applyScopedCongregacaoFilter(req.user);
+  const { congregacao } = req.query;
+  const baseFilter = await applyScopedCongregacaoFilter(req.user, {}, congregacao);
   const months = lastMonths(6);
   const data = await Promise.all(
     months.map(async (m) => {

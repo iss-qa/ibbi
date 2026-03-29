@@ -16,12 +16,11 @@ const buildBaseLogin = (personName) => {
   if (parts.length === 0) return 'usuario';
 
   const firstName = normalizePiece(parts[0]);
-  const lastName = normalizePiece(parts.length > 1 ? parts[parts.length - 1] : parts[0]);
+  const secondName = normalizePiece(parts.length > 1 ? parts[1] : '');
 
-  if (!firstName && !lastName) return 'usuario';
-  if (!lastName || firstName === lastName) return firstName || lastName;
-
-  return `${firstName}.${lastName}`;
+  if (!firstName && !secondName) return 'usuario';
+  
+  return `${firstName}${secondName}`;
 };
 
 const buildUniqueLogin = async (personName) => {

@@ -75,5 +75,5 @@ PersonSchema.pre('save', function enforceBusinessRules(next) {
   return next();
 });
 
-module.exports = mongoose.model('Person', PersonSchema);
+module.exports = mongoose.models.Person || mongoose.model('Person', PersonSchema);
 module.exports.CONGREGACOES = CONGREGACOES;

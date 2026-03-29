@@ -81,7 +81,7 @@ async function optimizeImage(file) {
   }
 }
 
-export default function MemberForm({ initialData, onSubmit, onCancel, lockedCongregacao }) {
+export default function MemberForm({ initialData, onSubmit, onCancel, lockedCongregacao, readOnly, isSelfEdit }) {
   const [form, setForm] = useState({
     ...initialState,
     ...initialData,
@@ -187,7 +187,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-0 w-full max-w-full overflow-x-hidden">
-
+      <fieldset disabled={readOnly} className="contents flex-1 flex flex-col">
       {/* ── Header: Foto + Nome ─────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 px-4 sm:px-6 pt-5 pb-4 w-full max-w-full overflow-x-hidden">
         {/* Foto */}
@@ -199,27 +199,35 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
             className="hidden"
             onChange={(e) => handlePhotoUpload(e.target.files[0])}
           />
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="w-16 h-16 rounded-full border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden hover:border-blue-300 hover:bg-blue-50 transition group focus:outline-none focus:ring-2 focus:ring-blue-200"
-            title="Clique para enviar foto"
-          >
-            {uploading ? (
-              <svg className="w-5 h-5 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
-              </svg>
-            ) : preview ? (
-              <img src={preview} alt="Foto" className="w-full h-full object-cover rounded-full" />
-            ) : (
-              <svg className="w-6 h-6 text-slate-300 group-hover:text-blue-400 transition" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                <circle cx="12" cy="8" r="3.5" />
-                <path strokeLinecap="round" d="M3 20c0-4 3.5-7 9-7s9 3 9 7" />
-              </svg>
+          <div className="relative group cursor-pointer" onClick={() => !readOnly && fileInputRef.current?.click()} title={readOnly ? "Foto do Membro" : "Clique para alterar a foto"}>
+            <button
+              type="button"
+              className="w-20 h-20 sm:w-16 sm:h-16 rounded-full border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden hover:border-blue-300 hover:bg-blue-50 transition focus:outline-none focus:ring-2 focus:ring-blue-200"
+              disabled={readOnly}
+            >
+              {uploading ? (
+                <svg className="w-5 h-5 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
+                </svg>
+              ) : preview ? (
+                <img src={preview} alt="Foto" className="w-full h-full object-cover rounded-full" />
+              ) : (
+                <svg className="w-6 h-6 text-slate-300 group-hover:text-blue-400 transition" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                  <circle cx="12" cy="8" r="3.5" />
+                  <path strokeLinecap="round" d="M3 20c0-4 3.5-7 9-7s9 3 9 7" />
+                </svg>
+              )}
+            </button>
+            {!readOnly && (
+              <div className="absolute -bottom-2 -right-2 bg-blue-100 hover:bg-blue-200 text-blue-700 p-1.5 rounded-full shadow-sm transition">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </div>
             )}
-          </button>
-          <span className="text-[10px] text-slate-400 font-medium">Foto</span>
+          </div>
+          {!readOnly && <span className="text-[10px] text-slate-500 font-medium mt-1 uppercase tracking-widest text-center">Mudar Foto</span>}
         </div>
 
         {/* Nome */}
@@ -233,23 +241,49 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
             required
           />
 
+          {initialData?.userCredentials && (
+            <div className="mt-2.5 p-2.5 bg-stone-50 border border-stone-200 rounded-lg flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+              <div>
+                <span className="text-[11px] text-stone-500 font-medium mr-1.5 uppercase tracking-wider">Usuário:</span>
+                <span className="text-sm font-semibold text-stone-700">{initialData.userCredentials.login}</span>
+              </div>
+              {initialData.userCredentials.senha && (
+                <div>
+                  <span className="text-[11px] text-stone-500 font-medium mr-1.5 uppercase tracking-wider">Senha:</span>
+                  <span className="text-sm font-semibold text-stone-700">{initialData.userCredentials.senha}</span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-3 mt-4 w-full">
             <div className="min-w-0">
               <label className={labelClass}>Tipo</label>
               <div className="flex flex-wrap gap-1.5">
-                {TIPOS.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => handleTipoChange(t)}
-                    className={`px-3 py-1 rounded-full text-xs border transition font-medium ${form.tipo === t
-                      ? 'bg-blue-50 text-blue-700 border-blue-200'
-                      : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
+                {TIPOS.map((t) => {
+                  const isRestrictedDowngrade = isSelfEdit && 
+                    ['membro', 'congregado', 'criança'].includes(initialData?.tipo) && 
+                    ['visitante', 'novo decidido'].includes(t);
+                  
+                  return (
+                    <button
+                      key={t}
+                      type="button"
+                      disabled={isRestrictedDowngrade}
+                      onClick={() => handleTipoChange(t)}
+                      className={`px-3 py-1 rounded-full text-xs border transition font-medium ${
+                        isRestrictedDowngrade 
+                          ? 'opacity-40 cursor-not-allowed bg-slate-50 border-slate-100 text-slate-400'
+                          : form.tipo === t
+                            ? 'bg-blue-50 text-blue-700 border-blue-200'
+                            : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
                       }`}
-                  >
-                    {t}
-                  </button>
-                ))}
+                      title={isRestrictedDowngrade ? 'Você não pode rebaixar seu próprio status para visitante.' : null}
+                    >
+                      {t}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -458,23 +492,26 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
         </>
       )}
 
+       </fieldset>
       {/* ── Footer ─────────────────────────────────────────── */}
       <div className="border-t border-slate-100 px-4 sm:px-6 py-4 bg-slate-50 flex flex-col sm:flex-row justify-end gap-3 sticky bottom-0 z-10 mt-auto w-full max-w-full overflow-x-hidden">
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
-            className="px-4 py-3 sm:py-2 rounded-lg border border-slate-200 text-base sm:text-sm font-medium text-slate-600 bg-white hover:bg-slate-50 transition min-h-[44px] w-full sm:w-auto"
+            className="px-4 py-3 sm:py-2 rounded-lg border border-slate-200 text-base sm:text-sm font-medium text-slate-600 bg-white hover:bg-slate-50 transition min-h-[44px] w-full sm:w-auto disabled:opacity-50"
           >
-            Cancelar
+            {readOnly ? 'Fechar' : 'Cancelar'}
           </button>
         )}
-        <button
-          type="submit"
-          className="px-5 py-3 sm:py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-base sm:text-sm font-medium transition min-h-[44px] w-full sm:w-auto"
-        >
-          Salvar membro
-        </button>
+        {!readOnly && (
+          <button
+            type="submit"
+            className="px-5 py-3 sm:py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-base sm:text-sm font-medium transition min-h-[44px] w-full sm:w-auto disabled:opacity-50"
+          >
+            Salvar
+          </button>
+        )}
       </div>
     </form>
   );
