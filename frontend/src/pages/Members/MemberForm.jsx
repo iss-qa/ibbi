@@ -81,7 +81,7 @@ async function optimizeImage(file) {
   }
 }
 
-export default function MemberForm({ initialData, onSubmit, onCancel, lockedCongregacao, readOnly, isSelfEdit }) {
+export default function MemberForm({ initialData, onSubmit, onCancel, lockedCongregacao, readOnly, isSelfEdit, isExternal }) {
   const [form, setForm] = useState({
     ...initialState,
     ...initialData,
@@ -166,7 +166,8 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
     data.append('file', optimizedFile);
     setUploading(true);
     try {
-      const response = await api.post('/uploads/person-photo', data);
+      const endpoint = isExternal ? '/uploads/person-photo/public' : '/uploads/person-photo';
+      const response = await api.post(endpoint, data);
       
       if (response.data.url) {
         // Salva a URL relativa (ex: /uploads/123.jpg) no estado do formulário
@@ -374,13 +375,13 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
               <Field label="Grupo">
                 <select className={fieldClass} value={form.grupo} onChange={(e) => handleChange('grupo', e.target.value)}>
                   <option value="">—</option>
-                  <option value="criança">criança</option>
-                  <option value="adolescente">adolescente</option>
-                  <option value="jovem">jovem</option>
-                  <option value="adulto 1">adulto 1</option>
-                  <option value="adulto 2">adulto 2</option>
-                  <option value="idoso">idoso</option>
-                  <option value="ancião">ancião</option>
+                  <option value="criança">criança - 0 a 9 anos</option>
+                  <option value="adolescente">adolescente - 10 a 17 anos</option>
+                  <option value="jovem">jovem - 18 a 35 anos</option>
+                  <option value="adulto 1">adulto 1 - 36 a 50 anos</option>
+                  <option value="adulto 2">adulto 2 - 51 a 60 anos</option>
+                  <option value="idoso">idoso - 61 a 75 anos</option>
+                  <option value="ancião">ancião - acima de 76 anos</option>
                 </select>
               </Field>
             </div>

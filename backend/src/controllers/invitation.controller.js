@@ -29,25 +29,27 @@ const clearFieldsByTipo = (payload) => {
   }
 };
 
+const PERMANENT_TOKEN = '9b34cf8ae96bc49d6b388b5a0a68f2a39578297def76faf6';
+
 const createInvitation = async (req, res) => {
-  let invite = await Invitation.findOne({ createdBy: req.user?._id }).sort({ createdAt: -1 });
-
+  // Garantir que o convite fixo existe no banco
+  let invite = await Invitation.findOne({ token: PERMANENT_TOKEN });
+  
   if (!invite) {
-    const token = crypto.randomBytes(24).toString('hex');
-
     invite = await Invitation.create({
-      token,
+      token: PERMANENT_TOKEN,
       createdBy: req.user?._id,
+      expiresAt: null, // Convite eterno
     });
   } else if (invite.expiresAt) {
-    invite.expiresAt = undefined;
+    invite.expiresAt = null;
     await invite.save();
   }
 
-  const origin = req.headers.origin || 'http://localhost:4173';
+  const origin = req.headers.origin || 'https://ibbi.issqa.com.br';
   const link = `${origin}/external/${invite.token}`;
 
-  res.json({ token: invite.token, link, expiresAt: invite.expiresAt || null });
+  res.json({ token: invite.token, link, expiresAt: null });
 };
 
 const submitInvitation = async (req, res) => {
@@ -55,7 +57,9 @@ const submitInvitation = async (req, res) => {
   const invite = await Invitation.findOne({ token });
 
   if (!invite) return res.status(404).json({ message: 'Convite inválido' });
-  if (invite.expiresAt && invite.expiresAt < new Date()) {
+  
+  // Apenas verifica expiração se não for o token permanente ou se explicitamente configurado
+  if (invite.token !== PERMANENT_TOKEN && invite.expiresAt && invite.expiresAt < new Date()) {
     return res.status(400).json({ message: 'Convite expirado' });
   }
 

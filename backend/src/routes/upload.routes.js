@@ -12,5 +12,6 @@ const upload = multer({
 });
 
 router.post('/person-photo', auth, requireRole('admin', 'master'), upload.single('file'), controller.uploadPersonPhoto);
+router.post('/person-photo/public', upload.single('file'), controller.uploadPersonPhoto);
 
 module.exports = router;
