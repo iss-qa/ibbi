@@ -3,16 +3,29 @@ const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
 
-// Lazy load puppeteer to prevent boot-time crashes if missing/unsupported
+// Detecta se está rodando em ambiente serverless real (AWS Lambda, Vercel, etc.)
+// NODE_ENV=production sozinho não é suficiente — ambientes locais também podem usar production
+const IS_SERVERLESS = Boolean(
+  process.env.AWS_LAMBDA_FUNCTION_NAME ||   // AWS Lambda
+  process.env.VERCEL ||                     // Vercel
+  process.env.NETLIFY ||                    // Netlify
+  process.env.FORCE_SERVERLESS_CHROMIUM     // Flag manual de override
+);
+
+// Pré-carrega o puppeteer correto com fallback inteligente
 let puppeteer;
 try {
-  if (process.env.NODE_ENV === 'production') {
-    puppeteer = require('puppeteer-core');
-  } else {
-    puppeteer = require('puppeteer');
-  }
+  // Tenta primeiro o puppeteer normal (funciona em dev e servidores VPS/dedicados)
+  puppeteer = require('puppeteer');
+  console.log('[IMAGE SERVICE] Usando puppeteer local.');
 } catch (e) {
-  console.warn('[IMAGE SERVICE] Puppeteer não pôde ser pré-carregado. Será tentado carregar em runtime.');
+  try {
+    // Fallback para ambientes serverless onde puppeteer-core + chromium são usados
+    puppeteer = require('puppeteer-core');
+    console.log('[IMAGE SERVICE] Usando puppeteer-core (serverless mode).');
+  } catch (e2) {
+    console.warn('[IMAGE SERVICE] Puppeteer não pôde ser pré-carregado. Será tentado em runtime.');
+  }
 }
 
 async function tryFetchImageAsBase64(url) {
@@ -78,7 +91,8 @@ const generateBirthdayCard = async (person, format = 'portrait', options = {}) =
 
   let browser;
   try {
-    if (process.env.NODE_ENV === 'production') {
+    if (IS_SERVERLESS) {
+      // Ambiente serverless (Lambda, Vercel): usa chromium binário mínimo
       const chromium = require('@sparticuz/chromium');
       const puppeteerCore = require('puppeteer-core');
       browser = await puppeteerCore.launch({
@@ -88,6 +102,7 @@ const generateBirthdayCard = async (person, format = 'portrait', options = {}) =
         headless: chromium.headless,
       });
     } else {
+      // Ambiente local / VPS / servidor dedicado: usa puppeteer normal
       const puppeteerLocal = require('puppeteer');
       browser = await puppeteerLocal.launch({
         headless: 'new',

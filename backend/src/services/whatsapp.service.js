@@ -13,7 +13,10 @@ const sanitizeNumber = (input) => {
 const resolveRecipient = (input) => {
   const mock = process.env.MOCK_WHATSAPP_NUMBER;
   const forceMock = process.env.FORCE_MOCK_RECIPIENT === 'true';
-  if (forceMock && mock) return sanitizeNumber(mock);
+  if (forceMock && mock) {
+    console.warn(`[WHATSAPP] ⚠️  MODO MOCK ATIVO — redirecionando ${input} → ${mock}`);
+    return sanitizeNumber(mock);
+  }
   return sanitizeNumber(input);
 };
 
