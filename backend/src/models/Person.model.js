@@ -53,6 +53,12 @@ const PersonSchema = new mongoose.Schema(
     acompanhadoTipo: { type: String, enum: ['membro', 'manual'] },
     acompanhadoPersonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Person' },
     acompanhadoNome: { type: String, trim: true },
+    matricula: { type: Number, unique: true, sparse: true },
+    tipoSanguineo: { type: String, enum: ['A', 'B', 'AB', 'O'] },
+    fatorRh: { type: String, enum: ['+', '-'] },
+    alergias: { type: String, trim: true },
+    contatoEmergenciaNome: { type: String, trim: true },
+    contatoEmergenciaTel: { type: String, trim: true },
   },
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
@@ -65,12 +71,18 @@ PersonSchema.virtual('idade').get(function idade() {
   return hoje < aniversarioEsteAno ? ano - 1 : ano;
 });
 
-PersonSchema.pre('save', function enforceBusinessRules(next) {
+PersonSchema.pre('save', async function enforceBusinessRules(next) {
   if (this.batizado) {
     this.tipo = 'membro';
   }
   if (this.status === 'inativo' && !this.motivoInativacao) {
     return next(new Error('motivoInativacao é obrigatório quando status = inativo'));
+  }
+  // Auto-generate matricula if missing
+  if (!this.matricula) {
+    const PersonModel = mongoose.model('Person');
+    const last = await PersonModel.findOne({ matricula: { $exists: true } }).sort({ matricula: -1 }).select('matricula').lean();
+    this.matricula = (last?.matricula || 0) + 1;
   }
   return next();
 });

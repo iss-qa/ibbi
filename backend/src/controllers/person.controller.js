@@ -304,6 +304,39 @@ const importCsv = async (req, res) => {
   return res.json({ created: created.length, skipped: skipped.length, skippedDetails: skipped });
 };
 
+const updateHealth = async (req, res) => {
+  const allowed = ['tipoSanguineo', 'fatorRh', 'alergias', 'contatoEmergenciaNome', 'contatoEmergenciaTel'];
+  const enumFields = ['tipoSanguineo', 'fatorRh'];
+  const setFields = {};
+  const unsetFields = {};
+
+  allowed.forEach((key) => {
+    if (req.body[key] === undefined) return;
+    // Empty strings on enum fields must be unset, not set to ''
+    if (enumFields.includes(key) && req.body[key] === '') {
+      unsetFields[key] = '';
+    } else {
+      setFields[key] = req.body[key];
+    }
+  });
+
+  const update = {};
+  if (Object.keys(setFields).length) update.$set = setFields;
+  if (Object.keys(unsetFields).length) update.$unset = unsetFields;
+
+  if (!Object.keys(update).length) {
+    return res.status(400).json({ message: 'Nenhum dado enviado' });
+  }
+
+  const person = await Person.findByIdAndUpdate(
+    req.params.id,
+    update,
+    { new: true, runValidators: true }
+  );
+  if (!person) return res.status(404).json({ message: 'Pessoa não encontrada' });
+  return res.json(person);
+};
+
 module.exports = {
   list,
   getById,
@@ -311,4 +344,5 @@ module.exports = {
   update,
   remove,
   importCsv,
+  updateHealth,
 };
