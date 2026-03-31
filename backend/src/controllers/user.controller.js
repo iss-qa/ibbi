@@ -5,19 +5,35 @@ const { buildUniqueLogin } = require('../utils/login');
 const { getUserCongregacao } = require('../utils/access');
 
 const list = async (req, res) => {
+  const { page = 1, limit = 10, search = '' } = req.query;
   const users = await User.find().populate('personId', 'congregacao').sort({ createdAt: -1 });
   const userCongregacao = req.user.role === 'admin' ? await getUserCongregacao(req.user) : null;
-  const visibleUsers = req.user.role === 'master'
+  
+  let visibleUsers = req.user.role === 'master'
     ? users
     : users.filter((user) => user.personId?.congregacao === userCongregacao);
 
-  res.json(visibleUsers.map((user) => {
-    const json = user.toJSON();
-    return {
-      ...json,
-      congregacao: user.personId?.congregacao || '',
-    };
-  }));
+  if (search) {
+    const s = search.toLowerCase();
+    visibleUsers = visibleUsers.filter(u => u.nome?.toLowerCase().includes(s) || u.login?.toLowerCase().includes(s));
+  }
+
+  const total = visibleUsers.length;
+  const skip = (Number(page) - 1) * Number(limit);
+  const paginated = visibleUsers.slice(skip, skip + Number(limit));
+
+  res.json({
+    items: paginated.map((user) => {
+      const json = user.toJSON();
+      return {
+        ...json,
+        congregacao: user.personId?.congregacao || '',
+      };
+    }),
+    total,
+    page: Number(page),
+    limit: Number(limit)
+  });
 };
 
 const createUser = async (req, res) => {

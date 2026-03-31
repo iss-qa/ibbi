@@ -600,13 +600,16 @@ export default function CarteirinhaModal({ person, onClose }) {
     }
   };
 
-  // Share via WhatsApp — sends text + PNG image of the card
+  // Share via WhatsApp — envia direto pelo Backend via Evolution API
   const handleWhatsApp = async () => {
     const celular = personData.celular;
-    if (!celular) return;
+    if (!celular) {
+      alert('Membro não possui número de celular cadastrado.');
+      return;
+    }
+    
     setDownloading('whatsapp');
 
-    const phone = celular.startsWith('55') ? celular : `55${celular}`;
     const messageText =
       `🙏 Paz do Senhor, *${personData.nome}*!\n\n` +
       `É com alegria que compartilhamos sua *Carteirinha de Membro* da Igreja Batista Bíblica Israel! 🪪\n\n` +
@@ -615,36 +618,25 @@ export default function CarteirinhaModal({ person, onClose }) {
       `_${CHURCH.name}_`;
 
     try {
-      // Generate the card front as PNG
+      // Generates the card front as PNG base64
       const canvas = await captureCard(hiddenFrontRef);
+      if (!canvas) throw new Error('Falha ao gerar a imagem do cartão');
+      
+      const base64Image = canvas.toDataURL('image/png');
 
-      if (canvas && navigator.canShare) {
-        // Convert canvas to blob/file
-        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-        const file = new File([blob], `Carteirinha-IBBI-${firstName}.png`, { type: 'image/png' });
-
-        // Check if browser supports sharing files
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({
-            text: messageText,
-            files: [file],
-          });
-          setDownloading('');
-          return;
-        }
-      }
+      await api.post('/messages/send-carteirinha', {
+        personId: personData._id,
+        base64Image,
+        mensagem: messageText
+      });
+      
+      alert('🎉 Carteirinha enviada com sucesso para o membro!');
     } catch (err) {
-      // User cancelled share or API not supported — fall back to wa.me
-      if (err.name === 'AbortError') {
-        setDownloading('');
-        return;
-      }
+      console.error('Erro ao enviar carteirinha:', err);
+      alert(err?.response?.data?.message || err.message || 'Erro ao enviar carteirinha via WhatsApp.');
+    } finally {
+      setDownloading('');
     }
-
-    // Fallback: open wa.me with text only
-    const encoded = encodeURIComponent(messageText);
-    window.open(`https://wa.me/${phone}?text=${encoded}`, '_blank');
-    setDownloading('');
   };
 
   return (

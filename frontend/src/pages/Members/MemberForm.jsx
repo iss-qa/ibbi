@@ -1,8 +1,9 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { CONGREGACOES } from '../../constants/congregacoes';
 import { formatPhoneBR } from '../../utils/phoneMask';
 import api from '../../services/api';
 import doveDefault from '../../assets/dove_ia.png';
+import CustomSelect from '../../components/CustomSelect';
 
 const initialState = {
   nome: '',
@@ -27,8 +28,19 @@ const initialState = {
 
 const TIPOS = ['congregado', 'membro', 'visitante', 'novo decidido', 'criança'];
 
+const MINISTERIOS = {
+  'Ministério Pastoral': ['Pastor', 'Pastor Auxiliar', 'Evangelista', 'Missionário'],
+  'Ministério de Louvor — Levitas': ['Levita — Vocais (Voz)', 'Levita — Instrumentos (Músico)', 'Levita — Sonoplastia / Técnico de Som', 'Levita — Projeção / Mídia', 'Levita — Transmissão / Live'],
+  'Ministério Diaconal': ['Diácono', 'Diaconisa'],
+  'Ministério da Palavra': ['Professor de Escola Bíblica Dominical (EBD)', 'Líder de Célula / Grupo', 'Obreiro / Obreria'],
+  'Ministério com Crianças e Jovens': ['Líder do Ministério Infantil', 'Professor de Crianças', 'Líder de Jovens / Adolescentes', 'Auxiliar de Jovens'],
+  'Ministério de Oração e Intercessão': ['Intercessor', 'Líder de Oração'],
+  'Missões e Evangelismo': ['Evangelista Local', 'Missionário'],
+  'Apoio e Administração': ['Secretário(a) da Igreja', 'Tesoureiro(a)', 'Porteiro / Recepcionista', 'Auxiliar de Limpeza / Zeladoria']
+};
+
 const fieldClass =
-  'w-full border border-slate-200 rounded-lg px-3 py-2.5 sm:py-1.5 text-lg sm:text-base text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition placeholder:text-slate-300 min-h-[44px] sm:min-h-[32px] sm:h-8';
+  'w-full border border-slate-200 rounded-lg px-3 py-2.5 sm:py-2 text-[16px] sm:text-base text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition placeholder:text-slate-300 min-h-[44px] sm:min-h-[36px]';
 
 const labelClass = 'block text-xs font-medium text-slate-500 mb-1';
 
@@ -40,6 +52,29 @@ function Field({ label, children }) {
     </div>
   );
 }
+
+const calculateAge = (birthday) => {
+  if (!birthday) return null;
+  const birthDate = new Date(birthday + 'T12:00:00Z');
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const m = today.getMonth() - birthDate.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+    age--;
+  }
+  return age;
+};
+
+const determineGroup = (age) => {
+  if (age === null || isNaN(age)) return '';
+  if (age <= 9) return 'criança';
+  if (age <= 17) return 'adolescente';
+  if (age <= 35) return 'jovem';
+  if (age <= 50) return 'adulto 1';
+  if (age <= 60) return 'adulto 2';
+  if (age <= 75) return 'idoso';
+  return 'ancião';
+};
 
 async function optimizeImage(file) {
   const imageUrl = URL.createObjectURL(file);
@@ -104,8 +139,28 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
   const [preview, setPreview] = useState(getInitialPreview());
   const fileInputRef = useRef(null);
 
+  const currentAge = calculateAge(form.dataNascimento);
+
+  // Auto-preenche o grupo se houver mudança de idade
+  useEffect(() => {
+    if (currentAge !== null && !isNaN(currentAge)) {
+      const autoGroup = determineGroup(currentAge);
+      if (autoGroup && form.grupo !== autoGroup) {
+        setForm((prev) => ({ ...prev, grupo: autoGroup }));
+      }
+    }
+  }, [currentAge]);
+
   const handleChange = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === 'dataNascimento') {
+        const age = calculateAge(value);
+        const autoGroup = determineGroup(age);
+        if (autoGroup) next.grupo = autoGroup;
+      }
+      return next;
+    });
   };
 
   const handleTipoChange = (tipo) => {
@@ -194,9 +249,9 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-0 w-full max-w-full overflow-x-hidden">
-      <fieldset disabled={readOnly} className="contents flex-1 flex flex-col">
+      <fieldset disabled={readOnly} className="w-full flex-1 flex flex-col">
       {/* ── Header: Foto + Nome ─────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 px-4 sm:px-6 pt-5 pb-4 w-full max-w-full overflow-x-hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 px-4 sm:px-6 pt-5 pb-4 w-full max-w-full">
         {/* Foto */}
         <div className="flex flex-col items-center gap-1 shrink-0">
           <input
@@ -263,7 +318,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-3 mt-4 w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-[1fr_minmax(0,1fr)_max-content] gap-4 sm:gap-3 mt-4 w-full items-start">
             <div className="min-w-0">
               <label className={labelClass}>Tipo</label>
               <div className="flex flex-wrap gap-1.5">
@@ -295,20 +350,58 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
             </div>
 
             <Field label="Congregação">
-              <select className={fieldClass} value={lockedCongregacao || form.congregacao} onChange={(e) => handleChange('congregacao', e.target.value)} disabled={Boolean(lockedCongregacao)}>
-                {CONGREGACOES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
+              <CustomSelect
+                value={lockedCongregacao || form.congregacao}
+                onChange={(v) => handleChange('congregacao', v)}
+                disabled={Boolean(lockedCongregacao)}
+                options={CONGREGACOES.map((c) => ({ value: c, label: c }))}
+              />
             </Field>
+
+            <div className="flex flex-col sm:items-end justify-start min-w-0">
+              <label className={labelClass}>Status</label>
+              <div className="flex items-center gap-3 bg-white border border-slate-200 px-3 py-1.5 rounded-lg h-[44px] sm:h-[32px]">
+                <span className={`text-xs font-medium uppercase tracking-wider ${form.status === 'ativo' ? 'text-blue-600' : 'text-slate-400'}`}>
+                  {form.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  disabled={readOnly}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-100 ${form.status === 'ativo' ? 'bg-blue-600' : 'bg-slate-300'}`}
+                  onClick={() => handleChange('status', form.status === 'ativo' ? 'inativo' : 'ativo')}
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${form.status === 'ativo' ? 'translate-x-4' : 'translate-x-0'}`} />
+                </button>
+              </div>
+            </div>
           </div>
+
+          {form.status === 'inativo' && (
+            <div className="mt-3 w-full">
+              <Field label="Motivo da inativação">
+                <CustomSelect
+                  value={form.motivoInativacao}
+                  onChange={(v) => handleChange('motivoInativacao', v)}
+                  placeholder="Selecione"
+                  options={[
+                    { value: 'falecimento', label: 'Falecimento' },
+                    { value: 'desvio doutrinário', label: 'Desvio doutrinário' },
+                    { value: 'mudança de endereço', label: 'Mudança de endereço' },
+                    { value: 'desconhecido', label: 'Desconhecido' },
+                    { value: 'outro', label: 'Outro' },
+                  ]}
+                />
+              </Field>
+            </div>
+          )}
         </div>
       </div>
 
       <div className="border-t border-slate-100 mx-6" />
 
       {/* ── Informações Pessoais ────────────────────────────── */}
-      <div className="px-4 sm:px-6 pt-3 pb-3 w-full max-w-full overflow-x-hidden">
+      <div className="px-4 sm:px-6 pt-3 pb-3 w-full overflow-hidden">
         <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2.5">Informações pessoais</p>
         {isCompactTipo ? (
           <div className="grid grid-cols-1 gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
@@ -333,11 +426,14 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
               </Field>
             )}
             <Field label="Sexo">
-              <select className={fieldClass} value={form.sexo} onChange={(e) => handleChange('sexo', e.target.value)}>
-                <option value="">—</option>
-                <option value="Masculino">Masculino</option>
-                <option value="Feminino">Feminino</option>
-              </select>
+              <CustomSelect
+                value={form.sexo}
+                onChange={(v) => handleChange('sexo', v)}
+                options={[
+                  { value: 'Masculino', label: 'Masculino' },
+                  { value: 'Feminino', label: 'Feminino' },
+                ]}
+              />
             </Field>
             <Field label="Celular (WhatsApp)">
               <input
@@ -352,7 +448,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
         ) : (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
-              <Field label="Nascimento">
+              <Field label={<>Nascimento {currentAge !== null && !isNaN(currentAge) ? <span className="text-slate-400 font-normal ml-0.5 lowercase">({currentAge} anos)</span> : null}</>}>
                 <input
                   type="date"
                   className={fieldClass}
@@ -361,34 +457,43 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
                 />
               </Field>
               <Field label="Sexo">
-                <select className={fieldClass} value={form.sexo} onChange={(e) => handleChange('sexo', e.target.value)}>
-                  <option value="">—</option>
-                  <option value="Masculino">Masculino</option>
-                  <option value="Feminino">Feminino</option>
-                </select>
+                <CustomSelect
+                  value={form.sexo}
+                  onChange={(v) => handleChange('sexo', v)}
+                  options={[
+                    { value: 'Masculino', label: 'Masculino' },
+                    { value: 'Feminino', label: 'Feminino' },
+                  ]}
+                />
               </Field>
               <Field label="Estado civil">
-                <select className={fieldClass} value={form.estadoCivil} onChange={(e) => handleChange('estadoCivil', e.target.value)}>
-                  <option value="">—</option>
-                  <option value="solteiro(a)">solteiro(a)</option>
-                  <option value="casado(a)">casado(a)</option>
-                  <option value="divorciado(a)">divorciado(a)</option>
-                  <option value="viúvo(a)">viúvo(a)</option>
-                  <option value="separado(a)">separado(a)</option>
-                  <option value="união estável">união estável</option>
-                </select>
+                <CustomSelect
+                  value={form.estadoCivil}
+                  onChange={(v) => handleChange('estadoCivil', v)}
+                  options={[
+                    { value: 'solteiro(a)', label: 'Solteiro(a)' },
+                    { value: 'casado(a)', label: 'Casado(a)' },
+                    { value: 'divorciado(a)', label: 'Divorciado(a)' },
+                    { value: 'viúvo(a)', label: 'Viúvo(a)' },
+                    { value: 'separado(a)', label: 'Separado(a)' },
+                    { value: 'união estável', label: 'União estável' },
+                  ]}
+                />
               </Field>
               <Field label="Grupo">
-                <select className={fieldClass} value={form.grupo} onChange={(e) => handleChange('grupo', e.target.value)}>
-                  <option value="">—</option>
-                  <option value="criança">criança - 0 a 9 anos</option>
-                  <option value="adolescente">adolescente - 10 a 17 anos</option>
-                  <option value="jovem">jovem - 18 a 35 anos</option>
-                  <option value="adulto 1">adulto 1 - 36 a 50 anos</option>
-                  <option value="adulto 2">adulto 2 - 51 a 60 anos</option>
-                  <option value="idoso">idoso - 61 a 75 anos</option>
-                  <option value="ancião">ancião - acima de 76 anos</option>
-                </select>
+                <CustomSelect
+                  value={form.grupo}
+                  onChange={(v) => handleChange('grupo', v)}
+                  options={[
+                    { value: 'criança', label: 'Criança — 0 a 9 anos' },
+                    { value: 'adolescente', label: 'Adolescente — 10 a 17 anos' },
+                    { value: 'jovem', label: 'Jovem — 18 a 35 anos' },
+                    { value: 'adulto 1', label: 'Adulto 1 — 36 a 50 anos' },
+                    { value: 'adulto 2', label: 'Adulto 2 — 51 a 60 anos' },
+                    { value: 'idoso', label: 'Idoso — 61 a 75 anos' },
+                    { value: 'ancião', label: 'Ancião — acima de 76 anos' },
+                  ]}
+                />
               </Field>
             </div>
 
@@ -430,68 +535,52 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
           <div className="border-t border-slate-100 mx-6" />
 
           {/* ── Perfil na Igreja ────────────────────────────────── */}
-          <div className="px-4 sm:px-6 pt-3 pb-3 w-full max-w-full overflow-x-hidden">
+          <div className="px-4 sm:px-6 pt-3 pb-3 w-full overflow-hidden">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2.5">Perfil na igreja</p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
-          <Field label="Ministério">
-            <input
-              className={fieldClass}
-              placeholder="Ex: louvor, jovens..."
-              value={form.ministerio}
-              onChange={(e) => handleChange('ministerio', e.target.value)}
-            />
-          </Field>
-          <Field label="Status">
-            <select className={fieldClass} value={form.status} onChange={(e) => handleChange('status', e.target.value)}>
-              <option value="ativo">ativo</option>
-              <option value="inativo">inativo</option>
-            </select>
-          </Field>
-            </div>
-
-            {form.status === 'inativo' && (
-              <div className="mb-3">
-                <Field label="Motivo da inativação">
-                  <select
-                    className={fieldClass}
-                    value={form.motivoInativacao}
-                    onChange={(e) => handleChange('motivoInativacao', e.target.value)}
-                    required
-                  >
-                    <option value="">Selecione</option>
-                    <option value="falecimento">falecimento</option>
-                    <option value="desvio doutrinário">desvio doutrinário</option>
-                    <option value="mudança de endereço">mudança de endereço</option>
-                    <option value="desconhecido">desconhecido</option>
-                    <option value="outro">outro</option>
-                  </select>
+            <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
+              <div className="flex-1 w-full sm:min-w-[200px]">
+                <Field label="Ministério">
+                  <CustomSelect
+                    value={form.ministerio}
+                    onChange={(v) => handleChange('ministerio', v)}
+                    placeholder="— Nenhum —"
+                    options={[
+                      { value: '', label: '— Nenhum —' },
+                      ...Object.entries(MINISTERIOS).map(([grupo, opcoes]) => ({
+                        group: grupo,
+                        options: opcoes.map((op) => ({ value: op, label: op })),
+                      })),
+                    ]}
+                  />
                 </Field>
               </div>
-            )}
 
-            <div className="flex items-center gap-3 flex-wrap">
-              <label className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-sm text-slate-600 font-medium transition select-none">
-                <input
-                  type="checkbox"
-                  className="accent-blue-600 w-3.5 h-3.5"
-                  checked={form.batizado}
-                  onChange={(e) => handleChange('batizado', e.target.checked)}
-                />
-                <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                Batizado?
-              </label>
-              {form.batizado && (
-                <div className="flex items-center gap-2">
-                  <label className={labelClass + ' mb-0'}>Data do batismo</label>
+              <div className="shrink-0 flex items-center h-[44px] sm:h-[32px]">
+                <label className="flex items-center gap-2 px-3 h-full rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-sm text-slate-600 font-medium transition select-none">
                   <input
-                    type="date"
-                    className={fieldClass + ' w-auto'}
-                    value={form.dataBatismo}
-                    onChange={(e) => handleChange('dataBatismo', e.target.value)}
+                    type="checkbox"
+                    className="accent-blue-600 w-3.5 h-3.5"
+                    checked={form.batizado}
+                    onChange={(e) => handleChange('batizado', e.target.checked)}
                   />
+                  <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Batizado?
+                </label>
+              </div>
+
+              {form.batizado && (
+                <div className="flex-1 w-full sm:min-w-[150px]">
+                  <Field label="Data do batismo">
+                    <input
+                      type="date"
+                      className={fieldClass}
+                      value={form.dataBatismo}
+                      onChange={(e) => handleChange('dataBatismo', e.target.value)}
+                    />
+                  </Field>
                 </div>
               )}
             </div>
@@ -501,17 +590,8 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
 
        </fieldset>
       {/* ── Footer ─────────────────────────────────────────── */}
-      <div className="border-t border-slate-100 px-4 sm:px-6 py-4 bg-slate-50 flex flex-col sm:flex-row justify-end gap-3 sticky bottom-0 z-10 mt-auto w-full max-w-full overflow-x-hidden">
-        {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-4 py-3 sm:py-2 rounded-lg border border-slate-200 text-base sm:text-sm font-medium text-slate-600 bg-white hover:bg-slate-50 transition min-h-[44px] w-full sm:w-auto disabled:opacity-50"
-          >
-            {readOnly ? 'Fechar' : 'Cancelar'}
-          </button>
-        )}
-        {!readOnly && (
+      {!readOnly && (
+        <div className="border-t border-slate-100 px-4 sm:px-6 py-4 bg-slate-50 flex justify-end sticky bottom-0 z-10 mt-auto w-full overflow-hidden">
           <button
             type="submit"
             disabled={submitting}
@@ -527,8 +607,8 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
               </>
             ) : 'Salvar'}
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </form>
   );
 }

@@ -140,14 +140,18 @@ const list = async (req, res) => {
   filter = await applyScopedCongregacaoFilter(req.user, filter, congregacao);
 
   const skip = (Number(page) - 1) * Number(limit);
-  const [items, total] = await Promise.all([
+  const [items, total, ativos, inativos] = await Promise.all([
     Person.find(filter).sort({ nome: 1 }).skip(skip).limit(Number(limit)),
     Person.countDocuments(filter),
+    Person.countDocuments({ ...filter, status: 'ativo' }),
+    Person.countDocuments({ ...filter, status: 'inativo' }),
   ]);
 
   return res.json({
     items,
     total,
+    ativos,
+    inativos,
     page: Number(page),
     limit: Number(limit),
   });

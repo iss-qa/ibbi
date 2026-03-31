@@ -170,6 +170,32 @@ const sendBirthdayNow = async (req, res) => {
   res.json({ message: 'Envio de aniversários disparado' });
 };
 
+const sendCarteirinha = async (req, res) => {
+  try {
+    const { personId, base64Image, mensagem } = req.body;
+    const person = await Person.findById(personId);
+    if (!person || !person.celular) {
+      return res.status(400).json({ message: 'Membro inválido ou sem celular cadastrado' });
+    }
+
+    await whatsapp.sendMedia(person.celular, mensagem, base64Image);
+
+    await Message.create({
+      tipo: 'documento',
+      destinatarios: [{ nome: person.nome, celular: person.celular }],
+      conteudo: 'Envio de Carteirinha de Membro',
+      status: 'concluido',
+      enviadoPor: req.user._id,
+      concluidoEm: new Date(),
+    });
+
+    res.json({ message: 'Carteirinha enviada com sucesso ao membro' });
+  } catch (err) {
+    console.error('Erro ao enviar carteirinha:', err);
+    res.status(500).json({ message: err.message || 'Erro ao enviar carteirinha' });
+  }
+};
+
 const sendBirthdayImage = async (req, res) => {
   try {
     const { personId } = req.body;
@@ -230,5 +256,6 @@ module.exports = {
   cancelQueue,
   sendBirthdayNow,
   sendBirthdayImage,
+  sendCarteirinha,
   resendMessage,
 };

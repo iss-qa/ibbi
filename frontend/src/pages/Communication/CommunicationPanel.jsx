@@ -365,7 +365,7 @@ export default function CommunicationPanel() {
                 value={filters.tipo}
                 onChange={(e) => setFilters((f) => ({ ...f, tipo: e.target.value }))}
               >
-              <option value="">Todos os tipos</option>
+                <option value="">Tipos</option>
                 <option value="aniversario">aniversário</option>
                 <option value="novo cadastro">novo cadastro</option>
                 <option value="reunião">reunião</option>
@@ -407,7 +407,7 @@ export default function CommunicationPanel() {
                       <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-lg shrink-0 mt-1">
                         {TIPO_ICON[row.tipo] || '💬'}
                       </div>
-                      
+
                       <div className="flex flex-col min-w-0 flex-1 pr-6">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
                           <span className="text-sm font-semibold text-slate-700 capitalize truncate">{normalizeTipo(row.tipo)}</span>
@@ -437,7 +437,7 @@ export default function CommunicationPanel() {
                         </svg>
                       </div>
                     </div>
-                    
+
                     {/* Arrow no topo com posição absoluta para o mobile */}
                     <svg className="w-5 h-5 text-slate-300 group-hover:text-slate-400 transition absolute top-5 right-4 sm:hidden" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
@@ -468,11 +468,10 @@ export default function CommunicationPanel() {
                     <button
                       key={p}
                       onClick={() => setLogPage(p)}
-                      className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-medium transition ${
-                        p === logPage
+                      className={`w-8 h-8 flex items-center justify-center rounded-lg text-xs font-medium transition ${p === logPage
                           ? 'bg-ibbiNavy text-white'
                           : 'border border-slate-200 text-slate-600 hover:bg-slate-100'
-                      }`}
+                        }`}
                     >
                       {p}
                     </button>

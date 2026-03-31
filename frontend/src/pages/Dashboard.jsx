@@ -171,15 +171,20 @@ export default function Dashboard() {
           <h3 className="font-display text-lg text-ibbiNavy">Membros por congregação</h3>
           <p className="text-xs text-slate-400 mb-4">Total por congregação</p>
           {loading.congregation ? (
-            <Skeleton />
+            <div className="h-[350px] w-full animate-pulse bg-stone-100 rounded-xl" />
           ) : (
-            <div className="h-56">
+            <div className="h-[350px]">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={byCongregation} layout="vertical">
+                <BarChart data={byCongregation} layout="vertical" margin={{ top: 5, right: 40, left: 10, bottom: 5 }}>
                   <XAxis type="number" />
-                  <YAxis dataKey="congregacao" type="category" width={120} />
+                  <YAxis dataKey="congregacao" type="category" width={110} interval={0} tick={{ fontSize: 12, fill: '#475569' }} />
                   <Tooltip />
-                  <Bar dataKey="total" fill="#c9a227" radius={[6, 6, 6, 6]} />
+                  <Bar 
+                    dataKey="total" 
+                    fill="#c9a227" 
+                    radius={[0, 6, 6, 0]} 
+                    label={{ position: 'right', fill: '#0a1f44', fontSize: 13, fontWeight: 'bold' }} 
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -190,12 +195,21 @@ export default function Dashboard() {
           <h3 className="font-display text-lg text-ibbiNavy">Distribuição por grupo</h3>
           <p className="text-xs text-slate-400 mb-4">Proporção por grupo</p>
           {loading.group ? (
-            <Skeleton />
+            <div className="h-[350px] w-full animate-pulse bg-stone-100 rounded-xl" />
           ) : (
-            <div className="h-56">
+            <div className="h-[350px]">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie data={byGroup} dataKey="total" nameKey="grupo" innerRadius={50} outerRadius={80} paddingAngle={3}>
+                <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                  <Pie 
+                    data={byGroup} 
+                    dataKey="total" 
+                    nameKey="grupo" 
+                    innerRadius={60} 
+                    outerRadius={90} 
+                    paddingAngle={3}
+                    labelLine={true}
+                    label={({ name, value }) => `${name}: ${value}`}
+                  >
                     {byGroup.map((entry, index) => (
                       <Cell key={`cell-${entry.grupo}`} fill={COLORS[index % COLORS.length]} />
                     ))}

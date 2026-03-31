@@ -36,13 +36,13 @@ export default function App() {
                     onClick={() => setSidebarOpen(false)}
                   />
                 )}
-                <main className="flex-1 p-4 md:p-10 ml-0 md:ml-0">
-                  <div className="flex items-center justify-between mb-4">
+                <main className="flex-1 p-4 md:p-10 ml-0 relative max-w-full lg:max-w-[calc(100vw-256px)] overflow-x-hidden flex flex-col">
+                  <div className="md:hidden absolute top-5 left-4 z-20">
                     <button
-                      className="md:hidden border rounded-lg px-3 py-2"
+                      className="p-1 text-ibbiNavy -ml-1 transition hover:bg-black/5 rounded"
                       onClick={() => setSidebarOpen(true)}
                     >
-                      Menu
+                      <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16M4 18h16" /></svg>
                     </button>
                   </div>
                   <Routes>

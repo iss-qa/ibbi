@@ -11,15 +11,25 @@ export default function UserManagement() {
   const [memberResults, setMemberResults] = useState([]);
   const [selectedMember, setSelectedMember] = useState(null);
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [total, setTotal] = useState(0);
+
+  const totalPages = Math.ceil(total / limit);
 
   const load = async () => {
-    const { data } = await api.get('/users');
-    setUsers(data);
+    const { data } = await api.get('/users', { params: { search, page, limit } });
+    if (Array.isArray(data)) {
+      setUsers(data);
+      setTotal(data.length);
+    } else {
+      setUsers(data.items || []);
+      setTotal(data.total || 0);
+    }
   };
 
-  useEffect(() => {
-    load();
-  }, []);
+  useEffect(() => { setPage(1); }, [search]);
+  useEffect(() => { load(); }, [search, page, limit]);
 
   const searchMembers = async (value) => {
     setMemberSearch(value);
@@ -101,7 +111,6 @@ export default function UserManagement() {
             </thead>
             <tbody>
               {users
-                .filter((user) => user.nome?.toLowerCase().includes(search.toLowerCase()))
                 .map((user) => (
                 <tr key={user._id} className="border-b hover:bg-slate-50 transition">
                   <td className="px-4 py-3">{user.nome}</td>
@@ -146,7 +155,6 @@ export default function UserManagement() {
 
         <div className="md:hidden flex flex-col gap-3">
           {users
-            .filter((user) => user.nome?.toLowerCase().includes(search.toLowerCase()))
             .map((user) => (
             <div key={user._id} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-3 bg-white">
               <div className="flex items-start justify-between gap-2">
@@ -194,6 +202,30 @@ export default function UserManagement() {
             </div>
           ))}
         </div>
+
+        {total > 0 && (
+          <div className="p-4 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between text-sm bg-white gap-3">
+            <span className="text-slate-500">
+              Mostrando {users.length} de {total}
+            </span>
+            <div className="flex gap-2">
+              <button
+                className="px-3 py-1.5 border border-slate-200 rounded text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                Anterior
+              </button>
+              <button
+                className="px-3 py-1.5 border border-slate-200 rounded text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition font-medium"
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages || totalPages === 0}
+              >
+                Próxima
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {showCreate && (

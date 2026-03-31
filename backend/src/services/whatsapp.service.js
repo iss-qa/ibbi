@@ -161,11 +161,16 @@ const sendMedia = async (number, caption, mediaUrl) => {
   const url = `${baseUrl}/message/sendMedia/${instance}`;
   
   let base64Media = '';
-  try {
-    const response = await axios.get(mediaUrl, { responseType: 'arraybuffer' });
-    base64Media = Buffer.from(response.data, 'binary').toString('base64');
-  } catch (e) {
-    throw new Error('Falha ao obter mídia');
+  if (mediaUrl.startsWith('http')) {
+    try {
+      const response = await axios.get(mediaUrl, { responseType: 'arraybuffer' });
+      base64Media = Buffer.from(response.data, 'binary').toString('base64');
+    } catch (e) {
+      throw new Error('Falha ao obter mídia');
+    }
+  } else {
+    // Caso seja enviado a string direta base64 do front-end
+    base64Media = mediaUrl.replace(/^data:image\/[a-z]+;base64,/, "");
   }
 
   const payload = { 
