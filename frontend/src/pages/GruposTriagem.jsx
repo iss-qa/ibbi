@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
+import CustomSelect from '../components/CustomSelect';
 import useAuth from '../hooks/useAuth';
 import api from '../services/api';
 
@@ -48,6 +49,14 @@ const matchesGroupFilters = (person, grupo) => {
 
   return true;
 };
+
+const buildGrupoPayload = (form) => ({
+  nome: String(form.nome || '').trim(),
+  tipo: form.tipo,
+  descricao: String(form.descricao || '').trim(),
+  congregacao: String(form.congregacao || '').trim(),
+  ativo: form.ativo !== false,
+});
 
 function SectionCard({ children, className = '' }) {
   return (
@@ -106,20 +115,37 @@ export default function GruposTriagem() {
   };
 
   const handleSave = async () => {
-    if (!form.nome.trim()) return;
+    const payload = buildGrupoPayload(form);
+
+    if (!payload.nome) {
+      showToast('Informe o nome do grupo.');
+      return;
+    }
+
+    if (!payload.tipo) {
+      showToast('Selecione o tipo do grupo.');
+      return;
+    }
+
+    if (!payload.congregacao) {
+      showToast('Selecione a congregação do grupo.');
+      return;
+    }
+
     setSaving(true);
     try {
       if (editingGrupo) {
-        await api.put(`/triagem-grupos/${editingGrupo._id}`, form);
+        await api.put(`/triagem-grupos/${editingGrupo._id}`, payload);
         showToast('Grupo atualizado com sucesso!');
       } else {
-        await api.post('/triagem-grupos', form);
+        await api.post('/triagem-grupos', payload);
         showToast('Grupo criado com sucesso!');
       }
       setShowForm(false);
       setEditingGrupo(null);
       await loadGrupos();
     } catch (err) {
+      console.error('[TRIAGEM SAVE ERROR]', err?.response?.data || err);
       showToast(err?.response?.data?.message || 'Erro ao salvar grupo');
     }
     setSaving(false);
@@ -411,29 +437,25 @@ export default function GruposTriagem() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Tipo</label>
-                <select
-                  className={inputClass}
+                <CustomSelect
                   value={form.tipo}
-                  onChange={(e) => setForm((f) => ({ ...f, tipo: e.target.value }))}
-                >
-                  <option value="novos_decididos">Novos Decididos</option>
-                  <option value="visitantes">Visitantes</option>
-                  <option value="personalizado">Personalizado</option>
-                </select>
+                  onChange={(value) => setForm((f) => ({ ...f, tipo: value }))}
+                  options={[
+                    { value: 'novos_decididos', label: 'Novos Decididos' },
+                    { value: 'visitantes', label: 'Visitantes' },
+                    { value: 'personalizado', label: 'Personalizado' },
+                  ]}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-slate-700 mb-1">Congregação *</label>
                 {isMaster ? (
-                  <select
-                    className={inputClass}
+                  <CustomSelect
                     value={form.congregacao}
-                    onChange={(e) => setForm((f) => ({ ...f, congregacao: e.target.value }))}
-                  >
-                    <option value="">Selecione...</option>
-                    {CONGREGACOES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
+                    onChange={(value) => setForm((f) => ({ ...f, congregacao: value }))}
+                    placeholder="Selecione..."
+                    options={CONGREGACOES.map((c) => ({ value: c, label: c }))}
+                  />
                 ) : (
                   <input
                     className={`${inputClass} bg-slate-50`}

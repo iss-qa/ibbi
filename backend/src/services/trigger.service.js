@@ -23,7 +23,7 @@ const registrarComunicacao = async (data) => {
 const triggerNovoDecididoWhatsApp = (person, userId) => {
   setImmediate(async () => {
     try {
-      // 1. Send welcome to person
+      // 1. Send welcome to the novo decidido
       if (person.celular) {
         const msg = templates.boasVindasNovoDecidido(
           person.nome,
@@ -32,7 +32,7 @@ const triggerNovoDecididoWhatsApp = (person, userId) => {
         try {
           await whatsapp.sendSingle(person.celular, msg);
           await registrarComunicacao({
-            tipo: 'novo cadastro',
+            tipo: 'novo_decidido',
             destinatarios: [{ nome: person.nome, celular: person.celular }],
             conteudo: msg,
             status: 'concluido',
@@ -42,7 +42,7 @@ const triggerNovoDecididoWhatsApp = (person, userId) => {
           });
         } catch (err) {
           await registrarComunicacao({
-            tipo: 'novo cadastro',
+            tipo: 'novo_decidido',
             destinatarios: [{ nome: person.nome, celular: person.celular }],
             conteudo: msg,
             status: 'erro',
@@ -87,7 +87,7 @@ const triggerNovoDecididoWhatsApp = (person, userId) => {
           try {
             await whatsapp.sendSingle(membro.whatsapp, msgGrupo);
             await registrarComunicacao({
-              tipo: 'novo cadastro',
+              tipo: 'novo_decidido',
               destinatarios: [{ nome: membro.nome, celular: membro.whatsapp }],
               conteudo: msgGrupo,
               status: 'concluido',
@@ -97,7 +97,7 @@ const triggerNovoDecididoWhatsApp = (person, userId) => {
             });
           } catch (err) {
             await registrarComunicacao({
-              tipo: 'novo cadastro',
+              tipo: 'novo_decidido',
               destinatarios: [{ nome: membro.nome, celular: membro.whatsapp }],
               conteudo: msgGrupo,
               status: 'erro',
@@ -118,7 +118,7 @@ const triggerNovoDecididoWhatsApp = (person, userId) => {
 const triggerVisitanteWhatsApp = (person, userId) => {
   setImmediate(async () => {
     try {
-      // 1. Send welcome to person
+      // 1. Send welcome to the visitante
       if (person.celular) {
         const msg = templates.boasVindasVisitante(
           person.nome,
@@ -127,7 +127,7 @@ const triggerVisitanteWhatsApp = (person, userId) => {
         try {
           await whatsapp.sendSingle(person.celular, msg);
           await registrarComunicacao({
-            tipo: 'novo cadastro',
+            tipo: 'visitante',
             destinatarios: [{ nome: person.nome, celular: person.celular }],
             conteudo: msg,
             status: 'concluido',
@@ -137,7 +137,7 @@ const triggerVisitanteWhatsApp = (person, userId) => {
           });
         } catch (err) {
           await registrarComunicacao({
-            tipo: 'novo cadastro',
+            tipo: 'visitante',
             destinatarios: [{ nome: person.nome, celular: person.celular }],
             conteudo: msg,
             status: 'erro',
@@ -182,7 +182,7 @@ const triggerVisitanteWhatsApp = (person, userId) => {
           try {
             await whatsapp.sendSingle(membro.whatsapp, msgGrupo);
             await registrarComunicacao({
-              tipo: 'novo cadastro',
+              tipo: 'visitante',
               destinatarios: [{ nome: membro.nome, celular: membro.whatsapp }],
               conteudo: msgGrupo,
               status: 'concluido',
@@ -192,7 +192,7 @@ const triggerVisitanteWhatsApp = (person, userId) => {
             });
           } catch (err) {
             await registrarComunicacao({
-              tipo: 'novo cadastro',
+              tipo: 'visitante',
               destinatarios: [{ nome: membro.nome, celular: membro.whatsapp }],
               conteudo: msgGrupo,
               status: 'erro',

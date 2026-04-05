@@ -21,6 +21,14 @@ const personMatchesGrupo = (person, grupo) => {
   return true;
 };
 
+const sanitizeGrupoPayload = (body = {}) => ({
+  nome: String(body.nome || '').trim(),
+  tipo: String(body.tipo || '').trim(),
+  descricao: String(body.descricao || '').trim(),
+  congregacao: String(body.congregacao || '').trim(),
+  ativo: body.ativo !== false,
+});
+
 const list = async (req, res) => {
   try {
     const { tipo, ativo } = req.query;
@@ -50,7 +58,7 @@ const getById = async (req, res) => {
 
 const create = async (req, res) => {
   try {
-    const payload = { ...req.body };
+    const payload = sanitizeGrupoPayload(req.body);
     payload.created_by = req.user._id;
 
     // Admin: force congregation from user profile
@@ -65,16 +73,24 @@ const create = async (req, res) => {
     if (!payload.tipo) {
       return res.status(400).json({ message: 'Tipo do grupo é obrigatório' });
     }
-
-    // Clean up: don't send empty arrays that might cause validation issues
-    delete payload.atividades;
-    delete payload.acompanhados;
-    delete payload.membros;
+    if (!payload.congregacao) {
+      return res.status(400).json({ message: 'Congregação do grupo é obrigatória' });
+    }
 
     const grupo = await TriagemGrupo.create(payload);
     return res.status(201).json(grupo);
   } catch (err) {
-    console.error('[TRIAGEM CREATE ERROR]', err.message);
+    console.error('[TRIAGEM CREATE ERROR]', {
+      message: err.message,
+      userId: req.user?._id,
+      role: req.user?.role,
+      body: {
+        nome: req.body?.nome,
+        tipo: req.body?.tipo,
+        congregacao: req.body?.congregacao,
+        ativo: req.body?.ativo,
+      },
+    });
     return res.status(err.status || 500).json({ message: err.message });
   }
 };
@@ -84,7 +100,24 @@ const update = async (req, res) => {
     const grupo = await TriagemGrupo.findById(req.params.id);
     if (!grupo) return res.status(404).json({ message: 'Grupo de triagem não encontrado' });
 
-    const payload = { ...req.body, updated_at: new Date() };
+    const payload = {
+      ...sanitizeGrupoPayload(req.body),
+      updated_at: new Date(),
+    };
+
+    if (req.user.role === 'admin') {
+      payload.congregacao = await getUserCongregacao(req.user);
+    }
+
+    if (!payload.nome) {
+      return res.status(400).json({ message: 'Nome do grupo é obrigatório' });
+    }
+    if (!payload.tipo) {
+      return res.status(400).json({ message: 'Tipo do grupo é obrigatório' });
+    }
+    if (!payload.congregacao) {
+      return res.status(400).json({ message: 'Congregação do grupo é obrigatória' });
+    }
 
     const updated = await TriagemGrupo.findByIdAndUpdate(req.params.id, payload, {
       new: true,
@@ -92,6 +125,12 @@ const update = async (req, res) => {
     });
     return res.json(updated);
   } catch (err) {
+    console.error('[TRIAGEM UPDATE ERROR]', {
+      message: err.message,
+      grupoId: req.params.id,
+      userId: req.user?._id,
+      role: req.user?.role,
+    });
     return res.status(err.status || 500).json({ message: err.message });
   }
 };

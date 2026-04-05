@@ -7,7 +7,13 @@
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "seed": "cd backend && node src/scripts/seed.js",
-    "build": "cd frontend && npm install --include=dev && npm run build && rm -rf ../public && mv dist ../public"
+    "build": "cd frontend && npm install --include=dev && npm run build && rm -rf ../public && mv dist ../public",
+    "test": "npx playwright test",
+    "test:api": "npx playwright test --project=api",
+    "test:e2e": "npx playwright test --project=e2e",
+    "test:health": "npx playwright test --project=health",
+    "test:pre-deploy": "npx playwright test --project=api --project=health",
+    "test:report": "npx playwright show-report tests/report"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.97",
@@ -29,6 +35,7 @@
     "puppeteer-core": "^22.6.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.59.1",
     "concurrently": "^8.2.2"
   }
 }
