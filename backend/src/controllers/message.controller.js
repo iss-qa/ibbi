@@ -6,11 +6,42 @@ const { sendBirthdayMessages } = require('../services/scheduler.service');
 const templates = require('../templates/messages.templates');
 const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
 
+const SUMMARY_TYPE_ORDER = [
+  'aniversario',
+  'oracao',
+  'projeto_amigo',
+  'novo cadastro',
+  'personalizada',
+  'aviso',
+  'documento',
+  'convite',
+  'novo decidido',
+  'visitante',
+  'reunião',
+  'ata',
+];
+
 const applyVariables = (template, person) => {
   if (!template) return '';
   return template
     .replace(/\{nome\}/gi, person?.nome || '')
     .replace(/\{congregacao\}/gi, person?.congregacao || '');
+};
+
+const normalizeSummaryTipo = (tipo) => {
+  if (['aviso - novo cadastro', 'aviso - novo membro'].includes(tipo)) return 'novo cadastro';
+  if (tipo === 'novo_decidido') return 'novo decidido';
+  if (tipo === 'projeto_amigo') return 'projeto_amigo';
+  return tipo;
+};
+
+const formatSummaryLabel = (tipo) => {
+  if (tipo === 'projeto_amigo') return 'Projeto Amigo';
+  if (tipo === 'novo cadastro') return 'Novo cadastro';
+  if (tipo === 'novo decidido') return 'Novo decidido';
+  if (tipo === 'personalizada') return 'Personalizada';
+  if (tipo === 'reunião') return 'Reunião';
+  return tipo.charAt(0).toUpperCase() + tipo.slice(1);
 };
 
 const logAndSendBatch = async ({ tipo, destinatarios, mensagem, enviadoPor }) => {
@@ -141,6 +172,68 @@ const log = async (req, res) => {
   res.json(items);
 };
 
+const summary = async (req, res) => {
+  const [statusCounts, typeCounts] = await Promise.all([
+    Message.aggregate([
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          concluido: {
+            $sum: {
+              $cond: [{ $eq: ['$status', 'concluido'] }, 1, 0],
+            },
+          },
+          enviando: {
+            $sum: {
+              $cond: [{ $eq: ['$status', 'enviando'] }, 1, 0],
+            },
+          },
+          erro: {
+            $sum: {
+              $cond: [{ $eq: ['$status', 'erro'] }, 1, 0],
+            },
+          },
+        },
+      },
+    ]),
+    Message.aggregate([
+      {
+        $group: {
+          _id: '$tipo',
+          count: { $sum: 1 },
+        },
+      },
+    ]),
+  ]);
+
+  const baseStats = statusCounts[0] || { total: 0, concluido: 0, enviando: 0, erro: 0 };
+  const groupedTypes = typeCounts.reduce((acc, item) => {
+    const key = normalizeSummaryTipo(item._id);
+    acc[key] = (acc[key] || 0) + item.count;
+    return acc;
+  }, {});
+
+  const orderedTypeKeys = [
+    ...SUMMARY_TYPE_ORDER,
+    ...Object.keys(groupedTypes).filter((key) => !SUMMARY_TYPE_ORDER.includes(key)),
+  ];
+
+  const byType = orderedTypeKeys.map((key) => ({
+    key,
+    label: formatSummaryLabel(key),
+    count: groupedTypes[key] || 0,
+  }));
+
+  res.json({
+    total: baseStats.total,
+    concluido: baseStats.concluido,
+    enviando: baseStats.enviando,
+    erro: baseStats.erro,
+    byType,
+  });
+};
+
 const prayerLog = async (req, res) => {
   const filter = req.user.role === 'master'
     ? { tipo: 'oracao' }
@@ -236,6 +329,38 @@ const resendMessage = async (req, res) => {
     return res.status(400).json({ message: 'Mensagem sem destinatários' });
   }
 
+  // Birthday messages: re-send text + image via sendBirthdayImage logic
+  if (msg.tipo === 'aniversario') {
+    const erros = [];
+    for (const dest of msg.destinatarios) {
+      try {
+        const person = await Person.findOne({ celular: dest.celular });
+        if (!person) { erros.push({ celular: dest.celular, motivo: 'Pessoa não encontrada' }); continue; }
+
+        const textContent = templates.aniversario(person.nome);
+        await whatsapp.sendSingle(person.celular, textContent);
+
+        const localUrl = `http://localhost:${process.env.PORT || 3001}/api/images/aniversariante/${person._id}?format=portrait`;
+        await whatsapp.sendMedia(person.celular, '', localUrl);
+      } catch (err) {
+        erros.push({ celular: dest.celular, motivo: err.message });
+      }
+    }
+
+    const newLog = await Message.create({
+      tipo: 'aniversario',
+      destinatarios: msg.destinatarios,
+      conteudo: `Reenvio de aniversário (texto + imagem) para ${msg.destinatarios.map(d => d.nome).join(', ')}`,
+      status: erros.length > 0 ? 'erro' : 'concluido',
+      enviadoPor: req.user._id,
+      concluidoEm: new Date(),
+      erros,
+    });
+
+    return res.json({ message: 'Reenvio de aniversário realizado', log: newLog });
+  }
+
+  // Other message types: re-send as batch text
   const log = await logAndSendBatch({
     tipo: msg.tipo,
     destinatarios: msg.destinatarios,
@@ -251,6 +376,7 @@ module.exports = {
   sendByGroup,
   sendByCongregation,
   log,
+  summary,
   prayerLog,
   queueStatus,
   cancelQueue,

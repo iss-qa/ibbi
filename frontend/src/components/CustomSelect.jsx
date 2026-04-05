@@ -25,12 +25,15 @@ export default function CustomSelect({
   const [dropdownMaxHeight, setDropdownMaxHeight] = useState(280);
   const [dropdownStyle, setDropdownStyle] = useState(null);
   const ref = useRef(null);
+  const dropdownRef = useRef(null);
 
-  // Fecha ao clicar fora
+  // Fecha ao clicar fora (checks both trigger and portal dropdown)
   useEffect(() => {
     if (!open) return;
     const handler = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      const inTrigger = ref.current && ref.current.contains(e.target);
+      const inDropdown = dropdownRef.current && dropdownRef.current.contains(e.target);
+      if (!inTrigger && !inDropdown) setOpen(false);
     };
     document.addEventListener('mousedown', handler);
     document.addEventListener('touchstart', handler);
@@ -139,6 +142,7 @@ export default function CustomSelect({
 
       {open && !disabled && dropdownStyle && createPortal(
         <div
+          ref={dropdownRef}
           className="z-[300] bg-white border border-slate-200/90 rounded-2xl shadow-[0_18px_50px_rgba(15,23,42,0.14)] overflow-hidden"
           style={{
             ...dropdownStyle,

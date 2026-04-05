@@ -91,6 +91,7 @@ export default function CommunicationPanel() {
   const [showMessage, setShowMessage] = useState(null);
   const [showPrayerMessage, setShowPrayerMessage] = useState(null);
   const [prayerLog, setPrayerLog] = useState([]);
+  const [summary, setSummary] = useState({ total: 0, concluido: 0, enviando: 0, erro: 0, byType: [] });
   const [sending, setSending] = useState(false);
   const [logPage, setLogPage] = useState(1);
   const [showNewMessage, setShowNewMessage] = useState(false);
@@ -100,8 +101,9 @@ export default function CommunicationPanel() {
 
   const loadLog = async () => { const { data } = await api.get('/messages/log'); setLog(data); };
   const loadPrayerLog = async () => { const { data } = await api.get('/messages/prayer-log'); setPrayerLog(data); };
+  const loadSummary = async () => { const { data } = await api.get('/messages/summary'); setSummary(data); };
 
-  useEffect(() => { loadLog(); loadPrayerLog(); }, []);
+  useEffect(() => { loadLog(); loadPrayerLog(); loadSummary(); }, []);
   useEffect(() => { if (lockedCongregacao) setCongregacao(lockedCongregacao); }, [lockedCongregacao]);
 
   const handleByGroup = async () => {
@@ -111,6 +113,7 @@ export default function CommunicationPanel() {
     setMensagemGrupo('');
     setSending(false);
     loadLog();
+    loadSummary();
   };
 
   const handleByCongregation = async () => {
@@ -120,6 +123,7 @@ export default function CommunicationPanel() {
     setMensagemCongregacao('');
     setSending(false);
     loadLog();
+    loadSummary();
   };
 
   const handleIndividual = async () => {
@@ -130,6 +134,7 @@ export default function CommunicationPanel() {
     setIndividual({ personId: '', celular: '' });
     setSending(false);
     loadLog();
+    loadSummary();
   };
 
   const resend = async (id) => {
@@ -138,6 +143,7 @@ export default function CommunicationPanel() {
     showToast('Reenvio enfileirado!');
     setSending(false);
     loadLog();
+    loadSummary();
   };
 
   const filteredLog = log.filter((item) => {
@@ -149,10 +155,10 @@ export default function CommunicationPanel() {
   const logTotalPages = Math.ceil(filteredLog.length / LOG_PAGE_SIZE);
 
   const stats = {
-    total: log.length,
-    concluido: log.filter((i) => i.status === 'concluido').length,
-    enviando: log.filter((i) => i.status === 'enviando').length,
-    erro: log.filter((i) => i.status === 'erro').length,
+    total: summary.total,
+    concluido: summary.concluido,
+    enviando: summary.enviando,
+    erro: summary.erro,
   };
 
   // Build enriched content for birthday messages
@@ -286,6 +292,30 @@ export default function CommunicationPanel() {
             </div>
           </button>
         </div>
+
+        <SectionCard className="p-4">
+          <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-700">Contadores por tipo</h2>
+              <p className="text-xs text-slate-400">Resumo geral dos envios por categoria</p>
+            </div>
+            <span className="text-[11px] text-slate-400">Logo abaixo dos indicadores principais</span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5">
+            {summary.byType.map((item) => (
+              <div
+                key={item.key}
+                className="rounded-xl border border-slate-100 bg-stone-50/70 px-3 py-2.5 min-h-[74px] flex flex-col justify-center"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">{TIPO_ICON[item.key] || TIPO_ICON[normalizeTipo(item.key)] || '💬'}</span>
+                  <span className="text-lg font-semibold text-slate-800">{item.count}</span>
+                </div>
+                <p className="text-[11px] font-medium text-slate-500 mt-1 leading-snug">{item.label}</p>
+              </div>
+            ))}
+          </div>
+        </SectionCard>
 
         {/* Full-width History */}
         <SectionCard className="flex-1">

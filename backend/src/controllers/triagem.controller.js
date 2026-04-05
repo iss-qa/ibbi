@@ -53,13 +53,28 @@ const create = async (req, res) => {
     const payload = { ...req.body };
     payload.created_by = req.user._id;
 
+    // Admin: force congregation from user profile
     if (req.user.role === 'admin') {
       payload.congregacao = await getUserCongregacao(req.user);
     }
 
+    // Validate required fields
+    if (!payload.nome || !payload.nome.trim()) {
+      return res.status(400).json({ message: 'Nome do grupo é obrigatório' });
+    }
+    if (!payload.tipo) {
+      return res.status(400).json({ message: 'Tipo do grupo é obrigatório' });
+    }
+
+    // Clean up: don't send empty arrays that might cause validation issues
+    delete payload.atividades;
+    delete payload.acompanhados;
+    delete payload.membros;
+
     const grupo = await TriagemGrupo.create(payload);
     return res.status(201).json(grupo);
   } catch (err) {
+    console.error('[TRIAGEM CREATE ERROR]', err.message);
     return res.status(err.status || 500).json({ message: err.message });
   }
 };

@@ -22,6 +22,7 @@ router.post('/send-birthday-image', controller.sendBirthdayImage);
 router.post('/send-carteirinha', controller.sendCarteirinha);
 router.post('/resend/:id', controller.resendMessage);
 router.get('/log', controller.log);
+router.get('/summary', controller.summary);
 router.get('/prayer-log', controller.prayerLog);
 router.get('/queue-status', controller.queueStatus);
 router.post('/cancel-queue', controller.cancelQueue);
