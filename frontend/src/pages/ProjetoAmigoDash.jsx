@@ -13,23 +13,90 @@ const ETAPAS = [
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
+const DASHBOARD_PAGE_LIMIT = 9999;
+
+const isWithinMonth = (value, month, year) => {
+  if (!value) return false;
+  const date = new Date(value);
+  return date.getMonth() === month && date.getFullYear() === year;
+};
+
 export default function ProjetoAmigoDash() {
   const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState(null);
 
   const now = new Date();
   const mesLabel = `${MESES[now.getMonth()]} ${now.getFullYear()}`;
 
-  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const buildDashboardFallback = async () => {
+    const [{ data: pessoasData }, { data: gruposData }] = await Promise.all([
+      api.get('/persons', { params: { limit: DASHBOARD_PAGE_LIMIT, status: 'ativo' } }),
+      api.get('/grupos'),
+    ]);
+
+    const pessoas = pessoasData?.items || [];
+    const grupos = Array.isArray(gruposData) ? gruposData : gruposData?.items || [];
+
+    const visitantes = pessoas
+      .filter((person) => person.tipo === 'visitante')
+      .sort((a, b) => new Date(b.dataVisita || 0) - new Date(a.dataVisita || 0));
+
+    const decididos = pessoas
+      .filter((person) => person.tipo === 'novo decidido')
+      .sort((a, b) => new Date(b.dataDecisao || 0) - new Date(a.dataDecisao || 0));
+
+    const gruposResumo = grupos
+      .filter((grupo) => grupo.ativo !== false)
+      .map((grupo) => {
+        const totalAtividades = grupo.atividades?.length || 0;
+        const atividadesConcluidas = grupo.atividades?.filter((atividade) => atividade.concluida).length || 0;
+
+        return {
+          _id: grupo._id,
+          nome: grupo.nome,
+          tipo: grupo.tipo,
+          congregacao: grupo.congregacao,
+          totalMembros: grupo.membros?.length || 0,
+          totalAcompanhados: grupo.acompanhados?.length || 0,
+          totalAtividades,
+          atividadesConcluidas,
+          progresso: totalAtividades > 0 ? Math.round((atividadesConcluidas / totalAtividades) * 100) : 0,
+        };
+      });
+
+    return {
+      visitantesMes: visitantes.filter((person) => isWithinMonth(person.dataVisita, now.getMonth(), now.getFullYear())).length,
+      decididosMes: decididos.filter((person) => isWithinMonth(person.dataDecisao, now.getMonth(), now.getFullYear())).length,
+      emAcompanhamento: visitantes.length + decididos.length,
+      semAmigo: [...visitantes, ...decididos].filter((person) => !person.acompanhadoPersonId).length,
+      visitantes: visitantes.slice(0, 10),
+      decididos: decididos.slice(0, 10),
+      grupos: gruposResumo,
+    };
+  };
 
   const loadDashboard = async () => {
     try {
       const { data: d } = await api.get('/projeto-amigo/dashboard');
       setData(d);
-    } catch {
-      showToast('Erro ao carregar dashboard');
+    } catch (dashboardErr) {
+      try {
+        const fallbackData = await buildDashboardFallback();
+        setData(fallbackData);
+      } catch (fallbackErr) {
+        console.error('[PROJETO AMIGO DASH ERROR]', {
+          dashboard: dashboardErr?.response?.data || dashboardErr?.message,
+          fallback: fallbackErr?.response?.data || fallbackErr?.message,
+        });
+        showToast('Erro ao carregar dashboard', 'error');
+      }
     }
     setLoading(false);
   };
@@ -75,11 +142,17 @@ export default function ProjetoAmigoDash() {
       />
 
       {toast && (
-        <div className="fixed top-4 right-4 z-50 bg-emerald-600 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-fade-in">
+        <div className={`fixed top-4 right-4 z-50 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-fade-in ${
+          toast.type === 'error' ? 'bg-rose-600' : 'bg-emerald-600'
+        }`}>
           <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            {toast.type === 'error' ? (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            ) : (
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            )}
           </svg>
-          {toast}
+          {toast.message}
         </div>
       )}
 
@@ -259,4 +332,3 @@ function PersonRow({ person, tipo, dateField }) {
     </div>
   );
 }
-

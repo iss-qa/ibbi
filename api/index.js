@@ -23,6 +23,8 @@ const ebdRoutes = require('../backend/src/routes/ebd.routes');
 const testRoutes = require('../backend/src/routes/test.routes');
 const statsRoutes = require('../backend/src/routes/stats.routes');
 const imageRoutes = require('../backend/src/routes/image.routes');
+const triagemRoutes = require('../backend/src/routes/triagem.routes');
+const projetoAmigoRoutes = require('../backend/src/routes/projeto-amigo.routes');
 
 const app = express();
 
@@ -88,6 +90,9 @@ app.use('/api/ebd', ebdRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/images', imageRoutes);
+app.use('/api/triagem-grupos', triagemRoutes);
+app.use('/api/grupos', triagemRoutes);
+app.use('/api/projeto-amigo', projetoAmigoRoutes);
 
 // Error Handling
 app.use((err, req, res, next) => {

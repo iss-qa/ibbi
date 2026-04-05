@@ -58,5 +58,11 @@ npm run build
 - A API Key da Evolution **nunca** é exposta no frontend.
 - O envio em lote respeita o delay mínimo de 30s entre mensagens.
 
+Testes automatizados PlayWrigt
 
+Para rodar: inicie o backend 
+(npm run dev:backend) e 
+frontend (npm run dev:frontend),
+ depois execute 
+ npm run test:pre-deploy.
 
