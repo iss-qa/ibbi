@@ -1,6 +1,7 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
+import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import logoIbbi from '../assets/logo-ibbi.jpeg';
 
@@ -76,6 +77,14 @@ const yearFrom = (iso) => {
   return Number.isNaN(d.getTime()) ? '—' : d.getFullYear();
 };
 
+const validUntilFrom = (iso) => {
+  const baseDate = iso ? new Date(iso) : new Date();
+  if (Number.isNaN(baseDate.getTime())) return '—';
+  const expiry = new Date(baseDate);
+  expiry.setFullYear(expiry.getFullYear() + 2);
+  return expiry.toLocaleDateString('pt-BR');
+};
+
 // Resolve full photo URL
 const resolvePhotoUrl = (fotoUrl) => {
   if (!fotoUrl) return null;
@@ -111,6 +120,7 @@ function WatermarkGrid() {
 // ===== CARD FRONT =====
 function CardFront({ person, photoUrl }) {
   const memberNumber = generateMemberNumber(person);
+  const validUntil = validUntilFrom(person.createdAt);
   return (
     <div
       style={{
@@ -233,8 +243,8 @@ function CardFront({ person, photoUrl }) {
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <span style={{ width: 8, height: 8, borderRadius: '50%', background: COLORS.gold }} />
-          <p style={{ color: COLORS.gold, fontSize: 20, margin: 0, fontWeight: 700, letterSpacing: 1.5, textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>
-            Válido Indefinidamente
+          <p style={{ color: COLORS.gold, fontSize: 18, margin: 0, fontWeight: 700, letterSpacing: 1.1, textTransform: 'uppercase', fontFamily: 'Arial, sans-serif' }}>
+            Válido até {validUntil}
           </p>
         </div>
       </div>
@@ -473,7 +483,7 @@ function HealthForm({ person, onComplete, onCancel }) {
 }
 
 // ===== MAIN MODAL =====
-export default function CarteirinhaModal({ person, onClose }) {
+export default function CarteirinhaModal({ person, onClose, hideWhatsApp = false, redirectToProfileOnMissingPhoto = false }) {
   // Always go directly to preview — health form is optional via "Verso" click
   const [step, setStep] = useState('preview');
   const [side, setSide] = useState('front');
@@ -485,6 +495,23 @@ export default function CarteirinhaModal({ person, onClose }) {
   const backRef = useRef(null);
   const hiddenFrontRef = useRef(null);
   const hiddenBackRef = useRef(null);
+  const previewRef = useRef(null);
+  const navigate = useNavigate();
+  const [previewScale, setPreviewScale] = useState(0.48);
+
+  // Responsive scale: measure container width and compute scale
+  useEffect(() => {
+    const el = previewRef.current;
+    if (!el) return;
+    const update = () => {
+      const w = el.clientWidth;
+      setPreviewScale(Math.min(0.58, w / 856));
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [step]);
 
   const photoUrl = resolvePhotoUrl(personData.fotoUrl);
 
@@ -526,8 +553,26 @@ export default function CarteirinhaModal({ person, onClose }) {
 
   const firstName = personData.nome?.split(' ')[0] || 'Membro';
 
+  const handleMissingPhoto = useCallback(() => {
+    alert('Necessário adicionar sua foto para poder baixar a carteirinha. Edite ou revise seu cadastro.');
+
+    if (redirectToProfileOnMissingPhoto) {
+      navigate('/profile', {
+        state: {
+          openEdit: true,
+          highlightPhoto: true,
+        },
+      });
+    }
+  }, [navigate, redirectToProfileOnMissingPhoto]);
+
   // Download PNG — usa as refs hidden (sem escala CSS) para gerar imagem em alta resolução
   const handlePng = async () => {
+    if (!photoUrl) {
+      handleMissingPhoto();
+      return;
+    }
+
     setDownloading('png');
     try {
       const ref = side === 'front' ? hiddenFrontRef : hiddenBackRef;
@@ -546,6 +591,11 @@ export default function CarteirinhaModal({ person, onClose }) {
 
   // Download PDF
   const handlePdf = async () => {
+    if (!photoUrl) {
+      handleMissingPhoto();
+      return;
+    }
+
     setDownloading('pdf');
     try {
       const [frontCanvas, backCanvas] = await Promise.all([
@@ -566,6 +616,11 @@ export default function CarteirinhaModal({ person, onClose }) {
 
   // Print
   const handlePrint = async () => {
+    if (!photoUrl) {
+      handleMissingPhoto();
+      return;
+    }
+
     setDownloading('print');
     try {
       const [frontCanvas, backCanvas] = await Promise.all([
@@ -640,9 +695,9 @@ export default function CarteirinhaModal({ person, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center sm:p-4 z-50" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col"
+        className="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full max-w-2xl max-h-[95vh] sm:max-h-[95vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -718,17 +773,23 @@ export default function CarteirinhaModal({ person, onClose }) {
                 </button>
               </div>
 
-              {/* Preview area */}
-              <div className="relative w-full flex justify-center overflow-hidden" style={{ height: 280 }}>
-                <div style={{ transform: 'scale(0.48)', transformOrigin: 'top center' }}>
+              {/* Preview area — responsive scale to fit container */}
+              <div
+                ref={previewRef}
+                className="relative w-full overflow-hidden"
+                style={{ height: 540 * previewScale }}
+              >
+                <div style={{
+                  transform: `scale(${previewScale})`,
+                  transformOrigin: 'top center',
+                  position: 'absolute',
+                  left: '50%',
+                  marginLeft: -428,
+                }}>
                   {side === 'front' ? (
-                    <div ref={frontRef}>
-                      <CardFront person={personData} photoUrl={photoUrl} />
-                    </div>
+                    <div ref={frontRef}><CardFront person={personData} photoUrl={photoUrl} /></div>
                   ) : (
-                    <div ref={backRef}>
-                      <CardBack person={personData} />
-                    </div>
+                    <div ref={backRef}><CardBack person={personData} /></div>
                   )}
                 </div>
               </div>
@@ -788,7 +849,7 @@ export default function CarteirinhaModal({ person, onClose }) {
                   Imprimir
                 </button>
 
-                {personData.celular && (
+                {!hideWhatsApp && personData.celular && (
                   <button
                     onClick={handleWhatsApp}
                     disabled={!!downloading}

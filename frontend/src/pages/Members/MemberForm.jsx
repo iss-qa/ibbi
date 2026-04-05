@@ -116,7 +116,7 @@ async function optimizeImage(file) {
   }
 }
 
-export default function MemberForm({ initialData, onSubmit, onCancel, lockedCongregacao, readOnly, isSelfEdit, isExternal }) {
+export default function MemberForm({ initialData, onSubmit, onCancel, lockedCongregacao, readOnly, isSelfEdit, isExternal, highlightPhoto = false }) {
   const [form, setForm] = useState({
     ...initialState,
     ...initialData,
@@ -138,6 +138,10 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
   
   const [preview, setPreview] = useState(getInitialPreview());
   const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
+  const photoFieldRef = useRef(null);
+  const [photoHighlighted, setPhotoHighlighted] = useState(false);
+  const [photoError, setPhotoError] = useState(false);
 
   const currentAge = calculateAge(form.dataNascimento);
 
@@ -150,6 +154,31 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
       }
     }
   }, [currentAge]);
+
+  useEffect(() => {
+    if (!highlightPhoto) return;
+
+    setPhotoHighlighted(true);
+    photoFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+    const timer = setTimeout(() => {
+      setPhotoHighlighted(false);
+    }, 3200);
+
+    return () => clearTimeout(timer);
+  }, [highlightPhoto]);
+
+  const LOWERCASE_WORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'com']);
+  const normalizeNameInput = (name) => {
+    if (!name) return name;
+    return name.trim().replace(/\s+/g, ' ').toLowerCase()
+      .split(' ')
+      .map((w, i) => {
+        if (i > 0 && LOWERCASE_WORDS.has(w)) return w;
+        return w.charAt(0).toUpperCase() + w.slice(1);
+      })
+      .join(' ');
+  };
 
   const handleChange = (field, value) => {
     setForm((prev) => {
@@ -210,6 +239,17 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Photo required validation
+    if (!form.fotoUrl) {
+      setPhotoHighlighted(true);
+      photoFieldRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setPhotoError(true);
+      setTimeout(() => setPhotoHighlighted(false), 3200);
+      return;
+    }
+    setPhotoError(false);
+
     setSubmitting(true);
     try {
       await onSubmit?.({ ...form, congregacao: lockedCongregacao || form.congregacao });
@@ -231,9 +271,9 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
       const response = await api.post(endpoint, data);
       
       if (response.data.url) {
-        // Salva a URL relativa (ex: /uploads/123.jpg) no estado do formulário
         const relativeUrl = response.data.url;
         handleChange('fotoUrl', relativeUrl);
+        setPhotoError(false);
         
         // Para o preview, compõe com o baseUrl se necessário
         const baseUrl = api.defaults.baseURL.replace('/api', '');
@@ -253,11 +293,28 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
       {/* ── Header: Foto + Nome ─────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-4 px-4 sm:px-6 pt-5 pb-4 w-full max-w-full">
         {/* Foto */}
-        <div className="flex flex-col items-center gap-1 shrink-0">
+        <div
+          ref={photoFieldRef}
+          className={`flex flex-col items-center gap-1 shrink-0 rounded-2xl px-3 py-2 transition-all duration-300 ${
+            photoHighlighted
+              ? photoError
+                ? 'bg-red-50/80 ring-4 ring-red-300 shadow-lg shadow-red-100 animate-shake'
+                : 'photo-highlight bg-amber-50/80 ring-4 ring-amber-200 shadow-lg shadow-amber-100'
+              : ''
+          }`}
+        >
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
+            className="hidden"
+            onChange={(e) => handlePhotoUpload(e.target.files[0])}
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
             className="hidden"
             onChange={(e) => handlePhotoUpload(e.target.files[0])}
           />
@@ -289,7 +346,31 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
               </div>
             )}
           </div>
-          {!readOnly && <span className="text-[10px] text-slate-500 font-medium mt-1 uppercase tracking-widest text-center">Mudar Foto</span>}
+          {!readOnly && (
+            <div className="mt-1 flex flex-col items-center gap-1">
+              <span className={`text-[10px] font-medium uppercase tracking-widest text-center transition-colors ${
+                photoError ? 'text-red-600 font-bold' : photoHighlighted ? 'text-amber-700' : 'text-slate-500'
+              }`}>
+                {photoError ? 'Foto obrigatória' : 'Mudar Foto'}
+              </span>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500 transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-700"
+                >
+                  Galeria
+                </button>
+                <button
+                  type="button"
+                  onClick={() => cameraInputRef.current?.click()}
+                  className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-blue-700 transition hover:border-blue-300 hover:bg-blue-100"
+                >
+                  Câmera
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Nome */}
@@ -300,6 +381,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
             placeholder="Nome e sobrenome"
             value={form.nome}
             onChange={(e) => handleChange('nome', e.target.value)}
+            onBlur={() => handleChange('nome', normalizeNameInput(form.nome))}
             required
           />
 

@@ -4,10 +4,12 @@ const User = require('../models/User.model');
 const Person = require('../models/Person.model');
 
 const serializeUser = async (user) => {
-  const person = user.personId ? await Person.findById(user.personId).select('congregacao').lean() : null;
+  const person = user.personId ? await Person.findById(user.personId).select('congregacao tipo dataBatismo').lean() : null;
   return {
     ...user.toJSON(),
     congregacao: person?.congregacao || '',
+    tipo: person?.tipo || '',
+    dataBatismo: person?.dataBatismo || null,
   };
 };
 

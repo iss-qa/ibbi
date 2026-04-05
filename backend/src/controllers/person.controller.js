@@ -80,6 +80,22 @@ const clearFieldsByTipo = (payload) => {
   }
 };
 
+const LOWERCASE_WORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'com']);
+
+const normalizeName = (name) => {
+  if (!name) return name;
+  return String(name)
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+    .split(' ')
+    .map((word, i) => {
+      if (i > 0 && LOWERCASE_WORDS.has(word)) return word;
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(' ');
+};
+
 const mapEstadoCivil = (value) => {
   if (!value) return undefined;
   const v = String(value).toLowerCase().replace(/\s+/g, ' ').trim();
@@ -184,6 +200,7 @@ const create = async (req, res) => {
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
   const payload = { ...req.body };
+  if (payload.nome) payload.nome = normalizeName(payload.nome);
   if (payload.celular) payload.celular = normalizePhone(payload.celular);
   if (payload.status !== 'inativo') delete payload.motivoInativacao;
   if (payload.motivoInativacao === '') delete payload.motivoInativacao;
@@ -193,23 +210,40 @@ const create = async (req, res) => {
     payload.congregacao = await getUserCongregacao(req.user);
   }
 
-  // Validação de duplicidade: Mesmo nome e celular
-  if (payload.nome && payload.celular) {
-    // Escapa caracteres especiais do regex e busca com case-insensitive
+  // Validação de duplicidade: nome + celular OU nome + dataNascimento
+  if (payload.nome) {
     const escapedNome = payload.nome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const exists = await Person.findOne({ 
-      nome: { $regex: new RegExp(`^${escapedNome}$`, 'i') }, 
-      celular: payload.celular 
-    });
-    
-    if (exists) {
-      return res.status(400).json({ 
-        message: `O membro "${payload.nome}" já possui um cadastro com o celular informado.` 
-      });
+    const nomeRegex = { $regex: new RegExp(`^${escapedNome}$`, 'i') };
+    const orConditions = [];
+
+    if (payload.celular) {
+      orConditions.push({ nome: nomeRegex, celular: payload.celular });
+    }
+    if (payload.dataNascimento) {
+      orConditions.push({ nome: nomeRegex, dataNascimento: new Date(payload.dataNascimento) });
+    }
+
+    if (orConditions.length > 0) {
+      const exists = await Person.findOne({ $or: orConditions });
+      if (exists) {
+        return res.status(409).json({
+          code: 'DUPLICATE',
+          message: `O cadastro de "${payload.nome}" já foi realizado anteriormente. Caso precise atualizar seus dados, entre em contato com a secretaria da igreja.`,
+        });
+      }
     }
   }
 
   const person = await Person.create(payload);
+
+  // Trigger WhatsApp para novo decidido ou visitante
+  if (person.tipo === 'novo decidido') {
+    const { triggerNovoDecididoWhatsApp } = require('../services/trigger.service');
+    triggerNovoDecididoWhatsApp(person, req.user._id);
+  } else if (person.tipo === 'visitante') {
+    const { triggerVisitanteWhatsApp } = require('../services/trigger.service');
+    triggerVisitanteWhatsApp(person, req.user._id);
+  }
 
   if (person.celular) {
     const credentials = await onboardMember(person, req.user._id);
@@ -233,6 +267,7 @@ const update = async (req, res) => {
   await assertPersonAccess(req.user, existing);
 
   const payload = { ...req.body };
+  if (payload.nome) payload.nome = normalizeName(payload.nome);
   if (payload.celular) payload.celular = normalizePhone(payload.celular);
   if (payload.status !== 'inativo') delete payload.motivoInativacao;
   if (payload.motivoInativacao === '') delete payload.motivoInativacao;

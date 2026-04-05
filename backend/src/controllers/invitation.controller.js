@@ -65,25 +65,35 @@ const submitInvitation = async (req, res) => {
   }
 
   const payload = { ...req.body, status: 'ativo' };
+  if (payload.nome) {
+    payload.nome = String(payload.nome).trim().replace(/\s+/g, ' ').toLowerCase()
+      .split(' ').map((w, i) => {
+        if (i > 0 && ['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'com'].includes(w)) return w;
+        return w.charAt(0).toUpperCase() + w.slice(1);
+      }).join(' ');
+  }
   if (payload.celular) payload.celular = String(payload.celular).replace(/\D/g, '');
   ['sexo', 'tipo', 'grupo', 'estadoCivil', 'congregacao', 'status', 'motivoInativacao'].forEach((field) => {
     if (payload[field] === '') delete payload[field];
   });
   clearFieldsByTipo(payload);
 
-  // Validação de duplicidade: Mesmo nome e celular
-  if (payload.nome && payload.celular) {
-    // Escapa caracteres especiais do regex e busca com case-insensitive
+  // Validação de duplicidade: nome + celular OU nome + dataNascimento
+  if (payload.nome) {
     const escapedNome = payload.nome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const exists = await Person.findOne({ 
-      nome: { $regex: new RegExp(`^${escapedNome}$`, 'i') }, 
-      celular: payload.celular 
-    });
-    
-    if (exists) {
-      return res.status(400).json({ 
-        message: `O membro "${payload.nome}" já possui um cadastro com o celular informado.` 
-      });
+    const nomeRegex = { $regex: new RegExp(`^${escapedNome}$`, 'i') };
+    const orConditions = [];
+    if (payload.celular) orConditions.push({ nome: nomeRegex, celular: payload.celular });
+    if (payload.dataNascimento) orConditions.push({ nome: nomeRegex, dataNascimento: new Date(payload.dataNascimento) });
+
+    if (orConditions.length > 0) {
+      const exists = await Person.findOne({ $or: orConditions });
+      if (exists) {
+        return res.status(409).json({
+          code: 'DUPLICATE',
+          message: `O cadastro de "${payload.nome}" já foi realizado anteriormente. Caso precise atualizar seus dados, entre em contato com a secretaria da igreja.`,
+        });
+      }
     }
   }
 

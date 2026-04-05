@@ -23,7 +23,7 @@ export default function PrayerRequest() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen">
       <Header title="Pedido de Oração" subtitle="Envie sua solicitação com segurança" />
 
       <div className="max-w-2xl mx-auto px-4 mt-6">

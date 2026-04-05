@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   ResponsiveContainer,
   LineChart,
@@ -26,11 +25,10 @@ const COLORS = ['#0b4dbf', '#c9a227', '#0a1f44', '#6b21a8', '#0f766e', '#b91c1c'
 const Skeleton = () => <div className="h-56 w-full animate-pulse bg-stone-100 rounded-xl" />;
 
 export default function Dashboard() {
-  const navigate = useNavigate();
   const { user } = useAuth();
   const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
   const [congregacao, setCongregacao] = useState('Todos');
-  const [stats, setStats] = useState({ total: 0, ativos: 0, inativos: 0, aniversariantes: [], novosCadastros: 0 });
+  const [stats, setStats] = useState({ total: 0, ativos: 0, inativos: 0, aniversariantes: [], aniversariantesMes: [], novosCadastros: 0 });
 
   const [growth, setGrowth] = useState([]);
   const [byCongregation, setByCongregation] = useState([]);
@@ -80,7 +78,7 @@ export default function Dashboard() {
     { label: 'Membros ativos', value: stats.ativos },
     { label: 'Membros inativos', value: stats.inativos },
     { label: 'Total de membros', value: stats.total },
-    { label: 'Aniversariantes (7 dias)', value: stats.aniversariantes.length },
+    { label: 'Aniversariantes da semana', value: stats.aniversariantes.length },
   ];
 
   return (
@@ -121,29 +119,45 @@ export default function Dashboard() {
           <h3 className="font-display text-xl text-ibbiNavy mb-4">Aniversariantes da semana</h3>
           <div className="space-y-3">
             {stats.aniversariantes.map((person) => (
-              <div key={person._id} className="flex justify-between items-center text-sm py-1 border-b border-slate-50 last:border-0 hover:bg-slate-50 px-2 rounded -mx-2 transition cursor-pointer" onClick={() => setSelectedBirthdayPerson(person)}>
-                <span className="text-ibbiBlue hover:underline underline-offset-2 font-medium">{person.nome}</span>
+              <div
+                key={person._id}
+                className="flex items-center gap-3 text-sm py-1 border-b border-slate-50 last:border-0 hover:bg-slate-50 px-2 rounded -mx-2 transition cursor-pointer"
+                onClick={() => setSelectedBirthdayPerson(person)}
+              >
+                <span className="min-w-0 flex-1 truncate text-ibbiBlue hover:underline underline-offset-2 font-medium">
+                  {person.nome}
+                </span>
                 <span className="text-ibbiGold font-semibold">
-                  {new Date(person.data).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })}
+                  {person.diaMes}/{new Date(person.data).toLocaleDateString('pt-BR', { month: '2-digit', timeZone: 'UTC' })}
                 </span>
               </div>
             ))}
             {stats.aniversariantes.length === 0 && (
-              <p className="text-sm text-slate-500">Sem aniversariantes nos próximos 7 dias.</p>
+              <p className="text-sm text-slate-500">Sem aniversariantes entre domingo e sábado desta semana.</p>
             )}
           </div>
         </div>
-        <div className="bg-gradient-to-br from-ibbiBlue via-ibbiNavy to-ibbiNavy text-white rounded-xl p-6">
-          <h3 className="font-display text-xl mb-3">Comunicação rápida</h3>
-          <p className="text-sm text-white/80 mb-6">
-            Envie avisos para grupos ou congregações diretamente do painel.
-          </p>
-          <button 
-            className="bg-ibbiGold hover:bg-yellow-400 transition text-ibbiNavy px-4 py-3 sm:py-2 min-h-[44px] rounded-lg font-semibold w-full sm:w-auto mt-2"
-            onClick={() => navigate('/communication')}
-          >
-            Ir para comunicação
-          </button>
+        <div className="bg-white rounded-xl border border-stone-100 p-6">
+          <h3 className="font-display text-xl text-ibbiNavy mb-4">Aniversariantes do mês</h3>
+          <div className="space-y-3 max-h-[280px] overflow-y-auto overflow-x-hidden pr-2">
+            {stats.aniversariantesMes.map((person) => (
+              <div
+                key={person._id}
+                className="flex items-center gap-3 text-sm py-1 border-b border-slate-50 last:border-0 hover:bg-slate-50 px-2 rounded -mx-2 transition cursor-pointer"
+                onClick={() => setSelectedBirthdayPerson(person)}
+              >
+                <span className="min-w-0 flex-1 truncate text-ibbiBlue hover:underline underline-offset-2 font-medium">
+                  {person.nome}
+                </span>
+                <span className="text-ibbiGold font-semibold">
+                  {person.diaMes}/{new Date(person.data).toLocaleDateString('pt-BR', { month: '2-digit', timeZone: 'UTC' })}
+                </span>
+              </div>
+            ))}
+            {stats.aniversariantesMes.length === 0 && (
+              <p className="text-sm text-slate-500">Sem aniversariantes neste mês.</p>
+            )}
+          </div>
         </div>
       </section>
 

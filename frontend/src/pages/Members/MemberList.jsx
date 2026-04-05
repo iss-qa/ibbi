@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import Header from '../../components/Header';
 import CarteirinhaModal from '../../components/CarteirinhaModal';
+import CertificadoBatismoModal from '../../components/CertificadoBatismoModal';
+import ProjetoAmigoTab from '../../components/ProjetoAmigoTab';
 import api from '../../services/api';
 import { onlyDigits } from '../../utils/phoneMask';
 import MemberForm from './MemberForm';
@@ -18,7 +20,30 @@ const TIPO_STYLE = {
 };
 
 const inputClass =
-  'border border-slate-200 rounded-lg px-2 sm:px-3 py-1.5 sm:py-2 text-[13px] sm:text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition placeholder:text-slate-400 min-h-[38px] sm:min-h-[44px]';
+  'w-full rounded-2xl border border-slate-200/80 bg-white/90 px-4 py-3 text-[15px] sm:text-sm text-slate-700 shadow-[0_1px_2px_rgba(15,23,42,0.04)] focus:outline-none focus:ring-4 focus:ring-blue-100/70 focus:border-blue-300 transition-all placeholder:text-slate-400 min-h-[48px]';
+
+const ACTION_STYLE = {
+  edit: {
+    iconWrap: 'bg-blue-50 text-blue-600 border-blue-100 group-hover:bg-blue-100',
+    label: 'text-blue-700',
+  },
+  card: {
+    iconWrap: 'bg-amber-50 text-amber-600 border-amber-100 group-hover:bg-amber-100',
+    label: 'text-amber-700',
+  },
+  baptism: {
+    iconWrap: 'bg-sky-50 text-sky-600 border-sky-100 group-hover:bg-sky-100',
+    label: 'text-sky-700',
+  },
+  delete: {
+    iconWrap: 'bg-rose-50 text-rose-600 border-rose-100 group-hover:bg-rose-100',
+    label: 'text-rose-700',
+  },
+  amigo: {
+    iconWrap: 'bg-emerald-50 text-emerald-600 border-emerald-100 group-hover:bg-emerald-100',
+    label: 'text-emerald-700',
+  },
+};
 
 function Avatar({ nome, fotoUrl, size = 'md' }) {
   const sz = size === 'lg' ? 'w-11 h-11 text-sm' : 'w-9 h-9 text-xs';
@@ -60,6 +85,9 @@ export default function MemberList() {
   const [viewingForm, setViewingForm] = useState(false);
   const [newCredentials, setNewCredentials] = useState(null);
   const [carteirinhaPerson, setCarteirinhaPerson] = useState(null);
+  const [certificadoPerson, setCertificadoPerson] = useState(null);
+  const [pendingDelete, setPendingDelete] = useState(null);
+  const [projetoAmigoPerson, setProjetoAmigoPerson] = useState(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
   const [total, setTotal] = useState(0);
@@ -140,9 +168,9 @@ export default function MemberList() {
   };
 
   const handleDelete = async (person) => {
-    if (!confirm(`Excluir ${person.nome}?`)) return;
     await api.delete(`/persons/${person._id}`);
     await load();
+    setPendingDelete(null);
   };
 
   const handleOpenForm = async (row, isReadOnly = false) => {
@@ -191,6 +219,71 @@ export default function MemberList() {
     link.click();
     link.remove();
   };
+
+  const desktopActions = (row) => [
+    {
+      key: 'edit',
+      label: 'Editar',
+      title: 'Editar membro',
+      onClick: () => handleOpenForm(row, false),
+      disabled: false,
+      icon: (
+        <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      ),
+    },
+    {
+      key: 'card',
+      label: 'Carteirinha',
+      title: row.tipo === 'membro' ? 'Abrir carteirinha' : 'Disponível apenas para membros',
+      onClick: () => setCarteirinhaPerson(row),
+      disabled: row.tipo !== 'membro',
+      icon: (
+        <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <rect x="3" y="5" width="18" height="14" rx="2" />
+          <path strokeLinecap="round" d="M3 10h18" />
+          <circle cx="8" cy="14.5" r="1.5" />
+        </svg>
+      ),
+    },
+    {
+      key: 'baptism',
+      label: 'Batismo',
+      title: row.dataBatismo ? 'Abrir certificado de batismo' : 'Sem data de batismo cadastrada',
+      onClick: () => setCertificadoPerson(row),
+      disabled: !row.dataBatismo,
+      icon: (
+        <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+    },
+    {
+      key: 'amigo',
+      label: 'Projeto Amigo',
+      title: (row.tipo === 'novo decidido' || row.tipo === 'visitante') ? 'Projeto Amigo' : 'Disponivel apenas para novos decididos e visitantes',
+      onClick: () => setProjetoAmigoPerson(row),
+      disabled: row.tipo !== 'novo decidido' && row.tipo !== 'visitante',
+      icon: (
+        <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+        </svg>
+      ),
+    },
+    {
+      key: 'delete',
+      label: 'Excluir',
+      title: 'Excluir membro',
+      onClick: () => setPendingDelete(row),
+      disabled: false,
+      icon: (
+        <svg className="w-4.5 h-4.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+        </svg>
+      ),
+    },
+  ];
 
   return (
     <div className="min-h-screen">
@@ -272,17 +365,17 @@ export default function MemberList() {
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-2 sm:px-4 sm:py-3 mx-4 sm:mx-0">
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
             <div className="relative col-span-2">
-              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <circle cx="11" cy="11" r="8" /><path strokeLinecap="round" d="M21 21l-4.35-4.35" />
               </svg>
               <input
-                className={`${inputClass} pl-9 w-full`}
+                className={`${inputClass} pl-11`}
                 placeholder="Buscar por nome..."
                 value={filters.search}
                 onChange={(e) => setFilters((p) => ({ ...p, search: e.target.value }))}
               />
             </div>
-            <div className="col-span-1 border border-slate-200 rounded-lg">
+            <div className="col-span-1">
               <CustomSelect
                 value={filters.tipo}
                 onChange={(val) => setFilters((p) => ({ ...p, tipo: val }))}
@@ -296,7 +389,7 @@ export default function MemberList() {
                 ]}
               />
             </div>
-            <div className="col-span-1 border border-slate-200 rounded-lg">
+            <div className="col-span-1">
               <CustomSelect
                 value={filters.grupo}
                 onChange={(val) => setFilters((p) => ({ ...p, grupo: val }))}
@@ -312,7 +405,7 @@ export default function MemberList() {
                 ]}
               />
             </div>
-            <div className="col-span-2 lg:col-span-1 border border-slate-200 rounded-lg">
+            <div className="col-span-2 lg:col-span-1">
               <CustomSelect
                 value={lockedCongregacao || filters.congregacao}
                 onChange={(val) => setFilters((p) => ({ ...p, congregacao: val }))}
@@ -443,15 +536,35 @@ export default function MemberList() {
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                             Editar
                           </button>
+                          {row.tipo === 'membro' && (
+                            <button
+                              onClick={() => setCarteirinhaPerson(row)}
+                              className="text-left px-3 py-2 text-sm text-slate-600 hover:bg-amber-50 hover:text-amber-700 rounded-lg flex items-center gap-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><path strokeLinecap="round" d="M3 10h18" /><circle cx="8" cy="14.5" r="1.5" /></svg>
+                              Carteirinha
+                            </button>
+                          )}
+                          {row.dataBatismo && (
+                            <button
+                              onClick={() => setCertificadoPerson(row)}
+                              className="text-left px-3 py-2 text-sm text-slate-600 hover:bg-sky-50 hover:text-sky-700 rounded-lg flex items-center gap-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                              Certificado
+                            </button>
+                          )}
+                          {(row.tipo === 'novo decidido' || row.tipo === 'visitante') && (
+                            <button
+                              onClick={() => setProjetoAmigoPerson(row)}
+                              className="text-left px-3 py-2 text-sm text-slate-600 hover:bg-emerald-50 hover:text-emerald-700 rounded-lg flex items-center gap-2"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" /></svg>
+                              Projeto Amigo
+                            </button>
+                          )}
                           <button
-                            onClick={() => setCarteirinhaPerson(row)}
-                            className="text-left px-3 py-2 text-sm text-slate-600 hover:bg-amber-50 hover:text-amber-700 rounded-lg flex items-center gap-2"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2" /><path strokeLinecap="round" d="M3 10h18" /><circle cx="8" cy="14.5" r="1.5" /></svg>
-                            Carteirinha
-                          </button>
-                          <button
-                            onClick={() => handleDelete(row)}
+                            onClick={() => setPendingDelete(row)}
                             className="text-left px-3 py-2 text-sm text-slate-600 hover:bg-red-50 hover:text-red-600 rounded-lg flex items-center gap-2"
                           >
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
@@ -459,37 +572,25 @@ export default function MemberList() {
                           </button>
                         </div>
                       </div>
-                      {/* Desktop Actions — Icon only with tooltips */}
-                      <div className="hidden md:flex items-center justify-end gap-0.5">
-                        <button
-                          onClick={() => handleOpenForm(row, false)}
-                          title="Editar"
-                          className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-blue-600 rounded-lg hover:bg-blue-50 transition"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => setCarteirinhaPerson(row)}
-                          title="Gerar Carteirinha"
-                          className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-amber-600 rounded-lg hover:bg-amber-50 transition"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <rect x="3" y="5" width="18" height="14" rx="2" />
-                            <path strokeLinecap="round" d="M3 10h18" />
-                            <circle cx="8" cy="14.5" r="1.5" />
-                          </svg>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(row)}
-                          title="Excluir"
-                          className="w-8 h-8 flex items-center justify-center text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                          </svg>
-                        </button>
+                      <div className="hidden md:flex items-start justify-end gap-1">
+                        {desktopActions(row).map((action) => (
+                          <button
+                            key={action.key}
+                            onClick={action.onClick}
+                            title={action.title}
+                            disabled={action.disabled}
+                            className={`group flex min-w-[54px] flex-col items-center gap-0.5 rounded-xl px-1.5 py-1 transition ${
+                              action.disabled ? 'cursor-not-allowed opacity-45' : 'hover:bg-slate-50'
+                            }`}
+                          >
+                            <span className={`flex h-8 w-8 items-center justify-center rounded-xl border transition ${ACTION_STYLE[action.key].iconWrap}`}>
+                              {action.icon}
+                            </span>
+                            <span className={`text-[9px] font-semibold leading-none ${action.disabled ? 'text-slate-400' : ACTION_STYLE[action.key].label}`}>
+                              {action.label}
+                            </span>
+                          </button>
+                        ))}
                       </div>
                     </td>
                   </tr>
@@ -571,8 +672,11 @@ export default function MemberList() {
               </button>
             </div>
             {error && (
-              <div className="mx-6 mt-4 px-3 py-2.5 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600 shrink-0">
-                {error}
+              <div className="mx-6 mt-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 shrink-0 animate-shake">
+                <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-sm text-red-700 font-medium">{error}</p>
               </div>
             )}
             <div className="flex-1 overflow-y-auto overflow-x-hidden scroll-smooth w-full p-0">
@@ -593,6 +697,14 @@ export default function MemberList() {
         <CarteirinhaModal
           person={carteirinhaPerson}
           onClose={() => setCarteirinhaPerson(null)}
+        />
+      )}
+
+      {/* Certificado de Batismo Modal */}
+      {certificadoPerson && (
+        <CertificadoBatismoModal
+          person={certificadoPerson}
+          onClose={() => setCertificadoPerson(null)}
         />
       )}
 
@@ -624,6 +736,73 @@ export default function MemberList() {
             >
                Entendi
             </button>
+          </div>
+        </div>
+      )}
+
+      {pendingDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[70]" onClick={() => setPendingDelete(null)}>
+          <div
+            className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col items-center text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mb-4">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-semibold text-slate-800 mb-2">Excluir membro</h3>
+            <p className="text-sm text-slate-500 mb-6">
+              Tem certeza que deseja excluir <span className="font-semibold text-slate-700">{pendingDelete.nome}</span>?
+            </p>
+            <div className="flex gap-3 w-full">
+              <button
+                onClick={() => setPendingDelete(null)}
+                className="flex-1 bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium py-2.5 rounded-xl transition text-sm"
+              >
+                Não
+              </button>
+              <button
+                onClick={() => handleDelete(pendingDelete)}
+                className="flex-1 bg-rose-600 hover:bg-rose-700 text-white font-medium py-2.5 rounded-xl transition text-sm"
+              >
+                Sim
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Projeto Amigo Modal */}
+      {projetoAmigoPerson && (
+        <div
+          className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center sm:p-4 z-50"
+          onClick={() => setProjetoAmigoPerson(null)}
+        >
+          <div
+            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full max-w-lg h-[85dvh] sm:h-auto sm:max-h-[80vh] flex flex-col relative overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
+              <div>
+                <h2 className="text-base font-semibold text-slate-800">{projetoAmigoPerson.nome}</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Acompanhamento do Projeto Amigo</p>
+              </div>
+              <button
+                onClick={() => setProjetoAmigoPerson(null)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-stone-100 text-slate-400 hover:text-slate-600 transition"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              <ProjetoAmigoTab
+                personId={projetoAmigoPerson._id}
+                personTipo={projetoAmigoPerson.tipo}
+              />
+            </div>
           </div>
         </div>
       )}

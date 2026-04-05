@@ -4,20 +4,30 @@ const Message = require('../models/Message.model');
 const templates = require('../templates/messages.templates');
 const whatsapp = require('./whatsapp.service');
 
+const APP_TIMEZONE = process.env.APP_TIMEZONE || 'America/Bahia';
+
+const toZonedDate = (date) =>
+  new Date(date.toLocaleString('en-US', { timeZone: APP_TIMEZONE }));
+
+const getBirthdayParts = (birthDate) => ({
+  day: birthDate.getUTCDate(),
+  month: birthDate.getUTCMonth() + 1,
+});
+
 const findBirthdaysToday = async () => {
-  const now = new Date();
+  const now = toZonedDate(new Date());
   const day = now.getDate();
   const month = now.getMonth() + 1;
 
-  return Person.find({
+  const people = await Person.find({
     status: 'ativo',
     celular: { $nin: [null, ''] },
-    $expr: {
-      $and: [
-        { $eq: [{ $dayOfMonth: '$dataNascimento' }, day] },
-        { $eq: [{ $month: '$dataNascimento' }, month] },
-      ],
-    },
+    dataNascimento: { $ne: null },
+  });
+
+  return people.filter((person) => {
+    const birthday = getBirthdayParts(person.dataNascimento);
+    return birthday.day === day && birthday.month === month;
   });
 };
 
@@ -68,11 +78,15 @@ const sendBirthdayMessages = async () => {
 };
 
 const startScheduler = () => {
-  cron.schedule('0 8 * * *', () => {
-    sendBirthdayMessages().catch((err) => {
-      console.error('Erro ao enviar aniversários:', err);
-    });
-  });
+  cron.schedule(
+    '0 8 * * *',
+    () => {
+      sendBirthdayMessages().catch((err) => {
+        console.error('Erro ao enviar aniversários:', err);
+      });
+    },
+    { timezone: APP_TIMEZONE }
+  );
 };
 
 module.exports = { startScheduler, sendBirthdayMessages };

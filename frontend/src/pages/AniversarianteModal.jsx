@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
+import api from '../services/api';
 
 // ─── Versículos ───────────────────────────────────────────────────────────────
 const VERSICULOS = [
@@ -98,9 +99,20 @@ function Baloes({ style = {}, animated = true }) {
 }
 
 // ─── Avatar: foto ou bolo ─────────────────────────────────────────────────────
+function getFullFotoUrl(fotoUrl) {
+  if (!fotoUrl) return null;
+  if (fotoUrl.startsWith('data:') || fotoUrl.startsWith('http')) return fotoUrl;
+  if (fotoUrl.startsWith('/uploads')) {
+    const baseUrl = (api.defaults.baseURL || '').replace('/api', '');
+    return `${baseUrl}${fotoUrl}`;
+  }
+  return fotoUrl;
+}
+
 function Avatar({ person, size = 200, fontSize = '80px' }) {
   const [imgError, setImgError] = useState(false);
-  const hasPhoto = person.foto && !imgError;
+  const photoSrc = getFullFotoUrl(person.fotoUrl);
+  const hasPhoto = photoSrc && !imgError;
 
   return (
     <div style={{
@@ -121,7 +133,7 @@ function Avatar({ person, size = 200, fontSize = '80px' }) {
       }}>
         {hasPhoto ? (
           <img
-            src={person.foto}
+            src={photoSrc}
             alt={person.nome}
             onError={() => setImgError(true)}
             style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%' }}
@@ -392,38 +404,17 @@ export default function AniversarianteModal({ person, onClose }) {
   };
 
   const handleWhatsApp = async () => {
-    const firstName = person.nome.split(' ')[0];
-    const messageText =
-      `🎂 *Feliz Aniversário, ${firstName}!*\n\n` +
-      `"Ensina-nos a contar os nossos dias, para que alcancemos coração sábio." (${versiculoRef})\n\n` +
-      `Que o Senhor continue a guiar seus passos! 🙏\n_Igreja Batista Bíblica Israel_`;
-
     try {
       setSending(true);
       setError(null);
-      const canvas = await captureHiddenCard();
-
-      if (canvas && navigator.canShare) {
-        const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
-        const file = new File([blob], `Aniversario-${firstName}.png`, { type: 'image/png' });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ text: messageText, files: [file] });
-          setSending(false);
-          return;
-        }
-      }
+      await api.post('/messages/send-birthday-image', { personId: person._id });
+      setSending(false);
+      setError(null);
+      alert('Cartão de aniversário enviado com sucesso via WhatsApp!');
     } catch (err) {
-      if (err?.name === 'AbortError') { setSending(false); return; }
+      setSending(false);
+      setError(err?.response?.data?.message || 'Erro ao enviar. Tente novamente.');
     }
-
-    const celular = person.celular;
-    if (celular) {
-      const phone = celular.startsWith('55') ? celular : `55${celular}`;
-      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(messageText)}`, '_blank');
-    } else {
-      window.open(`https://wa.me/?text=${encodeURIComponent(messageText)}`, '_blank');
-    }
-    setSending(false);
   };
 
   const previewScale = format === 'portrait' ? 0.55 : 0.70;
@@ -527,7 +518,7 @@ export default function AniversarianteModal({ person, onClose }) {
           )}
 
           {/* Indicador de foto */}
-          {person.foto && (
+          {person.fotoUrl && (
             <p className="text-xs text-center text-emerald-600 mt-3 flex items-center justify-center gap-1">
               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -572,7 +563,7 @@ export default function AniversarianteModal({ person, onClose }) {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
                   </svg>
-                  Gerando...
+                  Enviando...
                 </>
               ) : (
                 <>

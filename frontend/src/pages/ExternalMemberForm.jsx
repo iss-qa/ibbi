@@ -26,7 +26,11 @@ export default function ExternalMemberForm() {
       setSuccessData(response.data);
       setStatus('ok');
     } catch (err) {
-      setStatus(err?.response?.data?.message || 'Falha ao enviar');
+      const data = err?.response?.data;
+      setStatus(data?.message || 'Falha ao enviar');
+      if (data?.code === 'DUPLICATE') {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -89,7 +93,14 @@ export default function ExternalMemberForm() {
     <div className="min-h-screen bg-ibbiCream p-6">
       <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-soft p-6">
         <h1 className="font-display text-xl text-ibbiNavy mb-4">Cadastro de membro</h1>
-        {status && <p className="text-sm text-red-600 mb-2">{status}</p>}
+        {status && (
+          <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 animate-shake">
+            <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-red-700 font-medium">{status}</p>
+          </div>
+        )}
         <MemberForm onSubmit={handleSubmit} isExternal={true} />
       </div>
     </div>

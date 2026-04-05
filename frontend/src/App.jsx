@@ -14,6 +14,11 @@ import EbdList from './pages/EBD/EbdList';
 import EbdChamada from './pages/EBD/EbdChamada';
 import EbdRelatorio from './pages/EBD/EbdRelatorio';
 import Profile from './pages/Profile';
+import UserCarteirinha from './pages/UserCarteirinha';
+import UserCertificado from './pages/UserCertificado';
+import GruposTriagem from './pages/GruposTriagem';
+import GrupoDetalhe from './pages/GrupoDetalhe';
+import ProjetoAmigoDash from './pages/ProjetoAmigoDash';
 
 export default function App() {
   const { user, logout } = useAuth();
@@ -51,6 +56,9 @@ export default function App() {
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/members" element={<MemberList />} />
                         <Route path="/communication" element={<CommunicationPanel />} />
+                        <Route path="/projeto-amigo" element={<ProjetoAmigoDash />} />
+                        <Route path="/grupos" element={<GruposTriagem />} />
+                        <Route path="/grupos/:id" element={<GrupoDetalhe />} />
                         <Route path="/ebd" element={<EbdList />} />
                         <Route path="/ebd/:id" element={<EbdChamada />} />
                         <Route path="/ebd/relatorios" element={<EbdRelatorio />} />
@@ -59,6 +67,8 @@ export default function App() {
                     )}
                     <Route path="/prayer" element={<PrayerRequest />} />
                     <Route path="/profile" element={<Profile />} />
+                    <Route path="/carteirinha" element={<UserCarteirinha />} />
+                    <Route path="/certificado" element={<UserCertificado />} />
                     <Route path="*" element={<Navigate to={user?.role === 'user' ? '/profile' : '/dashboard'} replace />} />
                   </Routes>
                 </main>
