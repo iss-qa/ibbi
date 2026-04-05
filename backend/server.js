@@ -78,6 +78,7 @@ app.use('/api/images', imageRoutes);
 const triagemRoutes = require('./src/routes/triagem.routes');
 const projetoAmigoRoutes = require('./src/routes/projeto-amigo.routes');
 app.use('/api/triagem-grupos', triagemRoutes);
+app.use('/api/grupos', triagemRoutes);
 app.use('/api/projeto-amigo', projetoAmigoRoutes);
 
 app.use((err, req, res, next) => {

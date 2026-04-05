@@ -92,7 +92,7 @@ export default function GruposTriagem() {
   const loadGrupos = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get('/triagem-grupos');
+      const { data } = await api.get('/grupos');
       setGrupos(Array.isArray(data) ? data : data.items || []);
     } catch {
       setGrupos([]);
@@ -135,10 +135,10 @@ export default function GruposTriagem() {
     setSaving(true);
     try {
       if (editingGrupo) {
-        await api.put(`/triagem-grupos/${editingGrupo._id}`, payload);
+        await api.put(`/grupos/${editingGrupo._id}`, payload);
         showToast('Grupo atualizado com sucesso!');
       } else {
-        await api.post('/triagem-grupos', payload);
+        await api.post('/grupos', payload);
         showToast('Grupo criado com sucesso!');
       }
       setShowForm(false);
@@ -154,7 +154,7 @@ export default function GruposTriagem() {
   const handleDelete = async () => {
     if (!pendingDelete) return;
     try {
-      await api.delete(`/triagem-grupos/${pendingDelete._id}`);
+      await api.delete(`/grupos/${pendingDelete._id}`);
       showToast('Grupo excluido com sucesso!');
       setPendingDelete(null);
       await loadGrupos();
@@ -211,9 +211,9 @@ export default function GruposTriagem() {
   const addMembro = async (person) => {
     if (!managingGrupo) return;
     try {
-      await api.post(`/triagem-grupos/${managingGrupo._id}/membros`, { membro_id: person._id });
+      await api.post(`/grupos/${managingGrupo._id}/membros`, { membro_id: person._id });
       showToast(`${person.nome} adicionado ao grupo!`);
-      const { data } = await api.get('/triagem-grupos');
+      const { data } = await api.get('/grupos');
       const all = Array.isArray(data) ? data : data.items || [];
       const updated = all.find((g) => g._id === managingGrupo._id);
       if (updated) setManagingGrupo(updated);
@@ -227,9 +227,9 @@ export default function GruposTriagem() {
   const removeMembro = async (membroId) => {
     if (!managingGrupo) return;
     try {
-      await api.delete(`/triagem-grupos/${managingGrupo._id}/membros/${membroId}`);
+      await api.delete(`/grupos/${managingGrupo._id}/membros/${membroId}`);
       showToast('Membro removido do grupo!');
-      const { data } = await api.get('/triagem-grupos');
+      const { data } = await api.get('/grupos');
       const all = Array.isArray(data) ? data : data.items || [];
       const updated = all.find((g) => g._id === managingGrupo._id);
       if (updated) setManagingGrupo(updated);

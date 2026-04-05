@@ -29,7 +29,7 @@ export default function GrupoDetalhe() {
 
   const loadGrupo = async () => {
     try {
-      const { data } = await api.get(`/triagem-grupos/${id}`);
+      const { data } = await api.get(`/grupos/${id}`);
       setGrupo(data);
     } catch {
       showToast('Erro ao carregar grupo');
@@ -41,7 +41,7 @@ export default function GrupoDetalhe() {
 
   const initAtividades = async () => {
     try {
-      const { data } = await api.post(`/triagem-grupos/${id}/atividades/init`);
+      const { data } = await api.post(`/grupos/${id}/atividades/init`);
       setGrupo(data);
       showToast('Atividades criadas com sucesso!');
     } catch (err) {
@@ -52,7 +52,7 @@ export default function GrupoDetalhe() {
   const toggleConcluida = async (atividade) => {
     setSaving(atividade._id);
     try {
-      const { data } = await api.put(`/triagem-grupos/${id}/atividades/${atividade._id}`, {
+      const { data } = await api.put(`/grupos/${id}/atividades/${atividade._id}`, {
         concluida: !atividade.concluida,
       });
       setGrupo(data);
@@ -65,7 +65,7 @@ export default function GrupoDetalhe() {
   const assignResponsavel = async (atividade, membro) => {
     setSaving(atividade._id);
     try {
-      const { data } = await api.put(`/triagem-grupos/${id}/atividades/${atividade._id}`, {
+      const { data } = await api.put(`/grupos/${id}/atividades/${atividade._id}`, {
         responsavel_id: membro ? membro.membro_id : null,
         responsavel_nome: membro ? membro.nome : null,
       });
@@ -92,7 +92,7 @@ export default function GrupoDetalhe() {
     if (obsTimeout.current[atividade._id]) clearTimeout(obsTimeout.current[atividade._id]);
     obsTimeout.current[atividade._id] = setTimeout(async () => {
       try {
-        await api.put(`/triagem-grupos/${id}/atividades/${atividade._id}`, { observacao: value });
+        await api.put(`/grupos/${id}/atividades/${atividade._id}`, { observacao: value });
       } catch {
         showToast('Erro ao salvar observação');
       }
@@ -102,7 +102,7 @@ export default function GrupoDetalhe() {
   const handleAddAtividade = async () => {
     if (!newAtividade.titulo.trim()) return;
     try {
-      const { data } = await api.post(`/triagem-grupos/${id}/atividades`, newAtividade);
+      const { data } = await api.post(`/grupos/${id}/atividades`, newAtividade);
       setGrupo(data);
       setNewAtividade({ titulo: '', descricao: '', categoria: 'outro' });
       setShowAddForm(false);
@@ -114,7 +114,7 @@ export default function GrupoDetalhe() {
 
   const removeAtividade = async (atividadeId) => {
     try {
-      const { data } = await api.delete(`/triagem-grupos/${id}/atividades/${atividadeId}`);
+      const { data } = await api.delete(`/grupos/${id}/atividades/${atividadeId}`);
       setGrupo(data);
       showToast('Atividade removida');
     } catch {
@@ -125,7 +125,7 @@ export default function GrupoDetalhe() {
   const sendWhatsApp = async (membro) => {
     setSendingWpp(membro.membro_id);
     try {
-      const { data } = await api.post(`/triagem-grupos/${id}/atividades/send-whatsapp`, {
+      const { data } = await api.post(`/grupos/${id}/atividades/send-whatsapp`, {
         membro_id: membro.membro_id,
       });
       showToast(data.message || 'Atividades enviadas!');
@@ -504,7 +504,7 @@ function AcompanhadosCard({ grupo, acompanhados, grupoId, setGrupo, showToast })
 
   const addAcompanhado = async (person) => {
     try {
-      const { data } = await api.post(`/triagem-grupos/${grupoId}/acompanhados`, { person_id: person._id });
+      const { data } = await api.post(`/grupos/${grupoId}/acompanhados`, { person_id: person._id });
       setGrupo(data);
       setSearchTerm('');
       setSearchResults([]);
@@ -516,7 +516,7 @@ function AcompanhadosCard({ grupo, acompanhados, grupoId, setGrupo, showToast })
 
   const removeAcompanhado = async (acompanhadoId) => {
     try {
-      const { data } = await api.delete(`/triagem-grupos/${grupoId}/acompanhados/${acompanhadoId}`);
+      const { data } = await api.delete(`/grupos/${grupoId}/acompanhados/${acompanhadoId}`);
       setGrupo(data);
       showToast('Removido do acompanhamento');
     } catch {
