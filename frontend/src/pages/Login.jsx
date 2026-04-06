@@ -30,13 +30,18 @@ export default function Login() {
     document.head.appendChild(script);
   }, []);
 
-  const getRecaptchaToken = useCallback(async () => {
-    if (!RECAPTCHA_SITE_KEY || !window.grecaptcha) return null;
-    try {
-      return await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'login' });
-    } catch {
-      return null;
-    }
+  const getRecaptchaToken = useCallback(() => {
+    if (!RECAPTCHA_SITE_KEY || !window.grecaptcha) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      window.grecaptcha.ready(async () => {
+        try {
+          const token = await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'login' });
+          resolve(token);
+        } catch {
+          resolve(null);
+        }
+      });
+    });
   }, []);
 
   const handleSubmit = async (e) => {
