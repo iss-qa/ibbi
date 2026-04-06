@@ -43,6 +43,7 @@ app.use(cors({
       /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
       /\.vercel\.app$/,
       /wastezero\.com\.br$/,
+      /issqa\.com\.br$/,
     ];
     const isAllowed = allowedOrigins.some(regex => regex.test(origin));
     if (isAllowed) return callback(null, true);

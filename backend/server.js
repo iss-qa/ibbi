@@ -47,8 +47,9 @@ app.use(cors({
     // Lista de origens permitidas
     const allowedOrigins = [
       /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
-      /\.vercel\.app$/, // Se estiver usando Vercel
-      /wastezero\.com\.br$/, // Seus domínios
+      /\.vercel\.app$/,
+      /wastezero\.com\.br$/,
+      /issqa\.com\.br$/,
     ];
 
     const isAllowed = allowedOrigins.some(regex => regex.test(origin));
