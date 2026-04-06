@@ -50,6 +50,7 @@ export default function Login() {
     setError('');
     try {
       const recaptchaToken = await getRecaptchaToken();
+      console.log('[LOGIN] reCAPTCHA token obtido:', recaptchaToken ? `${recaptchaToken.substring(0, 20)}...` : 'null');
       const data = await login(form.login, form.senha, recaptchaToken);
       if (data.mustChangePassword) {
         navigate('/force-change-password', { replace: true });
