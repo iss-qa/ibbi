@@ -52,7 +52,9 @@ export default function Login() {
         navigate('/dashboard', { replace: true });
       }
     } catch (err) {
-      setError(err?.response?.data?.message || 'Falha no login');
+      const errData = err?.response?.data;
+      const debugInfo = errData?.debug ? ` [${JSON.stringify(errData.debug)}]` : '';
+      setError((errData?.message || 'Falha no login') + debugInfo);
     } finally {
       setLoading(false);
     }
