@@ -170,14 +170,14 @@ export default function Dashboard() {
               {stats?.aniversariantes?.map((person) => (
                 <div
                   key={person._id}
-                  className="flex items-center gap-3 text-sm py-1 border-b border-slate-50 last:border-0 hover:bg-slate-50 px-2 rounded -mx-2 transition cursor-pointer"
+                  className="flex items-center gap-2 text-sm py-1 border-b border-slate-50 last:border-0 hover:bg-slate-50 px-1 rounded transition cursor-pointer"
                   onClick={() => setSelectedBirthdayPerson(person)}
                 >
                   <span className="min-w-0 flex-1 truncate text-ibbiBlue hover:underline underline-offset-2 font-medium">
                     {person.nome}
                   </span>
-                  <span className="text-ibbiGold font-semibold shrink-0 tabular-nums">
-                    {person.diaMes}/{new Date(person.data).toLocaleDateString('pt-BR', { month: '2-digit', timeZone: 'UTC' })}
+                  <span className="text-ibbiGold font-semibold shrink-0 tabular-nums min-w-[3rem] text-right">
+                    {String(person.diaMes).padStart(2, '0')}/{String(new Date(person.data).getUTCMonth() + 1).padStart(2, '0')}
                   </span>
                 </div>
               ))}
@@ -190,18 +190,18 @@ export default function Dashboard() {
         <div className="bg-white rounded-xl border border-stone-100 p-6">
           <h3 className="font-display text-xl text-ibbiNavy mb-4">Aniversariantes do mês</h3>
           {loadingStats ? <SkeletonList rows={6} /> : (
-            <div className="space-y-3 max-h-[280px] overflow-y-auto overflow-x-hidden pr-2">
+            <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
               {stats?.aniversariantesMes?.map((person) => (
                 <div
                   key={person._id}
-                  className="flex items-center gap-3 text-sm py-1 border-b border-slate-50 last:border-0 hover:bg-slate-50 px-2 rounded -mx-2 transition cursor-pointer"
+                  className="flex items-center gap-2 text-sm py-1 border-b border-slate-50 last:border-0 hover:bg-slate-50 px-1 rounded transition cursor-pointer"
                   onClick={() => setSelectedBirthdayPerson(person)}
                 >
                   <span className="min-w-0 flex-1 truncate text-ibbiBlue hover:underline underline-offset-2 font-medium">
                     {person.nome}
                   </span>
-                  <span className="text-ibbiGold font-semibold shrink-0 tabular-nums">
-                    {person.diaMes}/{new Date(person.data).toLocaleDateString('pt-BR', { month: '2-digit', timeZone: 'UTC' })}
+                  <span className="text-ibbiGold font-semibold shrink-0 tabular-nums min-w-[3rem] text-right">
+                    {String(person.diaMes).padStart(2, '0')}/{String(new Date(person.data).getUTCMonth() + 1).padStart(2, '0')}
                   </span>
                 </div>
               ))}
