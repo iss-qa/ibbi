@@ -63,6 +63,12 @@ const PersonSchema = new mongoose.Schema(
   { timestamps: true, toJSON: { virtuals: true }, toObject: { virtuals: true } }
 );
 
+// Indexes para performance
+PersonSchema.index({ status: 1, congregacao: 1 });
+PersonSchema.index({ createdAt: -1 });
+PersonSchema.index({ status: 1, dataNascimento: 1 });
+PersonSchema.index({ nome: 1 });
+
 PersonSchema.virtual('idade').get(function idade() {
   if (!this.dataNascimento) return null;
   const hoje = new Date();
