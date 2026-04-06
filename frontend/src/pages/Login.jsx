@@ -50,7 +50,6 @@ export default function Login() {
     setError('');
     try {
       const recaptchaToken = await getRecaptchaToken();
-      console.log('[LOGIN] reCAPTCHA token obtido:', recaptchaToken ? `${recaptchaToken.substring(0, 20)}...` : 'null');
       const data = await login(form.login, form.senha, recaptchaToken);
       if (data.mustChangePassword) {
         navigate('/force-change-password', { replace: true });
@@ -58,9 +57,7 @@ export default function Login() {
         navigate('/dashboard', { replace: true });
       }
     } catch (err) {
-      const errData = err?.response?.data;
-      const debugInfo = errData?.debug ? ` [${JSON.stringify(errData.debug)}]` : '';
-      setError((errData?.message || 'Falha no login') + debugInfo);
+      setError(err?.response?.data?.message || 'Falha no login');
     } finally {
       setLoading(false);
     }
