@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import MemberForm from './Members/MemberForm';
 
 export default function ExternalMemberForm() {
   const { token } = useParams();
+  const navigate = useNavigate();
   const [successData, setSuccessData] = useState(null);
   const [status, setStatus] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -60,15 +61,13 @@ export default function ExternalMemberForm() {
                 </a>
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Usuário</p>
-                  <p className="font-mono font-medium text-slate-800">{successData?.generatedUser?.login || deriveLogin(submittedName) || '-'}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-slate-500 mb-1">Senha Padrão</p>
-                  <p className="font-mono font-medium text-slate-800">{successData?.generatedUser?.senha || 'IBBI2026'}</p>
-                </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Usuário</p>
+                <p className="font-mono font-medium text-slate-800">{successData?.generatedUser?.login || deriveLogin(submittedName) || '-'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-slate-500 mb-1">Senha Padrão</p>
+                <p className="font-mono font-medium text-slate-800">{successData?.generatedUser?.senha || 'IBBI2026'}</p>
               </div>
             </div>
           </div>
@@ -78,12 +77,12 @@ export default function ExternalMemberForm() {
             atualizar seu <strong>cadastro</strong> e enviar <strong>pedidos de oração</strong>.
           </p>
 
-          <a 
-            href="/login" 
+          <button
+            onClick={() => navigate('/login', { state: { login: successData?.generatedUser?.login || deriveLogin(submittedName) || '', senha: successData?.generatedUser?.senha || 'IBBI2026' } })}
             className="block w-full bg-ibbiNavy text-white font-medium py-3 rounded-xl hover:bg-opacity-90 transition-all shadow-md"
           >
             Ir para o Login
-          </a>
+          </button>
         </div>
       </div>
     );

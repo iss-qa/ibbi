@@ -1,12 +1,14 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import logo from '../assets/logo-ibbi.jpeg';
 import useAuth from '../hooks/useAuth';
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
-  const [form, setForm] = useState({ login: '', senha: '' });
+  const location = useLocation();
+  const prefill = location.state || {};
+  const [form, setForm] = useState({ login: prefill.login || '', senha: prefill.senha || '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);

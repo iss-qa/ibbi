@@ -4,6 +4,7 @@ const Message = require('../models/Message.model');
 const whatsapp = require('../services/whatsapp.service');
 const { sendBirthdayMessages } = require('../services/scheduler.service');
 const templates = require('../templates/messages.templates');
+const { generateBirthdayCard } = require('../services/image.service');
 const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
 
 const SUMMARY_TYPE_ORDER = [
@@ -301,9 +302,10 @@ const sendBirthdayImage = async (req, res) => {
     const textContent = templates.aniversario(person.nome);
     await whatsapp.sendSingle(person.celular, textContent);
 
-    // Send the generated portrait image
-    const localUrl = `http://localhost:${process.env.PORT || 3001}/api/images/aniversariante/${person._id}?format=portrait`;
-    await whatsapp.sendMedia(person.celular, '', localUrl);
+    // Gerar imagem do cartão diretamente e enviar
+    const imageBuffer = await generateBirthdayCard(person, 'portrait');
+    const base64Image = imageBuffer.toString('base64');
+    await whatsapp.sendMedia(person.celular, '', base64Image);
     
     // Log the manual send
     await Message.create({
@@ -340,8 +342,9 @@ const resendMessage = async (req, res) => {
         const textContent = templates.aniversario(person.nome);
         await whatsapp.sendSingle(person.celular, textContent);
 
-        const localUrl = `http://localhost:${process.env.PORT || 3001}/api/images/aniversariante/${person._id}?format=portrait`;
-        await whatsapp.sendMedia(person.celular, '', localUrl);
+        const imageBuffer = await generateBirthdayCard(person, 'portrait');
+        const base64Image = imageBuffer.toString('base64');
+        await whatsapp.sendMedia(person.celular, '', base64Image);
       } catch (err) {
         erros.push({ celular: dest.celular, motivo: err.message });
       }

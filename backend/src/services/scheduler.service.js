@@ -3,6 +3,7 @@ const Person = require('../models/Person.model');
 const Message = require('../models/Message.model');
 const templates = require('../templates/messages.templates');
 const whatsapp = require('./whatsapp.service');
+const { generateBirthdayCard } = require('./image.service');
 
 const APP_TIMEZONE = process.env.APP_TIMEZONE || 'America/Bahia';
 
@@ -31,6 +32,8 @@ const findBirthdaysToday = async () => {
   });
 };
 
+const DELAY_BETWEEN_SENDS_MS = 30 * 1000;
+
 const sendBirthdayMessages = async () => {
   const aniversariantes = await findBirthdaysToday();
   if (aniversariantes.length === 0) return;
@@ -47,34 +50,35 @@ const sendBirthdayMessages = async () => {
   const erros = [];
   let enviados = 0;
 
-  await whatsapp.sendBatch(destinatarios, (dest) => templates.aniversario(dest.nome), async (dest, err) => {
-    if (err) {
-      erros.push({ celular: dest.celular, motivo: err.message });
-    } else {
+  for (let i = 0; i < aniversariantes.length; i++) {
+    const person = aniversariantes[i];
+    try {
+      // 1) Enviar texto
+      await whatsapp.sendSingle(person.celular, templates.aniversario(person.nome));
+
+      // 2) Gerar imagem do cartão e enviar
+      const imageBuffer = await generateBirthdayCard(person, 'portrait');
+      const base64Image = imageBuffer.toString('base64');
+      await whatsapp.sendMedia(person.celular, '', base64Image);
+
       enviados += 1;
-      // Send image right after text
-      try {
-        const person = aniversariantes.find(p => p.celular === dest.celular);
-        if (person) {
-          // Send media using the local api url
-          const localUrl = `http://localhost:${process.env.PORT || 3001}/api/images/aniversariante/${person._id}?format=portrait`;
-          await whatsapp.sendMedia(dest.celular, '', localUrl);
-        }
-      } catch (mediaErr) {
-        console.error(`Failed to send media to ${dest.celular}:`, mediaErr.message);
-      }
+    } catch (err) {
+      erros.push({ celular: person.celular, motivo: err.message });
+      console.error(`Erro ao enviar aniversário para ${person.nome}:`, err.message);
     }
 
-    if (enviados + erros.length === destinatarios.length) {
-      const status = erros.length > 0 ? 'erro' : 'concluido';
-      await Message.findByIdAndUpdate(messageLog._id, {
-        status,
-        concluidoEm: new Date(),
-        erros,
-      });
+    // Delay entre destinatários para evitar rate-limit
+    if (i < aniversariantes.length - 1) {
+      await new Promise((resolve) => setTimeout(resolve, DELAY_BETWEEN_SENDS_MS));
     }
+  }
+
+  const status = erros.length > 0 ? (enviados > 0 ? 'concluido' : 'erro') : 'concluido';
+  await Message.findByIdAndUpdate(messageLog._id, {
+    status,
+    concluidoEm: new Date(),
+    erros,
   });
-
 };
 
 const startScheduler = () => {
