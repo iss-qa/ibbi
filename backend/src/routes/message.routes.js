@@ -1,12 +1,13 @@
 const express = require('express');
 const { body } = require('express-validator');
 const auth = require('../middlewares/auth.middleware');
+const requirePasswordChanged = require('../middlewares/passwordChanged.middleware');
 const requireRole = require('../middlewares/role.middleware');
 const controller = require('../controllers/message.controller');
 
 const router = express.Router();
 
-router.use(auth);
+router.use(auth, requirePasswordChanged);
 router.use(requireRole('admin', 'master'));
 
 router.post('/send-individual', body('mensagem').notEmpty(), controller.sendIndividual);

@@ -1,35 +1,24 @@
 import { useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import api from '../services/api';
 import MemberForm from './Members/MemberForm';
 
 export default function ExternalMemberForm() {
   const { token } = useParams();
-  const navigate = useNavigate();
-  const [successData, setSuccessData] = useState(null);
   const [status, setStatus] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submittedName, setSubmittedName] = useState('');
-
-  // Deriva o login igual ao backend: primeiroNome + segundoNome (sem acento, lowercase)
-  const deriveLogin = (nome) => {
-    if (!nome) return '';
-    const parts = nome.trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().split(/\s+/).filter(Boolean);
-    if (parts.length === 0) return '';
-    return parts.length > 1 ? `${parts[0]}${parts[1]}` : parts[0];
-  };
 
   const handleSubmit = async (payload) => {
     setSubmitting(true);
     setSubmittedName(payload.nome || '');
     try {
-      const response = await api.post(`/public/invitations/${token}/submit`, payload);
-      setSuccessData(response.data);
+      await api.post(`/public/invitations/${token}/submit`, payload);
       setStatus('ok');
     } catch (err) {
       const data = err?.response?.data;
       setStatus(data?.message || 'Falha ao enviar');
-      if (data?.code === 'DUPLICATE') {
+      if (data?.code === 'DUPLICATE' || data?.code === 'DUPLICATE_REQUEST') {
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } finally {
@@ -41,48 +30,28 @@ export default function ExternalMemberForm() {
     return (
       <div className="min-h-screen bg-ibbiCream flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-white shadow-xl rounded-2xl p-8 text-center animate-in fade-in zoom-in duration-300">
-          <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6">
+          <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-6">
             <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          
-          <h1 className="font-display text-2xl text-ibbiNavy mb-2">Bem-vindo(a)!</h1>
-          <p className="text-slate-600 mb-8">Seu cadastro foi realizado com sucesso.</p>
 
-          <div className="bg-slate-50 border border-slate-100 rounded-xl p-6 mb-8 text-left">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Dados de Acesso</h2>
-            
-            <div className="space-y-4">
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Portal</p>
-                <a href="https://ibbi.issqa.com.br/login" className="text-ibbiGold font-medium hover:underline">
-                  ibbi.issqa.com.br/login
-                </a>
-              </div>
-              
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Usuário</p>
-                <p className="font-mono font-medium text-slate-800">{successData?.generatedUser?.login || deriveLogin(submittedName) || '-'}</p>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 mb-1">Senha Padrão</p>
-                <p className="font-mono font-medium text-slate-800">{successData?.generatedUser?.senha || 'IBBI2026'}</p>
-              </div>
-            </div>
-          </div>
-
-          <p className="text-sm text-slate-500 leading-relaxed mb-8">
-            Agora você já pode acessar o portal para <strong>editar sua foto</strong>, 
-            atualizar seu <strong>cadastro</strong> e enviar <strong>pedidos de oração</strong>.
+          <h1 className="font-display text-2xl text-ibbiNavy mb-2">Cadastro Recebido!</h1>
+          <p className="text-slate-600 mb-6">
+            Olá{submittedName ? `, ${submittedName.split(' ')[0]}` : ''}! Sua solicitação foi enviada com sucesso.
           </p>
 
-          <button
-            onClick={() => navigate('/login', { state: { login: successData?.generatedUser?.login || deriveLogin(submittedName) || '', senha: successData?.generatedUser?.senha || 'IBBI2026' } })}
-            className="block w-full bg-ibbiNavy text-white font-medium py-3 rounded-xl hover:bg-opacity-90 transition-all shadow-md"
-          >
-            Ir para o Login
-          </button>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 mb-6 text-left">
+            <h2 className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-3">Em Análise</h2>
+            <p className="text-sm text-amber-800 leading-relaxed">
+              Sua solicitação será analisada pela administração da igreja.
+              Após a aprovação, você receberá uma mensagem no WhatsApp com seus dados de acesso ao portal.
+            </p>
+          </div>
+
+          <p className="text-sm text-slate-500 leading-relaxed">
+            Fique tranquilo(a), entraremos em contato assim que possível.
+          </p>
         </div>
       </div>
     );

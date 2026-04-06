@@ -1,27 +1,57 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import logo from '../assets/logo-ibbi.jpeg';
 import useAuth from '../hooks/useAuth';
+
+const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const prefill = location.state || {};
-  const [form, setForm] = useState({ login: prefill.login || '', senha: prefill.senha || '' });
+  const [form, setForm] = useState({ login: prefill.login || '', senha: '' });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [recaptchaReady, setRecaptchaReady] = useState(!RECAPTCHA_SITE_KEY);
+
+  useEffect(() => {
+    if (!RECAPTCHA_SITE_KEY) return;
+    // Carregar script do reCAPTCHA v3
+    if (document.querySelector(`script[src*="recaptcha"]`)) {
+      setRecaptchaReady(true);
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = `https://www.google.com/recaptcha/api.js?render=${RECAPTCHA_SITE_KEY}`;
+    script.async = true;
+    script.onload = () => setRecaptchaReady(true);
+    document.head.appendChild(script);
+  }, []);
+
+  const getRecaptchaToken = useCallback(async () => {
+    if (!RECAPTCHA_SITE_KEY || !window.grecaptcha) return null;
+    try {
+      return await window.grecaptcha.execute(RECAPTCHA_SITE_KEY, { action: 'login' });
+    } catch {
+      return null;
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      await login(form.login, form.senha);
-      navigate('/dashboard');
+      const recaptchaToken = await getRecaptchaToken();
+      const data = await login(form.login, form.senha, recaptchaToken);
+      if (data.mustChangePassword) {
+        navigate('/force-change-password', { replace: true });
+      } else {
+        navigate('/dashboard', { replace: true });
+      }
     } catch (err) {
-      console.error('Login error:', err?.response?.status, err?.response?.data || err?.message);
       setError(err?.response?.data?.message || 'Falha no login');
     } finally {
       setLoading(false);
@@ -84,7 +114,7 @@ export default function Login() {
           {error && <p className="text-sm text-red-600">{error}</p>}
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || !recaptchaReady}
             className="w-full bg-ibbiBlue text-white rounded-lg py-2 font-semibold hover:bg-ibbiNavy transition"
           >
             {loading ? 'Entrando...' : 'Entrar'}

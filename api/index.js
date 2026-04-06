@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const path = require('path');
 const mongoose = require('mongoose');
@@ -25,21 +26,31 @@ const statsRoutes = require('../backend/src/routes/stats.routes');
 const imageRoutes = require('../backend/src/routes/image.routes');
 const triagemRoutes = require('../backend/src/routes/triagem.routes');
 const projetoAmigoRoutes = require('../backend/src/routes/projeto-amigo.routes');
+const registrationRoutes = require('../backend/src/routes/registration.routes');
 
 const app = express();
 
-// Configurações Básicas
+// Segurança
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginEmbedderPolicy: false,
+}));
+
 app.use(cors({
-  origin: (origin, callback) => callback(null, true),
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
+    const allowedOrigins = [
+      /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
+      /\.vercel\.app$/,
+      /wastezero\.com\.br$/,
+    ];
+    const isAllowed = allowedOrigins.some(regex => regex.test(origin));
+    if (isAllowed) return callback(null, true);
+    return callback(new Error('CORS não permitido para esta origem'));
+  },
   credentials: true,
 }));
 app.use(express.json({ limit: '1mb' }));
-
-// Middleware para LOG de requisições em PRD
-app.use((req, res, next) => {
-  console.log(`[API] ${req.method} ${req.url}`);
-  next();
-});
 
 // Rate Limiter
 const authLimiter = rateLimit({
@@ -75,8 +86,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// app.use('/api/auth', authLimiter, authRoutes);
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/persons', personRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);
@@ -93,10 +103,15 @@ app.use('/api/images', imageRoutes);
 app.use('/api/triagem-grupos', triagemRoutes);
 app.use('/api/grupos', triagemRoutes);
 app.use('/api/projeto-amigo', projetoAmigoRoutes);
+app.use('/api/registrations', registrationRoutes);
 
 // Error Handling
 app.use((err, req, res, next) => {
-  console.error('[SERVER ERROR]', err);
+  console.error('[SERVER ERROR]', {
+    message: err.message,
+    path: req.path,
+    method: req.method,
+  });
   res.status(err.status || 500).json({ message: err.message || 'Erro interno' });
 });
 

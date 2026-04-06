@@ -1,10 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middlewares/auth.middleware');
+const requirePasswordChanged = require('../middlewares/passwordChanged.middleware');
 const requireRole = require('../middlewares/role.middleware');
 const ctrl = require('../controllers/triagem.controller');
 
-router.use(auth);
+router.use(auth, requirePasswordChanged);
 
 router.get('/', requireRole('admin', 'master'), ctrl.list);
 router.get('/:id', requireRole('admin', 'master'), ctrl.getById);

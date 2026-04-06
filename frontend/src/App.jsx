@@ -4,6 +4,7 @@ import useAuth from './hooks/useAuth';
 import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Sidebar';
 import Login from './pages/Login';
+import ForceChangePassword from './pages/ForceChangePassword';
 import Dashboard from './pages/Dashboard';
 import MemberList from './pages/Members/MemberList';
 import CommunicationPanel from './pages/Communication/CommunicationPanel';
@@ -19,9 +20,10 @@ import UserCertificado from './pages/UserCertificado';
 import GruposTriagem from './pages/GruposTriagem';
 import GrupoDetalhe from './pages/GrupoDetalhe';
 import ProjetoAmigoDash from './pages/ProjetoAmigoDash';
+import RegistrationApprovals from './pages/RegistrationApprovals';
 
 export default function App() {
-  const { user, logout } = useAuth();
+  const { user, logout, mustChangePassword } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
@@ -29,6 +31,7 @@ export default function App() {
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route path="/external/:token" element={<ExternalMemberForm />} />
+        <Route path="/force-change-password" element={user ? <ForceChangePassword /> : <Navigate to="/login" replace />} />
         <Route
           path="/*"
           element={
@@ -62,6 +65,7 @@ export default function App() {
                         <Route path="/ebd" element={<EbdList />} />
                         <Route path="/ebd/:id" element={<EbdChamada />} />
                         <Route path="/ebd/relatorios" element={<EbdRelatorio />} />
+                        <Route path="/approvals" element={<RegistrationApprovals />} />
                         {user?.role === 'master' && <Route path="/users" element={<UserManagement />} />}
                       </>
                     )}

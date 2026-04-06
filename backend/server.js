@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 const connectDb = require('./src/config/db');
@@ -22,8 +23,21 @@ const { startScheduler } = require('./src/services/scheduler.service');
 
 dotenv.config({ path: require('path').join(__dirname, '..', '.env') });
 
+// Validar variáveis de ambiente obrigatórias
+const REQUIRED_ENV = ['MONGO_URI', 'JWT_SECRET'];
+const missing = REQUIRED_ENV.filter((key) => !process.env[key]);
+if (missing.length > 0) {
+  console.error(`[STARTUP] Variáveis de ambiente obrigatórias não configuradas: ${missing.join(', ')}`);
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3001;
+
+app.use(helmet({
+  contentSecurityPolicy: false, // CSP desativado para não quebrar frontend SPA
+  crossOriginEmbedderPolicy: false,
+}));
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -51,7 +65,7 @@ app.use(express.json({ limit: '10mb' }));
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100, // Aumentado para evitar bloqueios legítimos
+  max: 30,
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -77,19 +91,20 @@ app.use('/api/images', imageRoutes);
 
 const triagemRoutes = require('./src/routes/triagem.routes');
 const projetoAmigoRoutes = require('./src/routes/projeto-amigo.routes');
+const registrationRoutes = require('./src/routes/registration.routes');
 app.use('/api/triagem-grupos', triagemRoutes);
 app.use('/api/grupos', triagemRoutes);
 app.use('/api/projeto-amigo', projetoAmigoRoutes);
+app.use('/api/registrations', registrationRoutes);
 
 app.use((err, req, res, next) => {
   console.error('[SERVER ERROR]', {
     message: err.message,
-    stack: err.stack,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
     path: req.path,
     method: req.method,
-    body: req.body,
   });
-  res.status(err.status || 500).json({ 
+  res.status(err.status || 500).json({
     message: err.message || 'Erro interno no servidor',
     error: process.env.NODE_ENV === 'development' ? err : undefined
   });

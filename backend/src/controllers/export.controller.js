@@ -1,5 +1,6 @@
 const Person = require('../models/Person.model');
 const { applyScopedCongregacaoFilter } = require('../utils/access');
+const { escapeRegex } = require('../utils/sanitize');
 
 const exportCsv = async (req, res) => {
   const { search, tipo, grupo, congregacao, status } = req.query;
@@ -8,10 +9,11 @@ const exportCsv = async (req, res) => {
   if (grupo) filter.grupo = grupo;
   if (status) filter.status = status;
   if (search) {
+    const safe = escapeRegex(search);
     filter.$or = [
-      { nome: new RegExp(search, 'i') },
-      { tipo: new RegExp(search, 'i') },
-      { grupo: new RegExp(search, 'i') },
+      { nome: new RegExp(safe, 'i') },
+      { tipo: new RegExp(safe, 'i') },
+      { grupo: new RegExp(safe, 'i') },
     ];
   }
 

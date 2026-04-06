@@ -65,10 +65,10 @@ export default function UserManagement() {
   };
 
   const resetPassword = async (userId) => {
-    if (!confirm('Tem certeza que deseja resetar a senha deste usuário para o padrão (IBBI2026)?')) return;
+    if (!confirm('Tem certeza que deseja resetar a senha deste usuário para o padrão?')) return;
     try {
       await api.put(`/users/${userId}/reset-password`);
-      alert('Senha resetada com sucesso para IBBI2026!');
+      alert('Senha resetada para o padrão com sucesso!');
     } catch (err) {
       alert('Erro ao resetar senha.');
     }

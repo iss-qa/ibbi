@@ -1,11 +1,12 @@
 const express = require('express');
 const auth = require('../middlewares/auth.middleware');
+const requirePasswordChanged = require('../middlewares/passwordChanged.middleware');
 const requireRole = require('../middlewares/role.middleware');
 const controller = require('../controllers/ebd.controller');
 
 const router = express.Router();
 
-router.use(auth, requireRole('admin', 'master'));
+router.use(auth, requirePasswordChanged, requireRole('admin', 'master'));
 
 router.get('/', controller.list);
 router.get('/domingo/:date', controller.getBySunday);

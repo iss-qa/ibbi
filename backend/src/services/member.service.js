@@ -2,6 +2,7 @@ const User = require('../models/User.model');
 const Message = require('../models/Message.model');
 const { buildUniqueLogin } = require('../utils/login');
 const whatsapp = require('./whatsapp.service');
+const { DEFAULT_USER_PASSWORD } = require('../config/defaults');
 
 /**
  * Registra um novo membro no sistema de usuários e envia mensagem de boas-vindas.
@@ -15,7 +16,7 @@ const onboardMember = async (person, authorId = null) => {
     if (existing) return null; // Já tem usuário
 
     const userLogin = await buildUniqueLogin(person.nome);
-    const defaultPassword = 'IBBI2026';
+    const defaultPassword = DEFAULT_USER_PASSWORD;
     
     await User.create({
       nome: person.nome,
@@ -24,6 +25,7 @@ const onboardMember = async (person, authorId = null) => {
       role: 'user',
       personId: person._id,
       ativo: true,
+      mustChangePassword: true,
     });
 
     const msgText = `🙏 Bem-vindo(a) à Comunidade IBBI!

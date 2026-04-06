@@ -40,6 +40,9 @@ playwright/.cache/
 /uploads/*
 !/uploads/.gitkeep
 
+# Dados sensíveis (exports, CSVs com dados reais)
+docs/*.csv
+
 # Other temp files
 .npm
 .eslintcache

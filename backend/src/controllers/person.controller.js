@@ -6,6 +6,7 @@ const Message = require('../models/Message.model');
 const { onboardMember } = require('../services/member.service');
 const whatsapp = require('../services/whatsapp.service');
 const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
+const { escapeRegex } = require('../utils/sanitize');
 
 const normalizePhone = (value) => (value ? String(value).replace(/\D/g, '') : '');
 
@@ -80,6 +81,30 @@ const clearFieldsByTipo = (payload) => {
   }
 };
 
+// Allowlists de campos por role para prevenir mass assignment
+const ALLOWED_FIELDS_USER = ['nome', 'celular', 'email', 'sexo', 'dataNascimento', 'estadoCivil', 'endereco', 'fotoUrl'];
+const ALLOWED_FIELDS_ADMIN = [
+  'nome', 'celular', 'email', 'sexo', 'dataNascimento', 'estadoCivil', 'endereco', 'fotoUrl',
+  'tipo', 'grupo', 'batizado', 'dataBatismo', 'status', 'motivoInativacao', 'ministerio',
+  'dataVisita', 'dataDecisao', 'acompanhadoPersonId',
+];
+// master pode editar tudo — não precisa de allowlist
+
+const filterByAllowlist = (payload, allowlist) => {
+  const filtered = {};
+  for (const key of allowlist) {
+    if (payload[key] !== undefined) filtered[key] = payload[key];
+  }
+  return filtered;
+};
+
+const sanitizeFotoUrl = (url) => {
+  if (!url) return url;
+  // Aceitar apenas data: URIs (uploads controlados) ou paths relativos do /uploads/
+  if (url.startsWith('data:image/') || url.startsWith('/uploads/')) return url;
+  return undefined; // Rejeitar URLs externas (previne SSRF)
+};
+
 const LOWERCASE_WORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'com']);
 
 const normalizeName = (name) => {
@@ -144,12 +169,13 @@ const list = async (req, res) => {
   if (batizado !== undefined) filter.batizado = batizado === 'true';
 
   if (search) {
+    const safe = escapeRegex(search);
     filter.$or = [
-      { nome: new RegExp(search, 'i') },
-      { tipo: new RegExp(search, 'i') },
-      { grupo: new RegExp(search, 'i') },
-      { email: new RegExp(search, 'i') },
-      { celular: new RegExp(search, 'i') },
+      { nome: new RegExp(safe, 'i') },
+      { tipo: new RegExp(safe, 'i') },
+      { grupo: new RegExp(safe, 'i') },
+      { email: new RegExp(safe, 'i') },
+      { celular: new RegExp(safe, 'i') },
     ];
   }
 
@@ -184,11 +210,6 @@ const getById = async (req, res) => {
     const linkedUser = await User.findOne({ personId: person._id });
     if (linkedUser) {
       responseData.userCredentials = { login: linkedUser.login };
-      
-      if (req.user.role === 'master') {
-        const isDefault = await linkedUser.comparePassword('IBBI2026');
-        responseData.userCredentials.senha = isDefault ? 'IBBI2026' : '(Alterada pelo membro)';
-      }
     }
   }
 
@@ -199,13 +220,14 @@ const create = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const payload = { ...req.body };
+  const payload = req.user.role === 'admin' ? filterByAllowlist(req.body, [...ALLOWED_FIELDS_ADMIN, 'congregacao']) : { ...req.body };
   if (payload.nome) payload.nome = normalizeName(payload.nome);
   if (payload.celular) payload.celular = normalizePhone(payload.celular);
   if (payload.status !== 'inativo') delete payload.motivoInativacao;
   if (payload.motivoInativacao === '') delete payload.motivoInativacao;
   cleanEmptyEnums(payload);
   clearFieldsByTipo(payload);
+  if (payload.fotoUrl !== undefined) payload.fotoUrl = sanitizeFotoUrl(payload.fotoUrl);
   if (req.user.role === 'admin') {
     payload.congregacao = await getUserCongregacao(req.user);
   }
@@ -252,7 +274,6 @@ const create = async (req, res) => {
         ...person.toJSON(),
         generatedUser: {
           login: credentials.login,
-          senha: credentials.password,
         }
       });
     }
@@ -266,13 +287,22 @@ const update = async (req, res) => {
   if (!existing) return res.status(404).json({ message: 'Pessoa não encontrada' });
   await assertPersonAccess(req.user, existing);
 
-  const payload = { ...req.body };
+  let payload;
+  if (req.user.role === 'user') {
+    payload = filterByAllowlist(req.body, ALLOWED_FIELDS_USER);
+  } else if (req.user.role === 'admin') {
+    payload = filterByAllowlist(req.body, ALLOWED_FIELDS_ADMIN);
+  } else {
+    payload = { ...req.body };
+  }
+
   if (payload.nome) payload.nome = normalizeName(payload.nome);
   if (payload.celular) payload.celular = normalizePhone(payload.celular);
   if (payload.status !== 'inativo') delete payload.motivoInativacao;
   if (payload.motivoInativacao === '') delete payload.motivoInativacao;
   cleanEmptyEnums(payload);
   clearFieldsByTipo(payload);
+  if (payload.fotoUrl !== undefined) payload.fotoUrl = sanitizeFotoUrl(payload.fotoUrl);
   if (req.user.role === 'admin') {
     payload.congregacao = await getUserCongregacao(req.user);
   }

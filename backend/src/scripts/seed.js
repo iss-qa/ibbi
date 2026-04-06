@@ -9,6 +9,8 @@ const { buildUniqueLogin } = require('../utils/login');
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '..', '.env') });
 
+const { DEFAULT_USER_PASSWORD, SEED_MASTER_PASSWORD } = require('../config/defaults');
+
 const CSV_PATH = path.join(__dirname, '..', '..', '..', 'docs', 'churchcrm-export-20260315-222627.csv');
 
 const normalizePhone = (value) => (value ? String(value).replace(/\D/g, '') : '');
@@ -89,13 +91,17 @@ const mapCongregacao = (value) => {
 };
 
 const createMasterUser = async () => {
+  if (!SEED_MASTER_PASSWORD) {
+    throw new Error('SEED_MASTER_PASSWORD não configurada no .env');
+  }
+
   const exists = await User.findOne({ login: 'Isaias' });
   if (exists) return exists;
 
   const master = await User.create({
     nome: 'Isaias Santos Silva',
     login: 'Isaias',
-    senha: 'Is@i@s1989',
+    senha: SEED_MASTER_PASSWORD,
     role: 'master',
     ativo: true,
   });
@@ -120,10 +126,11 @@ const ensureAdminUser = async () => {
   const admin = await User.create({
     nome: 'Elisa Ribeiro',
     login,
-    senha: 'IBBI2026',
+    senha: DEFAULT_USER_PASSWORD,
     role: 'admin',
     personId: person._id,
     ativo: true,
+    mustChangePassword: true,
   });
 
   return admin;
@@ -138,6 +145,12 @@ const main = async () => {
 
   await createMasterUser();
   await ensureAdminUser();
+
+  if (!fs.existsSync(CSV_PATH)) {
+    console.log('CSV não encontrado, pulando importação de membros.');
+    await mongoose.disconnect();
+    return;
+  }
 
   const raw = fs.readFileSync(CSV_PATH, 'utf-8');
   const records = parse(raw, {
@@ -189,10 +202,11 @@ const main = async () => {
       await User.create({
         nome,
         login: generatedLogin,
-        senha: 'IBBI2026',
+        senha: DEFAULT_USER_PASSWORD,
         role: 'user',
         personId: person._id,
         ativo: true,
+        mustChangePassword: true,
       });
     }
 

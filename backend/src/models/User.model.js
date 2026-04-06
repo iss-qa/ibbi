@@ -9,6 +9,10 @@ const UserSchema = new mongoose.Schema(
     role: { type: String, enum: ['master', 'admin', 'user'], default: 'user' },
     personId: { type: mongoose.Schema.Types.ObjectId, ref: 'Person' },
     ativo: { type: Boolean, default: true },
+    mustChangePassword: { type: Boolean, default: false },
+    passwordChangedAt: { type: Date },
+    failedLoginAttempts: { type: Number, default: 0 },
+    lockedUntil: { type: Date },
   },
   { timestamps: { createdAt: 'createdAt', updatedAt: false } }
 );

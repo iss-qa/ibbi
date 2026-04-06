@@ -1,46 +1,17 @@
-const crypto = require('crypto');
 const Invitation = require('../models/Invitation.model');
 const Person = require('../models/Person.model');
-const { onboardMember } = require('../services/member.service');
-
-const clearFieldsByTipo = (payload) => {
-  if (payload.tipo === 'visitante' || payload.tipo === 'novo decidido') {
-    delete payload.email;
-    delete payload.grupo;
-    delete payload.estadoCivil;
-    delete payload.endereco;
-    delete payload.ministerio;
-    delete payload.batizado;
-    delete payload.dataBatismo;
-    delete payload.status;
-    delete payload.motivoInativacao;
-  }
-
-  if (payload.tipo === 'visitante') {
-    delete payload.dataDecisao;
-  }
-
-  if (payload.tipo === 'novo decidido') {
-    delete payload.dataVisita;
-  }
-
-  if (payload.tipo !== 'visitante' && payload.tipo !== 'novo decidido') {
-    delete payload.dataVisita;
-    delete payload.dataDecisao;
-  }
-};
+const RegistrationRequest = require('../models/RegistrationRequest.model');
 
 const PERMANENT_TOKEN = '9b34cf8ae96bc49d6b388b5a0a68f2a39578297def76faf6';
 
 const createInvitation = async (req, res) => {
-  // Garantir que o convite fixo existe no banco
   let invite = await Invitation.findOne({ token: PERMANENT_TOKEN });
-  
+
   if (!invite) {
     invite = await Invitation.create({
       token: PERMANENT_TOKEN,
       createdBy: req.user?._id,
-      expiresAt: null, // Convite eterno
+      expiresAt: null,
     });
   } else if (invite.expiresAt) {
     invite.expiresAt = null;
@@ -53,32 +24,30 @@ const createInvitation = async (req, res) => {
   res.json({ token: invite.token, link, expiresAt: null });
 };
 
+const normalizeName = (nome) => {
+  if (!nome) return nome;
+  return String(nome).trim().replace(/\s+/g, ' ').toLowerCase()
+    .split(' ').map((w, i) => {
+      if (i > 0 && ['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'com'].includes(w)) return w;
+      return w.charAt(0).toUpperCase() + w.slice(1);
+    }).join(' ');
+};
+
 const submitInvitation = async (req, res) => {
   const { token } = req.params;
   const invite = await Invitation.findOne({ token });
 
   if (!invite) return res.status(404).json({ message: 'Convite inválido' });
-  
-  // Apenas verifica expiração se não for o token permanente ou se explicitamente configurado
+
   if (invite.token !== PERMANENT_TOKEN && invite.expiresAt && invite.expiresAt < new Date()) {
     return res.status(400).json({ message: 'Convite expirado' });
   }
 
-  const payload = { ...req.body, status: 'ativo' };
-  if (payload.nome) {
-    payload.nome = String(payload.nome).trim().replace(/\s+/g, ' ').toLowerCase()
-      .split(' ').map((w, i) => {
-        if (i > 0 && ['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'com'].includes(w)) return w;
-        return w.charAt(0).toUpperCase() + w.slice(1);
-      }).join(' ');
-  }
+  const payload = { ...req.body };
+  if (payload.nome) payload.nome = normalizeName(payload.nome);
   if (payload.celular) payload.celular = String(payload.celular).replace(/\D/g, '');
-  ['sexo', 'tipo', 'grupo', 'estadoCivil', 'congregacao', 'status', 'motivoInativacao'].forEach((field) => {
-    if (payload[field] === '') delete payload[field];
-  });
-  clearFieldsByTipo(payload);
 
-  // Validação de duplicidade: nome + celular OU nome + dataNascimento
+  // Validação de duplicidade com cadastros existentes
   if (payload.nome) {
     const escapedNome = payload.nome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const nomeRegex = { $regex: new RegExp(`^${escapedNome}$`, 'i') };
@@ -87,26 +56,41 @@ const submitInvitation = async (req, res) => {
     if (payload.dataNascimento) orConditions.push({ nome: nomeRegex, dataNascimento: new Date(payload.dataNascimento) });
 
     if (orConditions.length > 0) {
-      const exists = await Person.findOne({ $or: orConditions });
-      if (exists) {
+      const existsPerson = await Person.findOne({ $or: orConditions });
+      if (existsPerson) {
         return res.status(409).json({
           code: 'DUPLICATE',
           message: `O cadastro de "${payload.nome}" já foi realizado anteriormente. Caso precise atualizar seus dados, entre em contato com a secretaria da igreja.`,
         });
       }
+
+      // Verificar duplicidade com solicitações pendentes
+      const existsRequest = await RegistrationRequest.findOne({
+        nome: nomeRegex,
+        status: 'pending',
+      });
+      if (existsRequest) {
+        return res.status(409).json({
+          code: 'DUPLICATE_REQUEST',
+          message: `Já existe uma solicitação de cadastro em análise para "${payload.nome}". Aguarde a aprovação da administração.`,
+        });
+      }
     }
   }
 
-  const person = await Person.create(payload);
-  const credentials = await onboardMember(person, null); // null pois é cadastro externo, não há "autor" logado
+  // Criar solicitação pendente (não cria Person nem User)
+  await RegistrationRequest.create({
+    nome: payload.nome,
+    celular: payload.celular,
+    congregacao: payload.congregacao,
+    fotoUrl: payload.fotoUrl,
+    submittedData: payload,
+    status: 'pending',
+  });
 
-  res.json({ 
-    message: 'Cadastro realizado', 
-    personId: person._id,
-    generatedUser: credentials ? {
-      login: credentials.login,
-      senha: credentials.password
-    } : null
+  res.json({
+    message: 'Cadastro recebido com sucesso! Sua solicitação está em análise. Aguarde a aprovação da administração da igreja.',
+    status: 'pending',
   });
 };
 

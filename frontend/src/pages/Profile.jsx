@@ -14,6 +14,7 @@ export default function Profile() {
   const [personData, setPersonData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
+  const [senhaAtual, setSenhaAtual] = useState('');
   const [senhaNova, setSenhaNova] = useState('');
   const [senhaConfirm, setSenhaConfirm] = useState('');
 
@@ -65,6 +66,10 @@ export default function Profile() {
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
+    if (!senhaAtual) {
+      alert("Informe a senha atual.");
+      return;
+    }
     if (senhaNova !== senhaConfirm) {
       alert("As senhas não coincidem!");
       return;
@@ -75,13 +80,14 @@ export default function Profile() {
     }
 
     try {
-      await api.put('/users/me/password', { senhaNova });
+      await api.put('/users/me/password', { senhaAtual, senhaNova });
       showToast("Senha alterada com sucesso!");
       setChangingPassword(false);
+      setSenhaAtual('');
       setSenhaNova('');
       setSenhaConfirm('');
     } catch (err) {
-      alert("Erro ao alterar senha. Verifique se o backend tem a rota correta.");
+      alert(err?.response?.data?.message || "Erro ao alterar senha.");
     }
   };
 
@@ -191,7 +197,7 @@ export default function Profile() {
               <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl mb-6 flex flex-col sm:flex-row gap-3 items-start sm:items-center text-amber-800 text-sm">
                 <span className="text-xl shrink-0">💡</span>
                 <p>
-                  A senha padrão inicial do sistema é <strong>IBBI2026</strong>. Recomendamos que os usuários a alterem assim que possível para uma senha de sua preferência.
+                  Recomendamos que os usuários alterem a senha padrão assim que possível para uma senha de sua preferência.
                 </p>
               </div>
 
@@ -224,6 +230,17 @@ export default function Profile() {
                     Definir Nova Senha
                   </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                    <div className="flex flex-col gap-1.5 sm:col-span-2">
+                      <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Senha Atual</label>
+                      <input
+                        type="password"
+                        className="w-full sm:w-1/2 border border-slate-200 rounded-xl px-4 py-2.5 text-base bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-400 transition"
+                        value={senhaAtual}
+                        onChange={(e) => setSenhaAtual(e.target.value)}
+                        placeholder="Informe sua senha atual"
+                        required
+                      />
+                    </div>
                     <div className="flex flex-col gap-1.5">
                       <label className="text-xs font-semibold uppercase tracking-wider text-slate-500">Nova Senha</label>
                       <input 

@@ -41,6 +41,11 @@ const navIconMap = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 19v-1a3 3 0 00-3-3H8a3 3 0 00-3 3v1m10-10a4 4 0 11-8 0 4 4 0 018 0zm6 10v-1a3 3 0 00-2-2.83" />
     </svg>
   ),
+  '/approvals': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+  ),
   '/users': (
     <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2m16 0v-2a4 4 0 00-3-3.87M12 7a4 4 0 11-8 0 4 4 0 018 0zm8 2a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -90,6 +95,7 @@ const navItemsByRole = (role, user) => {
   const items = [
     { to: '/dashboard', label: 'Dashboard' },
     { to: '/members', label: 'Membros' },
+    { to: '/approvals', label: 'Aprovações' },
     { to: '/communication', label: 'Comunicação' },
     { to: '/projeto-amigo', label: 'Projeto Amigo' },
     { to: '/ebd', label: 'EBD' },
@@ -98,7 +104,7 @@ const navItemsByRole = (role, user) => {
   ];
 
   if (role === 'master') {
-    items.splice(6, 0, { to: '/users', label: 'Usuários' });
+    items.splice(7, 0, { to: '/users', label: 'Usuários' });
   }
 
   return items;

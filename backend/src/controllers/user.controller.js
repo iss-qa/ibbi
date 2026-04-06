@@ -3,6 +3,7 @@ const User = require('../models/User.model');
 const Person = require('../models/Person.model');
 const { buildUniqueLogin } = require('../utils/login');
 const { getUserCongregacao } = require('../utils/access');
+const { DEFAULT_USER_PASSWORD } = require('../config/defaults');
 
 const list = async (req, res) => {
   const { page = 1, limit = 10, search = '' } = req.query;
@@ -61,10 +62,11 @@ const createUser = async (req, res) => {
   const user = await User.create({
     nome: person.nome,
     login: userLogin,
-    senha: 'IBBI2026',
+    senha: DEFAULT_USER_PASSWORD,
     role,
     personId: person._id,
     ativo: true,
+    mustChangePassword: true,
   });
 
   res.status(201).json(user.toJSON());
@@ -140,13 +142,26 @@ const updateMyPassword = async (req, res) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
 
-  const { senhaNova } = req.body;
-  const user = await User.findById(req.user.id);
+  const { senhaAtual, senhaNova } = req.body;
+  const user = await User.findById(req.user.id).select('+senha');
   if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
 
+  // Se não é primeiro login, exigir senha atual
+  if (!user.mustChangePassword) {
+    if (!senhaAtual) {
+      return res.status(400).json({ message: 'Senha atual é obrigatória' });
+    }
+    const match = await user.comparePassword(senhaAtual);
+    if (!match) {
+      return res.status(401).json({ message: 'Senha atual incorreta' });
+    }
+  }
+
   user.senha = senhaNova;
+  user.mustChangePassword = false;
+  user.passwordChangedAt = new Date();
   await user.save(); // Dispara o pre-save do hash
-  
+
   return res.json({ message: 'Senha atualizada com sucesso' });
 };
 
@@ -164,10 +179,11 @@ const resetPassword = async (req, res) => {
     }
   }
 
-  target.senha = 'IBBI2026';
+  target.senha = DEFAULT_USER_PASSWORD;
+  target.mustChangePassword = true;
   await target.save(); // Dispara o pre-save do hash
 
-  return res.json({ message: 'Senha resetada para IBBI2026 com sucesso' });
+  return res.json({ message: 'Senha resetada para o padrão com sucesso' });
 };
 
 module.exports = { list, createUser, updateRole, updateStatus, remove, updateMyPassword, resetPassword };

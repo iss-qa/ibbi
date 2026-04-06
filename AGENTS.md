@@ -214,12 +214,12 @@ NODE_ENV=development
 **Usuário master fixo (seed):**
 - Nome: `Isaias Santos Silva`
 - Login: `Isaias`
-- Senha: `Is@i@s1989`
+- Senha: configurada via `SEED_MASTER_PASSWORD` no `.env`
 - Role: `master`
 
 **Regra de login — usuários comuns:**
 - Login: primeiro nome em lowercase (ex: membro "João Pedro Silva" → login `joao`)
-- Senha padrão: `IBBI2026`
+- Senha padrão: configurada via `DEFAULT_USER_PASSWORD` no `.env`
 
 ---
 
@@ -456,8 +456,8 @@ npm run build
 | WhatsApp Igreja (pedidos de oração) | 5571996838735 |
 | MongoDB | `mongodb://localhost:27017/ibbi_local` |
 | Evolution API Base URL | `https://evo2.wastezero.com.br` |
-| Usuário master | login: `Isaias` / senha: `Is@i@s1989` |
-| Senha padrão usuários comuns | `IBBI2026` |
+| Usuário master | login: `Isaias` / senha: via `SEED_MASTER_PASSWORD` no `.env` |
+| Senha padrão usuários comuns | via `DEFAULT_USER_PASSWORD` no `.env` |
 
 ---
 

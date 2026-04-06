@@ -6,7 +6,7 @@ test.describe('Gestão de Membros - Bug fixes e Validações', () => {
 
   test.beforeEach(async ({ page }) => {
     memberPage = new MemberPage(page);
-    await memberPage.login('Isaias', 'Is@i@s1989');
+    await memberPage.login(process.env.TEST_LOGIN, process.env.TEST_PASSWORD);
     await expect(page).toHaveURL(/.*dashboard/);
     await page.goto('/members');
   });

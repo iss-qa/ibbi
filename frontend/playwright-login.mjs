@@ -1,8 +1,13 @@
 import { chromium } from 'playwright';
 
 const baseUrl = process.env.UI_URL || 'http://localhost:4173';
-const login = process.env.LOGIN || 'Isaias';
-const senha = process.env.SENHA || 'Is@i@s1989';
+const login = process.env.LOGIN;
+const senha = process.env.SENHA;
+
+if (!login || !senha) {
+  console.error('Variáveis LOGIN e SENHA são obrigatórias. Ex: LOGIN=user SENHA=pass node playwright-login.mjs');
+  process.exit(1);
+}
 
 const run = async () => {
   const browser = await chromium.launch();

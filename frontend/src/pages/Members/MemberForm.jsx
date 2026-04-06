@@ -391,12 +391,6 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
                 <span className="text-[11px] text-stone-500 font-medium mr-1.5 uppercase tracking-wider">Usuário:</span>
                 <span className="text-sm font-semibold text-stone-700">{initialData.userCredentials.login}</span>
               </div>
-              {initialData.userCredentials.senha && (
-                <div>
-                  <span className="text-[11px] text-stone-500 font-medium mr-1.5 uppercase tracking-wider">Senha:</span>
-                  <span className="text-sm font-semibold text-stone-700">{initialData.userCredentials.senha}</span>
-                </div>
-              )}
             </div>
           )}
 

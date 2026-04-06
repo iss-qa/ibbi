@@ -1,6 +1,7 @@
 const EbdAula = require('../models/EbdAula.model');
 const Person = require('../models/Person.model');
 const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
+const { escapeRegex } = require('../utils/sanitize');
 
 const ensureSunday = (date) => {
   const d = new Date(`${date}T12:00:00`);
@@ -23,9 +24,10 @@ const list = async (req, res) => {
   if (data) filter.data = new Date(data);
   if (classe) filter.classe = classe;
   if (search) {
+    const safe = escapeRegex(search);
     filter.$or = [
-      { tema: new RegExp(search, 'i') },
-      { descricao: new RegExp(search, 'i') },
+      { tema: new RegExp(safe, 'i') },
+      { descricao: new RegExp(safe, 'i') },
     ];
   }
   if (month && year) {
