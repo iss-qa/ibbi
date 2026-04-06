@@ -101,6 +101,16 @@ export default function Dashboard() {
     }
   }, [lockedCongregacao, user]);
 
+  // Loading global na primeira carga
+  if (!stats && loadingStats) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 animate-fade-in">
+        <div className="w-10 h-10 border-4 border-ibbiBlue/20 border-t-ibbiBlue rounded-full animate-spin" />
+        <p className="text-sm text-slate-400 font-medium">Carregando dashboard...</p>
+      </div>
+    );
+  }
+
   const cards = [
     { label: 'Membros ativos', value: stats?.ativos ?? 0 },
     { label: 'Membros inativos', value: stats?.inativos ?? 0 },
@@ -166,7 +176,7 @@ export default function Dashboard() {
                   <span className="min-w-0 flex-1 truncate text-ibbiBlue hover:underline underline-offset-2 font-medium">
                     {person.nome}
                   </span>
-                  <span className="text-ibbiGold font-semibold">
+                  <span className="text-ibbiGold font-semibold shrink-0 tabular-nums">
                     {person.diaMes}/{new Date(person.data).toLocaleDateString('pt-BR', { month: '2-digit', timeZone: 'UTC' })}
                   </span>
                 </div>
@@ -190,7 +200,7 @@ export default function Dashboard() {
                   <span className="min-w-0 flex-1 truncate text-ibbiBlue hover:underline underline-offset-2 font-medium">
                     {person.nome}
                   </span>
-                  <span className="text-ibbiGold font-semibold">
+                  <span className="text-ibbiGold font-semibold shrink-0 tabular-nums">
                     {person.diaMes}/{new Date(person.data).toLocaleDateString('pt-BR', { month: '2-digit', timeZone: 'UTC' })}
                   </span>
                 </div>
