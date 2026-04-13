@@ -1,9 +1,53 @@
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../components/Header';
 import CustomSelect from '../components/CustomSelect';
 import useAuth from '../hooks/useAuth';
 import api from '../services/api';
+import { CONGREGACOES } from '../constants/congregacoes';
+
+const ETAPA_OPTIONS = [
+  { value: 'triagem', label: 'Triagem' },
+  { value: 'acolhimento', label: 'Acolhimento' },
+  { value: 'integracao', label: 'Integração' },
+  { value: 'estudo_biblico', label: 'Estudo Bíblico' },
+  { value: 'consolidacao', label: 'Consolidação' },
+  { value: 'membro_pleno', label: 'Membro Pleno' },
+];
+
+const ETAPA_BADGE = {
+  triagem: 'bg-blue-50 text-blue-700 border-blue-200',
+  acolhimento: 'bg-orange-50 text-orange-700 border-orange-200',
+  integracao: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+  estudo_biblico: 'bg-violet-50 text-violet-700 border-violet-200',
+  consolidacao: 'bg-rose-50 text-rose-700 border-rose-200',
+  membro_pleno: 'bg-slate-100 text-slate-700 border-slate-300',
+};
+
+const ETAPA_LABEL = {
+  triagem: 'Triagem',
+  acolhimento: 'Acolhimento',
+  integracao: 'Integração',
+  estudo_biblico: 'Estudo Bíblico',
+  consolidacao: 'Consolidação',
+  membro_pleno: 'Membro Pleno',
+};
+
+const CONG_CARD_STYLE = {
+  'Sede': 'border-l-4 border-l-emerald-500 bg-emerald-50/30',
+  'São Cristóvão': 'border-l-4 border-l-blue-500 bg-blue-50/30',
+  'Vida Nova': 'border-l-4 border-l-violet-500 bg-violet-50/30',
+  'PQ São Paulo 1': 'border-l-4 border-l-amber-500 bg-amber-50/30',
+  'PQ São Paulo 2': 'border-l-4 border-l-orange-500 bg-orange-50/30',
+  'Capelão': 'border-l-4 border-l-rose-500 bg-rose-50/30',
+  'Bairro da Paz': 'border-l-4 border-l-teal-500 bg-teal-50/30',
+  'Dona Lindu': 'border-l-4 border-l-pink-500 bg-pink-50/30',
+  'Portão': 'border-l-4 border-l-cyan-500 bg-cyan-50/30',
+  'Olindina-BA': 'border-l-4 border-l-indigo-500 bg-indigo-50/30',
+  'Crisópolis-BA': 'border-l-4 border-l-lime-600 bg-lime-50/30',
+  'São Felipe-BA': 'border-l-4 border-l-yellow-500 bg-yellow-50/30',
+  'São Sebastião do Passé - BA': 'border-l-4 border-l-fuchsia-500 bg-fuchsia-50/30',
+};
 
 const TIPO_BADGE = {
   novos_decididos: 'bg-amber-50 text-amber-700 border-amber-200',
@@ -16,12 +60,6 @@ const TIPO_LABEL = {
   visitantes: 'Visitantes',
   personalizado: 'Personalizado',
 };
-
-const CONGREGACOES = [
-  'Sede', 'São Cristóvão', 'Vida Nova', 'PQ São Paulo 1', 'PQ São Paulo 2',
-  'Capelão', 'Bairro da Paz', 'Dona Lindu', 'Portão',
-  'Olindina-BA', 'Crisópolis-BA', 'São Felipe-BA', 'São Sebastião do Passé - BA',
-];
 
 const inputClass =
   'w-full border border-slate-200 rounded-lg px-3 py-2 text-lg sm:text-base text-slate-800 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 transition placeholder:text-slate-400 min-h-[44px]';
@@ -38,21 +76,15 @@ const normalizeTipo = (value) =>
 
 const matchesGroupFilters = (person, grupo) => {
   if (!grupo) return true;
-
-  const sameCongregacao = !grupo.congregacao || person.congregacao === grupo.congregacao;
-  if (!sameCongregacao) return false;
-
-  const personTipo = normalizeTipo(person.tipo);
-
-  if (grupo.tipo === 'visitantes') return personTipo === 'visitante';
-  if (grupo.tipo === 'novos_decididos') return personTipo === 'novo decidido';
-
-  return true;
+  // Membros da equipe: qualquer pessoa da mesma congregação
+  if (!grupo.congregacao) return true;
+  return person.congregacao === grupo.congregacao;
 };
 
 const buildGrupoPayload = (form) => ({
   nome: String(form.nome || '').trim(),
   tipo: form.tipo,
+  etapa: form.etapa || 'triagem',
   descricao: String(form.descricao || '').trim(),
   congregacao: String(form.congregacao || '').trim(),
   ativo: form.ativo !== false,
@@ -68,7 +100,11 @@ function SectionCard({ children, className = '' }) {
 
 export default function GruposTriagem() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
+  const [filterCongregacao, setFilterCongregacao] = useState('Todos');
+  const [filterEtapa, setFilterEtapa] = useState(searchParams.get('etapa') || '');
   const [grupos, setGrupos] = useState([]);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState('');
@@ -92,7 +128,9 @@ export default function GruposTriagem() {
   const loadGrupos = async () => {
     setLoading(true);
     try {
-      const { data } = await api.get('/grupos');
+      const params = filterCongregacao === 'Todos' ? {} : { congregacao: filterCongregacao };
+      if (filterEtapa) params.etapa = filterEtapa;
+      const { data } = await api.get('/grupos', { params });
       setGrupos(Array.isArray(data) ? data : data.items || []);
     } catch {
       setGrupos([]);
@@ -100,17 +138,25 @@ export default function GruposTriagem() {
     setLoading(false);
   };
 
-  useEffect(() => { loadGrupos(); }, []);
+  useEffect(() => {
+    if (user && lockedCongregacao) {
+      setFilterCongregacao(lockedCongregacao);
+    }
+  }, [lockedCongregacao, user]);
+
+  useEffect(() => {
+    if (user) loadGrupos();
+  }, [filterCongregacao, filterEtapa, user]);
 
   const openCreate = () => {
     setEditingGrupo(null);
-    setForm({ nome: '', tipo: 'novos_decididos', descricao: '', congregacao: user?.congregacao || '', ativo: true });
+    setForm({ nome: '', tipo: 'novos_decididos', etapa: filterEtapa || 'triagem', descricao: '', congregacao: user?.congregacao || '', ativo: true });
     setShowForm(true);
   };
 
   const openEdit = (grupo) => {
     setEditingGrupo(grupo);
-    setForm({ nome: grupo.nome, tipo: grupo.tipo, descricao: grupo.descricao || '', congregacao: grupo.congregacao || '', ativo: grupo.ativo !== false });
+    setForm({ nome: grupo.nome, tipo: grupo.tipo, etapa: grupo.etapa || 'triagem', descricao: grupo.descricao || '', congregacao: grupo.congregacao || '', ativo: grupo.ativo !== false });
     setShowForm(true);
   };
 
@@ -208,16 +254,24 @@ export default function GruposTriagem() {
       }, {})
     : null;
 
+  const reloadGruposAndSync = async (grupoId) => {
+    const params = filterCongregacao === 'Todos' ? {} : { congregacao: filterCongregacao };
+    if (filterEtapa) params.etapa = filterEtapa;
+    const { data } = await api.get('/grupos', { params });
+    const all = Array.isArray(data) ? data : data.items || [];
+    if (grupoId) {
+      const updated = all.find((g) => g._id === grupoId);
+      if (updated) setManagingGrupo(updated);
+    }
+    setGrupos(all);
+  };
+
   const addMembro = async (person) => {
     if (!managingGrupo) return;
     try {
       await api.post(`/grupos/${managingGrupo._id}/membros`, { membro_id: person._id });
       showToast(`${person.nome} adicionado ao grupo!`);
-      const { data } = await api.get('/grupos');
-      const all = Array.isArray(data) ? data : data.items || [];
-      const updated = all.find((g) => g._id === managingGrupo._id);
-      if (updated) setManagingGrupo(updated);
-      setGrupos(all);
+      await reloadGruposAndSync(managingGrupo._id);
       setSearchTerm('');
     } catch (err) {
       showToast(err?.response?.data?.message || 'Erro ao adicionar membro');
@@ -229,11 +283,7 @@ export default function GruposTriagem() {
     try {
       await api.delete(`/grupos/${managingGrupo._id}/membros/${membroId}`);
       showToast('Membro removido do grupo!');
-      const { data } = await api.get('/grupos');
-      const all = Array.isArray(data) ? data : data.items || [];
-      const updated = all.find((g) => g._id === managingGrupo._id);
-      if (updated) setManagingGrupo(updated);
-      setGrupos(all);
+      await reloadGruposAndSync(managingGrupo._id);
     } catch (err) {
       showToast(err?.response?.data?.message || 'Erro ao remover membro');
     }
@@ -261,7 +311,34 @@ export default function GruposTriagem() {
         title="Projeto Amigo — Grupos"
         subtitle="Gerenciamento dos grupos de acolhimento"
         action={
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center flex-wrap">
+            {user?.role !== 'user' && (
+              <select
+                className="border rounded-lg px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+                value={filterCongregacao}
+                onChange={(e) => setFilterCongregacao(e.target.value)}
+                disabled={Boolean(lockedCongregacao)}
+              >
+                {!lockedCongregacao && <option value="Todos">Todos</option>}
+                {CONGREGACOES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            )}
+            <select
+              className="border rounded-lg px-3 py-2 text-sm"
+              value={filterEtapa}
+              onChange={(e) => {
+                setFilterEtapa(e.target.value);
+                if (e.target.value) { searchParams.set('etapa', e.target.value); } else { searchParams.delete('etapa'); }
+                setSearchParams(searchParams);
+              }}
+            >
+              <option value="">Todas etapas</option>
+              {ETAPA_OPTIONS.map((e) => (
+                <option key={e.value} value={e.value}>{e.label}</option>
+              ))}
+            </select>
             <button
               onClick={() => navigate('/projeto-amigo')}
               className="flex items-center gap-1.5 border border-slate-200 text-slate-600 text-sm font-medium px-4 h-[40px] rounded-lg hover:bg-slate-50 transition"
@@ -271,15 +348,17 @@ export default function GruposTriagem() {
               </svg>
               Dashboard
             </button>
-          <button
-            onClick={openCreate}
-            className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 h-[40px] rounded-lg transition shadow-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            Novo Grupo
-          </button>
+            {user?.role !== 'user' && (
+              <button
+                onClick={openCreate}
+                className="flex items-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 h-[40px] rounded-lg transition shadow-sm"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+                Novo Grupo
+              </button>
+            )}
           </div>
         }
       />
@@ -318,31 +397,50 @@ export default function GruposTriagem() {
           </SectionCard>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {grupos.map((grupo) => (
-              <SectionCard key={grupo._id} className="flex flex-col cursor-pointer hover:shadow-md transition">
+            {grupos.map((grupo) => {
+              const congStyle = CONG_CARD_STYLE[grupo.congregacao] || '';
+              const membrosCount = (grupo.membros || []).length;
+              const acompCount = (grupo.acompanhados || []).length;
+              return (
+              <SectionCard key={grupo._id} className={`flex flex-col cursor-pointer hover:shadow-md transition ${congStyle}`}>
                 <div className="p-4 sm:p-5 flex-1" onClick={() => navigate(`/grupos/${grupo._id}`)}>
-                  <div className="mb-3">
-                    <h3 className="text-base font-semibold text-slate-800 truncate">{grupo.nome}</h3>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      {grupo.congregacao && (
-                        <p className="text-[10px] text-blue-600 font-medium">{grupo.congregacao}</p>
-                      )}
-                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${TIPO_BADGE[grupo.tipo] || TIPO_BADGE.personalizado}`}>
-                        {TIPO_LABEL[grupo.tipo] || grupo.tipo}
-                      </span>
-                    </div>
-                    {grupo.descricao && (
-                      <p className="text-xs text-slate-400 mt-1 line-clamp-2">{grupo.descricao}</p>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 className="text-base font-semibold text-slate-800 leading-tight">{grupo.nome}</h3>
+                    {grupo.isDefault && (
+                      <span className="text-[9px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded shrink-0 uppercase tracking-wide">Guia</span>
                     )}
                   </div>
+                  <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                    {grupo.etapa && (
+                      <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${ETAPA_BADGE[grupo.etapa] || ETAPA_BADGE.triagem}`}>
+                        {ETAPA_LABEL[grupo.etapa] || grupo.etapa}
+                      </span>
+                    )}
+                    <span className={`inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full border whitespace-nowrap ${TIPO_BADGE[grupo.tipo] || TIPO_BADGE.personalizado}`}>
+                      {TIPO_LABEL[grupo.tipo] || grupo.tipo}
+                    </span>
+                    {grupo.congregacao && (
+                      <span className="text-[10px] text-slate-500 font-medium">{grupo.congregacao}</span>
+                    )}
+                  </div>
+                  {grupo.descricao && (
+                    <p className="text-xs text-slate-400 mb-3 line-clamp-2">{grupo.descricao}</p>
+                  )}
 
-                  <div className="flex items-center gap-3 text-xs text-slate-500">
+                  <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
                     <div className="flex items-center gap-1">
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                       </svg>
-                      {(grupo.membros || []).length} membro{(grupo.membros || []).length !== 1 ? 's' : ''}
+                      {membrosCount} membro{membrosCount !== 1 ? 's' : ''}
                     </div>
+                    {acompCount > 0 && (
+                      <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                        grupo.tipo === 'visitantes' ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'
+                      }`}>
+                        {acompCount} acompanhado{acompCount !== 1 ? 's' : ''}
+                      </span>
+                    )}
                     <span className={`inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full ${
                       grupo.ativo !== false
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
@@ -352,50 +450,41 @@ export default function GruposTriagem() {
                       {grupo.ativo !== false ? 'Ativo' : 'Inativo'}
                     </span>
                   </div>
-                  {(grupo.acompanhados || []).length > 0 && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                        grupo.tipo === 'visitantes'
-                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                          : 'bg-amber-50 text-amber-700 border border-amber-200'
-                      }`}>
-                        {grupo.tipo === 'visitantes' ? '🌟' : '🕊️'}
-                        {' '}{(grupo.acompanhados || []).length} {grupo.tipo === 'visitantes' ? 'visitante' : 'novo decidido'}{(grupo.acompanhados || []).length !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                  )}
                 </div>
 
-                <div className="border-t border-slate-100 px-4 py-3 flex items-center gap-2">
-                  <button
-                    onClick={() => openManage(grupo)}
-                    className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 py-2 rounded-lg transition min-h-[36px]"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    Membros
-                  </button>
-                  <button
-                    onClick={() => openEdit(grupo)}
-                    className="flex items-center justify-center gap-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 px-3 py-2 rounded-lg transition min-h-[36px]"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => setPendingDelete(grupo)}
-                    className="flex items-center justify-center text-xs font-medium text-rose-500 hover:bg-rose-50 px-2 py-2 rounded-lg transition min-h-[36px]"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </button>
-                </div>
+                {user?.role !== 'user' && (
+                  <div className="border-t border-slate-100/80 px-4 py-2.5 flex items-center gap-1">
+                    <button
+                      onClick={() => openManage(grupo)}
+                      className="flex-1 flex items-center justify-center gap-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 py-2 rounded-lg transition min-h-[36px]"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+                      </svg>
+                      Membros
+                    </button>
+                    <button
+                      onClick={() => openEdit(grupo)}
+                      className="flex items-center justify-center gap-1.5 text-xs font-medium text-slate-500 hover:bg-slate-100 px-3 py-2 rounded-lg transition min-h-[36px]"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Editar
+                    </button>
+                    <button
+                      onClick={() => setPendingDelete(grupo)}
+                      className="flex items-center justify-center text-xs font-medium text-rose-500 hover:bg-rose-50 px-2 py-2 rounded-lg transition min-h-[36px]"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                )}
               </SectionCard>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -445,6 +534,14 @@ export default function GruposTriagem() {
                     { value: 'visitantes', label: 'Visitantes' },
                     { value: 'personalizado', label: 'Personalizado' },
                   ]}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Etapa do Fluxo</label>
+                <CustomSelect
+                  value={form.etapa}
+                  onChange={(value) => setForm((f) => ({ ...f, etapa: value }))}
+                  options={ETAPA_OPTIONS}
                 />
               </div>
               <div>

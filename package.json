@@ -7,6 +7,7 @@
     "dev:backend": "cd backend && npm run dev",
     "dev:frontend": "cd frontend && npm run dev",
     "seed": "cd backend && node src/scripts/seed.js",
+    "seed:grupos": "cd backend && node src/scripts/seed-grupos.js",
     "build": "cd frontend && npm install --include=dev && npm run build && rm -rf ../public && mv dist ../public",
     "test": "npx playwright test",
     "test:api": "npx playwright test --project=api",

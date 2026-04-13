@@ -27,5 +27,6 @@ router.get('/summary', controller.summary);
 router.get('/prayer-log', controller.prayerLog);
 router.get('/queue-status', controller.queueStatus);
 router.post('/cancel-queue', controller.cancelQueue);
+router.get('/evolution-status', controller.evolutionStatus);
 
 module.exports = router;

@@ -7,8 +7,8 @@ const ctrl = require('../controllers/projeto-amigo.controller');
 
 router.use(auth, requirePasswordChanged);
 
-router.get('/dashboard', requireRole('admin', 'master'), ctrl.dashboard);
-router.get('/:referencia_tipo/:referencia_id', requireRole('admin', 'master'), ctrl.listByReferencia);
+router.get('/dashboard', requireRole('user', 'admin', 'master'), ctrl.dashboard);
+router.get('/:referencia_tipo/:referencia_id', requireRole('user', 'admin', 'master'), ctrl.listByReferencia);
 router.post('/', requireRole('admin', 'master'), ctrl.create);
 router.put('/:id', requireRole('admin', 'master'), ctrl.update);
 router.delete('/:id', requireRole('admin', 'master'), ctrl.remove);

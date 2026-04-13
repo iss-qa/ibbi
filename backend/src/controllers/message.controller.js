@@ -3,6 +3,7 @@ const Person = require('../models/Person.model');
 const Message = require('../models/Message.model');
 const whatsapp = require('../services/whatsapp.service');
 const { sendBirthdayMessages } = require('../services/scheduler.service');
+const { checkConnectionState } = require('../services/evolution-monitor.service');
 const templates = require('../templates/messages.templates');
 const { generateBirthdayCard } = require('../services/image.service');
 const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
@@ -374,6 +375,12 @@ const resendMessage = async (req, res) => {
   res.json({ message: 'Reenvio enfileirado', log });
 };
 
+const evolutionStatus = async (req, res) => {
+  const result = await checkConnectionState();
+  const status = result.online ? 200 : 503;
+  res.status(status).json(result);
+};
+
 module.exports = {
   sendIndividual,
   sendByGroup,
@@ -387,4 +394,5 @@ module.exports = {
   sendBirthdayImage,
   sendCarteirinha,
   resendMessage,
+  evolutionStatus,
 };

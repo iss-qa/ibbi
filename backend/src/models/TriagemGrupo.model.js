@@ -24,6 +24,11 @@ const TriagemGrupoSchema = new mongoose.Schema({
     enum: ['novos_decididos', 'visitantes', 'personalizado'],
     required: true,
   },
+  etapa: {
+    type: String,
+    enum: ['triagem', 'acolhimento', 'integracao', 'estudo_biblico', 'consolidacao', 'membro_pleno'],
+    default: 'triagem',
+  },
   descricao: { type: String, trim: true },
   membros: [
     {
@@ -48,6 +53,7 @@ const TriagemGrupoSchema = new mongoose.Schema({
   ],
   atividades: [AtividadeSchema],
   ativo: { type: Boolean, default: true },
+  isDefault: { type: Boolean, default: false },
   congregacao: { type: String },
   created_by: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   created_at: { type: Date, default: Date.now },

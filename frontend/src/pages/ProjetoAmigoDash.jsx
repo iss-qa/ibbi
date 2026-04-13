@@ -2,13 +2,67 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import api from '../services/api';
+import useAuth from '../hooks/useAuth';
+import { CONGREGACOES } from '../constants/congregacoes';
 
-const ETAPAS = [
-  { key: 'triagem', label: 'Triagem', desc: 'Cadastro, ficha, contato inicial', bg: 'bg-blue-700', numBg: 'bg-blue-900/30' },
-  { key: 'acolhimento', label: 'Acolhimento', desc: 'Amigo, 1a visita/ligação', bg: 'bg-orange-600', numBg: 'bg-orange-900/30' },
-  { key: 'integracao', label: 'Integração', desc: 'EBD, culto, grupo de célula', bg: 'bg-emerald-600', numBg: 'bg-emerald-800/30' },
-  { key: 'consolidacao', label: 'Consolidação', desc: 'Batismo, carta de transferência', bg: 'bg-violet-600', numBg: 'bg-violet-800/30' },
-  { key: 'discipulado', label: 'Discipulado', desc: 'Membro pleno, ministério ativo', bg: 'bg-slate-700', numBg: 'bg-slate-900/30' },
+const ETAPAS_ROW1 = [
+  {
+    num: 1, key: 'triagem', label: 'Triagem',
+    icon: 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2',
+    items: ['Cadastro do visitante/decidido', 'Ficha de contato inicial', 'Boas-vindas na igreja', 'Registro no sistema'],
+    gradient: 'from-blue-600 to-blue-800',
+    iconBg: 'bg-blue-500/30',
+    numBg: 'bg-white/20',
+    dotColor: 'bg-blue-400',
+  },
+  {
+    num: 2, key: 'acolhimento', label: 'Acolhimento',
+    icon: 'M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z',
+    items: ['Amigo designado', '1a visita ou ligação', 'Apresentação na comunidade', 'Convite para culto/evento'],
+    gradient: 'from-orange-500 to-orange-700',
+    iconBg: 'bg-orange-400/30',
+    numBg: 'bg-white/20',
+    dotColor: 'bg-orange-400',
+  },
+  {
+    num: 3, key: 'integracao', label: 'Integração',
+    icon: 'M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z',
+    items: ['Participação na EBD', 'Frequência nos cultos', 'Grupo de célula/comunhão', 'Envolvimento em ministérios'],
+    gradient: 'from-emerald-500 to-emerald-700',
+    iconBg: 'bg-emerald-400/30',
+    numBg: 'bg-white/20',
+    dotColor: 'bg-emerald-400',
+  },
+];
+
+const ETAPAS_ROW2 = [
+  {
+    num: 4, key: 'estudo', label: 'Estudo Bíblico',
+    icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253',
+    items: ['Curso de discipulado', 'Classe de novos decididos', 'Escola Bíblica Dominical', 'Estudos em grupo'],
+    gradient: 'from-violet-600 to-violet-800',
+    iconBg: 'bg-violet-400/30',
+    numBg: 'bg-white/20',
+    dotColor: 'bg-violet-400',
+  },
+  {
+    num: 5, key: 'consolidacao', label: 'Consolidação',
+    icon: 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z',
+    items: ['Acompanhamento de 1 a 2 anos', 'Preparação para batismo', 'Carta de transferência', 'Apoio pastoral contínuo'],
+    gradient: 'from-rose-500 to-rose-700',
+    iconBg: 'bg-rose-400/30',
+    numBg: 'bg-white/20',
+    dotColor: 'bg-rose-400',
+  },
+  {
+    num: 6, key: 'membro', label: 'Membro Pleno',
+    icon: 'M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z',
+    items: ['Membro ativo e fiel', 'Líder de grupo ou célula', 'Diácono / obreiro', 'Missionário / professor EBD'],
+    gradient: 'from-ibbiNavy to-slate-800',
+    iconBg: 'bg-white/15',
+    numBg: 'bg-ibbiGold/30',
+    dotColor: 'bg-ibbiGold',
+  },
 ];
 
 const MESES = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -23,6 +77,9 @@ const isWithinMonth = (value, month, year) => {
 
 export default function ProjetoAmigoDash() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
+  const [congregacao, setCongregacao] = useState('Todos');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState(null);
@@ -36,9 +93,10 @@ export default function ProjetoAmigoDash() {
   };
 
   const buildDashboardFallback = async () => {
+    const params = congregacao === 'Todos' ? {} : { congregacao };
     const [{ data: pessoasData }, { data: gruposData }] = await Promise.all([
-      api.get('/persons', { params: { limit: DASHBOARD_PAGE_LIMIT, status: 'ativo' } }),
-      api.get('/grupos'),
+      api.get('/persons', { params: { limit: DASHBOARD_PAGE_LIMIT, status: 'ativo', ...params } }),
+      api.get('/grupos', { params }),
     ]);
 
     const pessoas = pessoasData?.items || [];
@@ -84,7 +142,8 @@ export default function ProjetoAmigoDash() {
 
   const loadDashboard = async () => {
     try {
-      const { data: d } = await api.get('/projeto-amigo/dashboard');
+      const params = congregacao === 'Todos' ? {} : { congregacao };
+      const { data: d } = await api.get('/projeto-amigo/dashboard', { params });
       setData(d);
     } catch (dashboardErr) {
       try {
@@ -101,7 +160,15 @@ export default function ProjetoAmigoDash() {
     setLoading(false);
   };
 
-  useEffect(() => { loadDashboard(); }, []);
+  useEffect(() => {
+    if (user && lockedCongregacao) {
+      setCongregacao(lockedCongregacao);
+    }
+  }, [lockedCongregacao, user]);
+
+  useEffect(() => {
+    if (user) loadDashboard();
+  }, [congregacao, user]);
 
   if (loading) {
     return (
@@ -125,7 +192,20 @@ export default function ProjetoAmigoDash() {
         title="Projeto Amigo"
         subtitle={`Acompanhamento de Novos Decididos e Visitantes — ${mesLabel}`}
         action={
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            {user?.role !== 'user' && (
+              <select
+                className="border rounded-lg px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+                value={congregacao}
+                onChange={(e) => setCongregacao(e.target.value)}
+                disabled={Boolean(lockedCongregacao)}
+              >
+                {!lockedCongregacao && <option value="Todos">Todos</option>}
+                {CONGREGACOES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            )}
             <button
               onClick={() => navigate('/grupos')}
               className="relative flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-5 h-[42px] rounded-xl transition shadow-md shadow-blue-200 hover:shadow-lg hover:shadow-blue-300 hover:scale-[1.02] active:scale-[0.98]"
@@ -185,23 +265,57 @@ export default function ProjetoAmigoDash() {
           </div>
         </div>
 
-        {/* Funil de etapas */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
-          <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-4">Fluxo de acompanhamento</h3>
-          <div className="flex gap-0.5 overflow-x-auto">
-            {ETAPAS.map((etapa, i) => (
-              <div key={etapa.key} className="flex-1 min-w-[160px] relative">
-                <div className={`flex items-center gap-3 px-5 py-4 h-[76px] ${etapa.bg} ${i === 0 ? 'rounded-l-2xl' : ''} ${i === ETAPAS.length - 1 ? 'rounded-r-2xl' : ''}`}>
-                  <span className={`w-8 h-8 rounded-full ${etapa.numBg} flex items-center justify-center text-white text-sm font-bold shrink-0`}>{i + 1}</span>
-                  <div>
-                    <p className="text-base font-bold text-white drop-shadow-sm">{etapa.label}</p>
-                    <p className="text-xs text-white/80 leading-snug">{etapa.desc}</p>
+        {/* Fluxo de Acompanhamento */}
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-7 overflow-hidden">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="w-1 h-5 bg-gradient-to-b from-blue-600 to-emerald-500 rounded-full" />
+            <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Fluxo de Acompanhamento</h3>
+          </div>
+
+          {/* Row 1: Etapas 1, 2, 3 */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-0 relative">
+            {ETAPAS_ROW1.map((etapa, i) => (
+              <div key={etapa.key} className="flex items-center">
+                <FluxoCard etapa={etapa} onClick={() => navigate(`/grupos?etapa=${etapa.key}`)} />
+                {i < 2 && (
+                  <div className={`hidden sm:flex items-center justify-center w-8 shrink-0 fluxo-arrow fluxo-arrow-${i + 1}`}>
+                    <svg className="w-7 h-7 text-blue-400 drop-shadow-sm" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
                   </div>
-                </div>
-                {i < ETAPAS.length - 1 && (
-                  <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 z-10">
-                    <svg className="w-4 h-4 text-white/60 drop-shadow" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M9 5l7 7-7 7" />
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* Curved Arrow: Etapa 3 → Etapa 4 (ondulada) */}
+          <div className="hidden sm:block relative h-16 my-1 mx-4">
+            <svg className="absolute inset-0 w-full h-full" viewBox="0 0 1000 64" fill="none" preserveAspectRatio="xMidYMid meet">
+              {/* Descida direita */}
+              <path d="M920 4 Q980 4, 980 32 Q980 56, 940 58" stroke="#6366f1" strokeWidth="3" strokeLinecap="round" fill="none" className="fluxo-curve-path" opacity="0.55" />
+              {/* Trecho ondulado central */}
+              <path d="M940 58 Q880 42, 800 58 Q720 74, 640 50 Q560 26, 480 50 Q400 74, 320 50 Q240 26, 160 50 Q80 74, 60 58" stroke="#6366f1" strokeWidth="3" strokeLinecap="round" fill="none" className="fluxo-curve-path" opacity="0.55" />
+              {/* Descida esquerda */}
+              <path d="M60 58 Q30 58, 20 42 L20 58" stroke="#6366f1" strokeWidth="3" strokeLinecap="round" fill="none" className="fluxo-curve-path" opacity="0.55" />
+              {/* Ponta da seta */}
+              <polygon points="12,50 20,64 28,50" fill="#6366f1" opacity="0.55" />
+            </svg>
+          </div>
+          <div className="flex sm:hidden justify-center py-3">
+            <svg className="w-7 h-7 text-indigo-400 fluxo-arrow fluxo-arrow-2" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+            </svg>
+          </div>
+
+          {/* Row 2: Etapas 4, 5, 6 */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-0 fluxo-row-2">
+            {ETAPAS_ROW2.map((etapa, i) => (
+              <div key={etapa.key} className="flex items-center">
+                <FluxoCard etapa={etapa} onClick={() => navigate(`/grupos?etapa=${etapa.key}`)} />
+                {i < 2 && (
+                  <div className={`hidden sm:flex items-center justify-center w-8 shrink-0 fluxo-arrow fluxo-arrow-${i + 4}`}>
+                    <svg className="w-7 h-7 text-violet-400 drop-shadow-sm" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                     </svg>
                   </div>
                 )}
@@ -298,6 +412,42 @@ export default function ProjetoAmigoDash() {
         )}
       </div>
 
+    </div>
+  );
+}
+
+function FluxoCard({ etapa, onClick }) {
+  return (
+    <div
+      onClick={onClick}
+      className={`fluxo-card relative flex-1 rounded-2xl bg-gradient-to-br ${etapa.gradient} p-[1px] overflow-hidden shadow-lg cursor-pointer hover:scale-[1.03] hover:shadow-xl transition-all duration-200`}
+    >
+      <div className="relative rounded-[15px] bg-gradient-to-br from-white/[0.08] to-transparent p-5 h-full">
+        {/* Header */}
+        <div className="flex items-center gap-3 mb-4">
+          <div className={`w-10 h-10 rounded-xl ${etapa.numBg} flex items-center justify-center shrink-0 backdrop-blur-sm`}>
+            <span className="text-white text-lg font-black">{etapa.num}</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-base font-bold text-white tracking-tight">{etapa.label}</h4>
+          </div>
+          <div className={`w-9 h-9 rounded-lg ${etapa.iconBg} flex items-center justify-center shrink-0`}>
+            <svg className="w-5 h-5 text-white/80" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d={etapa.icon} />
+            </svg>
+          </div>
+        </div>
+
+        {/* Items */}
+        <ul className="space-y-2">
+          {etapa.items.map((item, j) => (
+            <li key={j} className="flex items-start gap-2">
+              <span className={`w-1.5 h-1.5 rounded-full ${etapa.dotColor} mt-[6px] shrink-0`} />
+              <span className="text-xs text-white/85 leading-relaxed">{item}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }

@@ -7,8 +7,8 @@ const ctrl = require('../controllers/triagem.controller');
 
 router.use(auth, requirePasswordChanged);
 
-router.get('/', requireRole('admin', 'master'), ctrl.list);
-router.get('/:id', requireRole('admin', 'master'), ctrl.getById);
+router.get('/', requireRole('user', 'admin', 'master'), ctrl.list);
+router.get('/:id', requireRole('user', 'admin', 'master'), ctrl.getById);
 router.post('/', requireRole('admin', 'master'), ctrl.create);
 router.put('/:id', requireRole('admin', 'master'), ctrl.update);
 router.delete('/:id', requireRole('master'), ctrl.remove);
@@ -18,7 +18,7 @@ router.delete('/:id/membros/:membroId', requireRole('admin', 'master'), ctrl.rem
 // Atividades
 router.post('/:id/atividades/init', requireRole('admin', 'master'), ctrl.initAtividades);
 router.post('/:id/atividades', requireRole('admin', 'master'), ctrl.addAtividade);
-router.put('/:id/atividades/:atividadeId', requireRole('admin', 'master'), ctrl.updateAtividade);
+router.put('/:id/atividades/:atividadeId', requireRole('user', 'admin', 'master'), ctrl.updateAtividade);
 router.delete('/:id/atividades/:atividadeId', requireRole('admin', 'master'), ctrl.removeAtividade);
 router.post('/:id/atividades/send-whatsapp', requireRole('admin', 'master'), ctrl.sendAtividadesWhatsApp);
 

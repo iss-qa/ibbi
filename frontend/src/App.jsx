@@ -69,6 +69,13 @@ export default function App() {
                         {user?.role === 'master' && <Route path="/users" element={<UserManagement />} />}
                       </>
                     )}
+                    {user?.role === 'user' && user?.inTriagemGrupo && (
+                      <>
+                        <Route path="/projeto-amigo" element={<ProjetoAmigoDash />} />
+                        <Route path="/grupos" element={<GruposTriagem />} />
+                        <Route path="/grupos/:id" element={<GrupoDetalhe />} />
+                      </>
+                    )}
                     <Route path="/prayer" element={<PrayerRequest />} />
                     <Route path="/profile" element={<Profile />} />
                     <Route path="/carteirinha" element={<UserCarteirinha />} />

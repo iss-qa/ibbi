@@ -2,17 +2,29 @@ const jwt = require('jsonwebtoken');
 const { validationResult } = require('express-validator');
 const User = require('../models/User.model');
 const Person = require('../models/Person.model');
+const TriagemGrupo = require('../models/TriagemGrupo.model');
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_TIME_MS = 15 * 60 * 1000; // 15 minutos
 
 const serializeUser = async (user) => {
   const person = user.personId ? await Person.findById(user.personId).select('congregacao tipo dataBatismo').lean() : null;
+
+  let inTriagemGrupo = false;
+  if (user.personId) {
+    const count = await TriagemGrupo.countDocuments({
+      'membros.membro_id': user.personId,
+      ativo: true,
+    });
+    inTriagemGrupo = count > 0;
+  }
+
   return {
     ...user.toJSON(),
     congregacao: person?.congregacao || '',
     tipo: person?.tipo || '',
     dataBatismo: person?.dataBatismo || null,
+    inTriagemGrupo,
   };
 };
 

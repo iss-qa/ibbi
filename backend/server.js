@@ -20,6 +20,7 @@ const testRoutes = require('./src/routes/test.routes');
 const statsRoutes = require('./src/routes/stats.routes');
 const imageRoutes = require('./src/routes/image.routes');
 const { startScheduler } = require('./src/services/scheduler.service');
+const { startEvolutionMonitor } = require('./src/services/evolution-monitor.service');
 
 dotenv.config({ path: require('path').join(__dirname, '..', '.env') });
 
@@ -114,6 +115,7 @@ app.use((err, req, res, next) => {
 connectDb()
   .then(() => {
     startScheduler();
+    startEvolutionMonitor();
     app.listen(PORT, () => {
       console.log(`Backend rodando na porta ${PORT}`);
     });

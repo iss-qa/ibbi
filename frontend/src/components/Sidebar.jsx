@@ -89,6 +89,10 @@ const navItemsByRole = (role, user) => {
 
     items.push({ to: '/prayer', label: 'Pedido de Oração' });
 
+    if (user?.inTriagemGrupo) {
+      items.push({ to: '/projeto-amigo', label: 'Projeto Amigo' });
+    }
+
     return items;
   }
 

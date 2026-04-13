@@ -58,3 +58,68 @@ html {
 .animate-shake {
   animation: shake 0.6s ease-in-out;
 }
+
+/* ── Fluxo de Acompanhamento ── */
+
+/* Entrada: cards surgem com bounce */
+@keyframes waveIn {
+  0%   { opacity: 0; transform: translateY(28px) scale(0.92); }
+  60%  { opacity: 1; transform: translateY(-5px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Onda contínua: glow que percorre cada card sequencialmente (1→2→3→4→5→6) */
+@keyframes waveGlow {
+  0%, 15%  { box-shadow: inset 0 0 0 rgba(255,255,255,0), 0 0 0 rgba(255,255,255,0); transform: scale(1); }
+  7%       { box-shadow: inset 0 0 30px rgba(255,255,255,0.2), 0 4px 25px rgba(255,255,255,0.15); transform: scale(1.02); }
+  15%, 100%{ box-shadow: inset 0 0 0 rgba(255,255,255,0), 0 0 0 rgba(255,255,255,0); transform: scale(1); }
+}
+
+/* Setas pulsam em sequência */
+@keyframes arrowPulse {
+  0%, 20%  { opacity: 0.3; transform: translateX(0); }
+  10%      { opacity: 1; transform: translateX(3px); }
+  20%, 100%{ opacity: 0.3; transform: translateX(0); }
+}
+
+/* Seta curva: tracejado animado */
+@keyframes dashFlow {
+  0%   { stroke-dashoffset: 24; }
+  100% { stroke-dashoffset: 0; }
+}
+
+/* ─ Cards ─ */
+.fluxo-card {
+  animation:
+    waveIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both,
+    waveGlow 6s ease-in-out infinite;
+}
+
+/* Delays de entrada (bounce) - row 1 */
+.fluxo-card:nth-child(1) { animation-delay: 0s,     0s; }
+.fluxo-card:nth-child(2) { animation-delay: 0.12s,  1s; }
+.fluxo-card:nth-child(3) { animation-delay: 0.24s,  2s; }
+
+/* Row 2 */
+.fluxo-row-2 .fluxo-card:nth-child(1) { animation-delay: 0.5s,  3s; }
+.fluxo-row-2 .fluxo-card:nth-child(2) { animation-delay: 0.62s, 4s; }
+.fluxo-row-2 .fluxo-card:nth-child(3) { animation-delay: 0.74s, 5s; }
+
+/* ─ Setas retas entre cards ─ */
+.fluxo-arrow {
+  animation: arrowPulse 6s ease-in-out infinite;
+}
+
+/* Row 1: seta 1→2 e 2→3 */
+.fluxo-arrow-1 { animation-delay: 0.5s; }
+.fluxo-arrow-2 { animation-delay: 1.5s; }
+
+/* Row 2: seta 4→5 e 5→6 */
+.fluxo-arrow-4 { animation-delay: 3.5s; }
+.fluxo-arrow-5 { animation-delay: 4.5s; }
+
+/* ─ Seta curva 3→4 ─ */
+.fluxo-curve-path {
+  stroke-dasharray: 12 8;
+  animation: dashFlow 1.5s linear infinite;
+}

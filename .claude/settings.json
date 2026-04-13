@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod +x /Users/isaiassilva/development/igreja/ibbi/start.sh)"
+    ]
+  }
+}

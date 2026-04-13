@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
+import useAuth from '../hooks/useAuth';
 import api from '../services/api';
 
 const CATEGORIA_BADGE = {
@@ -16,6 +17,8 @@ const CATEGORIA_BADGE = {
 export default function GrupoDetalhe() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canEdit = user?.role !== 'user';
   const [grupo, setGrupo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState('');
@@ -23,6 +26,7 @@ export default function GrupoDetalhe() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newAtividade, setNewAtividade] = useState({ titulo: '', descricao: '', categoria: 'outro' });
   const [sendingWpp, setSendingWpp] = useState(null); // membro_id sending
+  const [ativExpanded, setAtivExpanded] = useState(false);
   const obsTimeout = useRef({});
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
@@ -256,7 +260,7 @@ export default function GrupoDetalhe() {
                           {total} ativ.{pending > 0 ? ` (${pending} pend.)` : ''}
                         </span>
                       )}
-                      {pending > 0 && m.celular && (
+                      {canEdit && pending > 0 && m.celular && (
                         <button
                           onClick={() => sendWhatsApp(m)}
                           disabled={isSendingThis}
@@ -285,14 +289,14 @@ export default function GrupoDetalhe() {
         </div>
 
         {/* Acompanhados Card */}
-        <AcompanhadosCard grupo={grupo} acompanhados={acompanhados} grupoId={id} setGrupo={setGrupo} showToast={showToast} />
+        <AcompanhadosCard grupo={grupo} acompanhados={acompanhados} grupoId={id} setGrupo={setGrupo} showToast={showToast} canEdit={canEdit} />
 
         {/* Activities Section */}
         <div className="bg-white rounded-xl border border-slate-100 shadow-sm">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <h3 className="text-sm font-semibold text-slate-800">Atividades de Acompanhamento</h3>
             <div className="flex gap-2">
-              {atividades.length > 0 && (
+              {canEdit && atividades.length > 0 && (
                 <button
                   onClick={() => setShowAddForm(!showAddForm)}
                   className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition"
@@ -315,12 +319,14 @@ export default function GrupoDetalhe() {
               <p className="text-xs text-slate-400 mb-4 max-w-xs">
                 Crie as atividades sugeridas para acompanhamento de novos decididos ou adicione suas próprias atividades.
               </p>
-              <button
-                onClick={initAtividades}
-                className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition shadow-sm"
-              >
-                Criar atividades sugeridas
-              </button>
+              {canEdit && (
+                <button
+                  onClick={initAtividades}
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition shadow-sm"
+                >
+                  Criar atividades sugeridas
+                </button>
+              )}
             </div>
           ) : (
             <div className="divide-y divide-slate-50">
@@ -369,7 +375,7 @@ export default function GrupoDetalhe() {
                 </div>
               )}
 
-              {atividades.map((atividade) => {
+              {(ativExpanded ? atividades : atividades.slice(0, COLLAPSE_LIMIT)).map((atividade) => {
                 const cat = CATEGORIA_BADGE[atividade.categoria] || CATEGORIA_BADGE.outro;
                 const isSaving = saving === atividade._id;
                 return (
@@ -418,22 +424,28 @@ export default function GrupoDetalhe() {
                             <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                             </svg>
-                            <select
-                              value={atividade.responsavel_id || ''}
-                              onChange={(e) => {
-                                const membro = membros.find((m) => String(m.membro_id) === e.target.value);
-                                assignResponsavel(atividade, membro || null);
-                              }}
-                              disabled={isSaving}
-                              className={`text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 min-w-[140px] ${
-                                isSaving ? 'opacity-50' : ''
-                              }`}
-                            >
-                              <option value="">Sem responsável</option>
-                              {membros.map((m) => (
-                                <option key={m._id} value={m.membro_id}>{m.nome}</option>
-                              ))}
-                            </select>
+                            {canEdit ? (
+                              <select
+                                value={atividade.responsavel_id || ''}
+                                onChange={(e) => {
+                                  const membro = membros.find((m) => String(m.membro_id) === e.target.value);
+                                  assignResponsavel(atividade, membro || null);
+                                }}
+                                disabled={isSaving}
+                                className={`text-xs border border-slate-200 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-blue-100 min-w-[140px] ${
+                                  isSaving ? 'opacity-50' : ''
+                                }`}
+                              >
+                                <option value="">Sem responsável</option>
+                                {membros.map((m) => (
+                                  <option key={m._id} value={m.membro_id}>{m.nome}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className="text-xs text-slate-600">
+                                {atividade.responsavel_nome || 'Sem responsável'}
+                              </span>
+                            )}
                           </div>
 
                           {atividade.concluida && atividade.concluida_em && (
@@ -442,15 +454,17 @@ export default function GrupoDetalhe() {
                             </span>
                           )}
 
-                          <button
-                            onClick={() => removeAtividade(atividade._id)}
-                            className="ml-auto text-slate-300 hover:text-rose-500 transition p-1 rounded"
-                            title="Remover atividade"
-                          >
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => removeAtividade(atividade._id)}
+                              className="ml-auto text-slate-300 hover:text-rose-500 transition p-1 rounded"
+                              title="Remover atividade"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                            </button>
+                          )}
                         </div>
 
                         {/* Observação */}
@@ -468,6 +482,19 @@ export default function GrupoDetalhe() {
                   </div>
                 );
               })}
+              {atividades.length > COLLAPSE_LIMIT && (
+                <div className="px-5 py-3 border-t border-slate-100">
+                  <button
+                    onClick={() => setAtivExpanded(!ativExpanded)}
+                    className="flex items-center justify-center gap-1.5 w-full text-xs font-medium text-blue-600 hover:bg-blue-50 py-2.5 rounded-lg transition"
+                  >
+                    <svg className={`w-4 h-4 transition-transform ${ativExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                    {ativExpanded ? 'Recolher atividades' : `Ver mais ${atividades.length - COLLAPSE_LIMIT} atividade${atividades.length - COLLAPSE_LIMIT > 1 ? 's' : ''}`}
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -477,11 +504,14 @@ export default function GrupoDetalhe() {
 }
 
 // ─── Acompanhados Card with search ───────────────────────────────────────────
-function AcompanhadosCard({ grupo, acompanhados, grupoId, setGrupo, showToast }) {
+const COLLAPSE_LIMIT = 3;
+
+function AcompanhadosCard({ grupo, acompanhados, grupoId, setGrupo, showToast, canEdit }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const searchTimeout = useRef(null);
 
   const tipoLabel = grupo.tipo === 'visitantes' ? 'Visitantes' : 'Novos Decididos';
@@ -530,15 +560,17 @@ function AcompanhadosCard({ grupo, acompanhados, grupoId, setGrupo, showToast })
         <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
           {tipoLabel} em acompanhamento ({acompanhados.length})
         </h3>
-        <button
-          onClick={() => setShowSearch(!showSearch)}
-          className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-          </svg>
-          Adicionar
-        </button>
+        {canEdit && (
+          <button
+            onClick={() => setShowSearch(!showSearch)}
+            className="flex items-center gap-1 text-xs font-medium text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg transition"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Adicionar
+          </button>
+        )}
       </div>
 
       {/* Search */}
@@ -590,7 +622,7 @@ function AcompanhadosCard({ grupo, acompanhados, grupoId, setGrupo, showToast })
         </p>
       ) : (
         <div className="flex flex-col gap-2">
-          {acompanhados.map((a) => {
+          {(expanded ? acompanhados : acompanhados.slice(0, COLLAPSE_LIMIT)).map((a) => {
             const initials = a.nome?.split(' ').slice(0, 2).map((w) => w[0]).join('').toUpperCase() || '?';
             const avatarColor = a.tipo === 'visitante'
               ? 'bg-emerald-100 text-emerald-700'
@@ -617,18 +649,31 @@ function AcompanhadosCard({ grupo, acompanhados, grupoId, setGrupo, showToast })
                     </p>
                   )}
                 </div>
-                <button
-                  onClick={() => removeAcompanhado(a._id)}
-                  className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition opacity-0 group-hover:opacity-100"
-                  title="Remover"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => removeAcompanhado(a._id)}
+                    className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition opacity-0 group-hover:opacity-100"
+                    title="Remover"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                )}
               </div>
             );
           })}
+          {acompanhados.length > COLLAPSE_LIMIT && (
+            <button
+              onClick={() => setExpanded(!expanded)}
+              className="flex items-center justify-center gap-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 py-2.5 rounded-lg transition mt-1"
+            >
+              <svg className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+              {expanded ? 'Recolher' : `Ver mais ${acompanhados.length - COLLAPSE_LIMIT}`}
+            </button>
+          )}
         </div>
       )}
     </div>

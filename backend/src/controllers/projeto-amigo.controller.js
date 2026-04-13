@@ -62,7 +62,7 @@ const remove = async (req, res) => {
 
 const dashboard = async (req, res) => {
   try {
-    const { mes, ano } = req.query;
+    const { mes, ano, congregacao } = req.query;
     const now = new Date();
     const month = mes ? parseInt(mes) - 1 : now.getMonth();
     const year = ano ? parseInt(ano) : now.getFullYear();
@@ -70,8 +70,48 @@ const dashboard = async (req, res) => {
     const inicioMes = new Date(year, month, 1);
     const fimMes = new Date(year, month + 1, 0, 23, 59, 59, 999);
 
+    // User role: scoped to their groups only
+    if (req.user.role === 'user') {
+      const grupos = await TriagemGrupo.find({
+        'membros.membro_id': req.user.personId,
+        ativo: true,
+      }).select('nome tipo etapa congregacao membros acompanhados atividades ativo').lean();
+
+      const acompanhadoIds = grupos.flatMap((g) => (g.acompanhados || []).map((a) => a.person_id)).filter(Boolean);
+      const acompanhados = acompanhadoIds.length > 0
+        ? await Person.find({ _id: { $in: acompanhadoIds }, status: 'ativo' })
+            .select('nome celular congregacao tipo dataVisita dataDecisao acompanhadoNome acompanhadoPersonId fotoUrl')
+            .lean()
+        : [];
+
+      const visitantes = acompanhados.filter((p) => p.tipo === 'visitante');
+      const decididos = acompanhados.filter((p) => p.tipo === 'novo decidido');
+
+      const gruposResumo = grupos.map((g) => {
+        const totalAtiv = g.atividades?.length || 0;
+        const concluidas = g.atividades?.filter((a) => a.concluida).length || 0;
+        return {
+          _id: g._id, nome: g.nome, tipo: g.tipo, etapa: g.etapa || 'triagem', congregacao: g.congregacao,
+          totalMembros: g.membros?.length || 0, totalAcompanhados: g.acompanhados?.length || 0,
+          totalAtividades: totalAtiv, atividadesConcluidas: concluidas,
+          progresso: totalAtiv > 0 ? Math.round((concluidas / totalAtiv) * 100) : 0,
+        };
+      });
+
+      return res.json({
+        mes: month + 1, ano: year,
+        visitantesMes: visitantes.filter((p) => p.dataVisita && new Date(p.dataVisita) >= inicioMes && new Date(p.dataVisita) <= fimMes).length,
+        decididosMes: decididos.filter((p) => p.dataDecisao && new Date(p.dataDecisao) >= inicioMes && new Date(p.dataDecisao) <= fimMes).length,
+        emAcompanhamento: acompanhados.length,
+        semAmigo: acompanhados.filter((p) => !p.acompanhadoPersonId).length,
+        visitantes: visitantes.slice(0, 10),
+        decididos: decididos.slice(0, 10),
+        grupos: gruposResumo,
+      });
+    }
+
     let baseFilter = { status: 'ativo' };
-    baseFilter = await applyScopedCongregacaoFilter(req.user, baseFilter);
+    baseFilter = await applyScopedCongregacaoFilter(req.user, baseFilter, congregacao);
 
     // KPIs
     const [visitantesMes, decididosMes, todosVisitantes, todosDecididos] = await Promise.all([
@@ -83,10 +123,13 @@ const dashboard = async (req, res) => {
 
     const semAmigo = [...todosVisitantes, ...todosDecididos].filter((p) => !p.acompanhadoPersonId);
 
-    // Groups summary
+    // Groups summary — ocultar defaults na visão "Todos"
     let grupoFilter = { ativo: true };
-    grupoFilter = await applyScopedCongregacaoFilter(req.user, grupoFilter);
-    const grupos = await TriagemGrupo.find(grupoFilter).select('nome tipo congregacao membros acompanhados atividades ativo').lean();
+    grupoFilter = await applyScopedCongregacaoFilter(req.user, grupoFilter, congregacao);
+    if (req.user.role === 'master' && (!congregacao || congregacao === 'Todos')) {
+      grupoFilter.isDefault = { $ne: true };
+    }
+    const grupos = await TriagemGrupo.find(grupoFilter).select('nome tipo etapa congregacao membros acompanhados atividades ativo').lean();
 
     const gruposResumo = grupos.map((g) => {
       const totalAtiv = g.atividades?.length || 0;
@@ -95,6 +138,7 @@ const dashboard = async (req, res) => {
         _id: g._id,
         nome: g.nome,
         tipo: g.tipo,
+        etapa: g.etapa || 'triagem',
         congregacao: g.congregacao,
         totalMembros: g.membros?.length || 0,
         totalAcompanhados: g.acompanhados?.length || 0,
