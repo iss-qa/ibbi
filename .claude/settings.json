@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(chmod +x /Users/isaiassilva/development/igreja/ibbi/start.sh)"
+      "Bash(chmod +x /Users/isaiassilva/development/igreja/ibbi/start.sh)",
+      "Bash(curl -s -X POST https://ibbi.issqa.com.br/api/auth/login -H \"Content-Type: application/json\" -d '{\"login\":\"Isaias\",\"senha\":\"Is@i@s1989\"}')",
+      "Bash(curl -s https://ibbi.issqa.com.br/api/health)",
+      "Bash(node -e \"try { require\\('./api/index.js'\\); console.log\\('OK'\\); } catch\\(e\\) { console.error\\('CRASH:', e.message\\); }\")"
     ]
   }
 }
