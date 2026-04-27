@@ -692,7 +692,7 @@ export default function CommunicationPanel() {
       {showNewMessage && (
         <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center sm:p-4 z-50" onClick={() => setShowNewMessage(false)}>
           <div
-            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full max-w-lg max-h-[85dvh] sm:max-h-[80vh] overflow-y-auto"
+            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full max-w-5xl max-h-[95dvh] sm:max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10">
@@ -722,7 +722,7 @@ export default function CommunicationPanel() {
                       <option value="">Selecione o grupo</option>
                       {grupos.map((g) => <option key={g} value={g}>{g}</option>)}
                     </select>
-                    <textarea className={textareaClass} rows={10} placeholder="Mensagem... use {nome} e {congregacao}" value={mensagemGrupo} onChange={(e) => setMensagemGrupo(e.target.value)} />
+                    <textarea className={textareaClass} rows={16} placeholder="Mensagem... use {nome} e {congregacao}" value={mensagemGrupo} onChange={(e) => setMensagemGrupo(e.target.value)} />
                     <button
                       onClick={async () => { await handleByGroup(); setShowNewMessage(false); }}
                       disabled={sending || !grupo || !mensagemGrupo}
@@ -738,7 +738,7 @@ export default function CommunicationPanel() {
                     <select className={`${inputClass} disabled:bg-slate-100`} value={congregacao} onChange={(e) => setCongregacao(e.target.value)} disabled={Boolean(lockedCongregacao)}>
                       {CONGREGACOES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
-                    <textarea className={textareaClass} rows={10} placeholder="Mensagem... use {nome} e {congregacao}" value={mensagemCongregacao} onChange={(e) => setMensagemCongregacao(e.target.value)} />
+                    <textarea className={textareaClass} rows={16} placeholder="Mensagem... use {nome} e {congregacao}" value={mensagemCongregacao} onChange={(e) => setMensagemCongregacao(e.target.value)} />
                     <button
                       onClick={async () => { await handleByCongregation(); setShowNewMessage(false); }}
                       disabled={sending || !mensagemCongregacao}
@@ -825,7 +825,7 @@ export default function CommunicationPanel() {
                       </div>
                     )}
 
-                    <textarea className={textareaClass} rows={10} placeholder="Mensagem personalizada..." value={mensagemIndividual} onChange={(e) => setMensagemIndividual(e.target.value)} />
+                    <textarea className={textareaClass} rows={16} placeholder="Mensagem personalizada..." value={mensagemIndividual} onChange={(e) => setMensagemIndividual(e.target.value)} />
                     <button
                       onClick={async () => { await handleIndividual(); setShowNewMessage(false); }}
                       disabled={sending || !individual.personId || !mensagemIndividual}
@@ -845,7 +845,7 @@ export default function CommunicationPanel() {
                       </div>
                       <p className="text-xs text-red-600 mt-1">Ao enviar, a mensagem abaixo será disparada em segundo plano para todos os membros com pendência de foto. (Envios em lotes de 10, com pausas entre os lotes).</p>
                     </div>
-                    <textarea className={textareaClass} rows={12} placeholder="Mensagem personalizada..." value={mensagemFalhas} onChange={(e) => setMensagemFalhas(e.target.value)} />
+                    <textarea className={textareaClass} rows={18} placeholder="Mensagem personalizada..." value={mensagemFalhas} onChange={(e) => setMensagemFalhas(e.target.value)} />
                     <button
                       onClick={async () => {
                         setSending(true);
@@ -872,7 +872,7 @@ export default function CommunicationPanel() {
       {showPrayerModal && (
         <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center sm:p-4 z-50" onClick={() => setShowPrayerModal(false)}>
           <div
-            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full max-w-lg max-h-[85dvh] sm:max-h-[80vh] flex flex-col"
+            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full max-w-2xl max-h-[85dvh] sm:max-h-[80vh] flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
@@ -925,7 +925,7 @@ export default function CommunicationPanel() {
       {showMessage && (
         <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center sm:p-4 z-50" onClick={() => setShowMessage(null)}>
           <div
-            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full max-w-lg max-h-[85dvh] sm:max-h-[80vh] overflow-y-auto p-6"
+            className="bg-white rounded-t-3xl sm:rounded-2xl shadow-xl w-full max-w-5xl max-h-[95dvh] sm:max-h-[90vh] overflow-y-auto p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-4">
@@ -938,10 +938,17 @@ export default function CommunicationPanel() {
                   <p className="text-xs text-slate-400">{new Date(showMessage.criadoEm).toLocaleString('pt-BR')}</p>
                 </div>
               </div>
-              <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLE[showMessage.status] || 'bg-slate-100 text-slate-500'}`}>
-                <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[showMessage.status] || 'bg-slate-400'}`} />
-                {showMessage.status}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className={`inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${STATUS_STYLE[showMessage.status] || 'bg-slate-100 text-slate-500'}`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[showMessage.status] || 'bg-slate-400'}`} />
+                  {showMessage.status}
+                </span>
+                <button onClick={() => setShowMessage(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-stone-100 text-slate-400 transition">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {renderMessageContent(showMessage)}
@@ -961,7 +968,7 @@ export default function CommunicationPanel() {
       {/* ── Modal: Pedido de Oração Detalhe ──────────────── */}
       {showPrayerMessage && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-6 z-50" onClick={() => setShowPrayerMessage(null)}>
-          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-lg w-full" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl shadow-xl p-6 max-w-2xl w-full" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-start justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-lg">🙏</div>
@@ -970,7 +977,14 @@ export default function CommunicationPanel() {
                   <p className="text-xs text-slate-400">{showPrayerMessage.nome}{showPrayerMessage.congregacao ? ` - ${showPrayerMessage.congregacao}` : ''}</p>
                 </div>
               </div>
-              <span className="text-xs text-slate-400">{new Date(showPrayerMessage.data).toLocaleDateString('pt-BR')}</span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-slate-400">{new Date(showPrayerMessage.data).toLocaleDateString('pt-BR')}</span>
+                <button onClick={() => setShowPrayerMessage(null)} className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-stone-100 text-slate-400 transition">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
             <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
               <pre className="text-sm text-slate-700 whitespace-pre-wrap font-sans leading-relaxed">{showPrayerMessage.conteudo}</pre>

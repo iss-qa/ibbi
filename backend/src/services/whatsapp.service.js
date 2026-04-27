@@ -216,13 +216,13 @@ const sendBatch = async (destinatarios, mensagem, handlers = {}) => {
     number: dest.celular,
     text: getText(dest),
     onStart: () => normalizedHandlers.onStart && normalizedHandlers.onStart(dest),
-    onSuccess: () => {
-      if (normalizedHandlers.onSuccess) normalizedHandlers.onSuccess(dest);
-      if (normalizedHandlers.onProgress) normalizedHandlers.onProgress(dest, null);
+    onSuccess: async () => {
+      if (normalizedHandlers.onSuccess) await normalizedHandlers.onSuccess(dest);
+      if (normalizedHandlers.onProgress) await normalizedHandlers.onProgress(dest, null);
     },
-    onError: (err) => {
-      if (normalizedHandlers.onError) normalizedHandlers.onError(dest, err);
-      if (normalizedHandlers.onProgress) normalizedHandlers.onProgress(dest, err);
+    onError: async (err) => {
+      if (normalizedHandlers.onError) await normalizedHandlers.onError(dest, err);
+      if (normalizedHandlers.onProgress) await normalizedHandlers.onProgress(dest, err);
     },
   }));
 
