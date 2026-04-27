@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { applyPersonBusinessRules, calculateAge } = require('../utils/person-rules');
 
 const CONGREGACOES = [
   'Não atribuído',
@@ -70,17 +71,11 @@ PersonSchema.index({ status: 1, dataNascimento: 1 });
 PersonSchema.index({ nome: 1 });
 
 PersonSchema.virtual('idade').get(function idade() {
-  if (!this.dataNascimento) return null;
-  const hoje = new Date();
-  const ano = hoje.getFullYear() - this.dataNascimento.getFullYear();
-  const aniversarioEsteAno = new Date(hoje.getFullYear(), this.dataNascimento.getMonth(), this.dataNascimento.getDate());
-  return hoje < aniversarioEsteAno ? ano - 1 : ano;
+  return calculateAge(this.dataNascimento);
 });
 
 PersonSchema.pre('save', async function enforceBusinessRules(next) {
-  if (this.batizado) {
-    this.tipo = 'membro';
-  }
+  applyPersonBusinessRules(this);
   if (this.status === 'inativo' && !this.motivoInativacao) {
     return next(new Error('motivoInativacao é obrigatório quando status = inativo'));
   }
@@ -90,6 +85,37 @@ PersonSchema.pre('save', async function enforceBusinessRules(next) {
     const last = await PersonModel.findOne({ matricula: { $exists: true } }).sort({ matricula: -1 }).select('matricula').lean();
     this.matricula = (last?.matricula || 0) + 1;
   }
+  return next();
+});
+
+PersonSchema.pre('findOneAndUpdate', function enforceUpdateBusinessRules(next) {
+  const update = this.getUpdate();
+  if (!update || typeof update !== 'object') return next();
+
+  const payload = update.$set || update;
+  const requestedTipo = payload.tipo;
+  const requestedBatizado = payload.batizado;
+  const requestedDataBatismo = payload.dataBatismo;
+  applyPersonBusinessRules(payload);
+
+  const mustClearBaptismDate = requestedTipo === 'congregado'
+    || requestedBatizado === false
+    || requestedDataBatismo === '';
+
+  if (mustClearBaptismDate) {
+    delete payload.dataBatismo;
+    update.$unset = { ...(update.$unset || {}), dataBatismo: 1 };
+  }
+
+  if (update.$set) {
+    this.setUpdate({ ...update, $set: payload });
+  } else {
+    this.setUpdate({
+      $set: payload,
+      ...(update.$unset ? { $unset: update.$unset } : {}),
+    });
+  }
+
   return next();
 });
 

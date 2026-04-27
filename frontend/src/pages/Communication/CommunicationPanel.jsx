@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Header from '../../components/Header';
 import api from '../../services/api';
 import { CONGREGACOES } from '../../constants/congregacoes';
 import useAuth from '../../hooks/useAuth';
+import { formatPhoneBR } from '../../utils/phoneMask';
 
 const grupos = ['criança', 'adolescente', 'jovem', 'adulto 1', 'adulto 2', 'idoso', 'ancião'];
+const personTypes = ['congregado', 'membro', 'visitante', 'novo decidido', 'criança'];
 
 const STATUS_STYLE = {
   concluido: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
@@ -75,6 +77,32 @@ function SendTab({ label, icon, active, onClick }) {
   );
 }
 
+function PersonOption({ person, selected, onSelect }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(person)}
+      className={`w-full text-left px-4 py-3 transition flex items-start justify-between gap-3 ${
+        selected
+          ? 'bg-blue-50 text-blue-700'
+          : 'hover:bg-slate-50 text-slate-700'
+      }`}
+    >
+      <div className="min-w-0">
+        <p className="text-sm font-semibold truncate">{person.nome}</p>
+        <p className="text-xs text-slate-500 truncate">
+          {formatPhoneBR(person.celular || '') || 'Sem celular'}{person.congregacao ? ` • ${person.congregacao}` : ''}
+        </p>
+      </div>
+      <span className={`shrink-0 rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${
+        selected ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-500'
+      }`}>
+        {person.tipo}
+      </span>
+    </button>
+  );
+}
+
 export default function CommunicationPanel() {
   const { user } = useAuth();
   const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
@@ -84,7 +112,12 @@ export default function CommunicationPanel() {
   const [mensagemGrupo, setMensagemGrupo] = useState('');
   const [mensagemCongregacao, setMensagemCongregacao] = useState('');
   const [mensagemIndividual, setMensagemIndividual] = useState('');
-  const [individual, setIndividual] = useState({ personId: '', celular: '' });
+  const [individual, setIndividual] = useState({ personId: '', celular: '', nome: '', congregacao: '' });
+  const [personSearch, setPersonSearch] = useState('');
+  const [personTypeFilter, setPersonTypeFilter] = useState('');
+  const [personOptions, setPersonOptions] = useState([]);
+  const [personLoading, setPersonLoading] = useState(false);
+  const [personDropdownOpen, setPersonDropdownOpen] = useState(false);
   const [toast, setToast] = useState('');
   const [log, setLog] = useState([]);
   const [filters, setFilters] = useState({ tipo: '', status: '' });
@@ -96,6 +129,7 @@ export default function CommunicationPanel() {
   const [logPage, setLogPage] = useState(1);
   const [showNewMessage, setShowNewMessage] = useState(false);
   const [showPrayerModal, setShowPrayerModal] = useState(false);
+  const personComboboxRef = useRef(null);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
@@ -105,6 +139,49 @@ export default function CommunicationPanel() {
 
   useEffect(() => { loadLog(); loadPrayerLog(); loadSummary(); }, []);
   useEffect(() => { if (lockedCongregacao) setCongregacao(lockedCongregacao); }, [lockedCongregacao]);
+
+  useEffect(() => {
+    if (!showNewMessage || activeTab !== 'individual') return undefined;
+
+    const timer = setTimeout(async () => {
+      setPersonLoading(true);
+      try {
+        const params = { page: 1, limit: 12, status: 'ativo' };
+        if (personSearch.trim()) params.search = personSearch.trim();
+        if (personTypeFilter) params.tipo = personTypeFilter;
+
+        const { data } = await api.get('/persons', { params });
+        const items = (data.items || []).filter((person) => person.celular);
+        setPersonOptions(items);
+      } catch (err) {
+        console.error('Erro ao carregar pessoas para envio individual:', err);
+        setPersonOptions([]);
+      } finally {
+        setPersonLoading(false);
+      }
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [showNewMessage, activeTab, personSearch, personTypeFilter]);
+
+  useEffect(() => {
+    if (!personDropdownOpen) return undefined;
+
+    const handleClickOutside = (event) => {
+      if (personComboboxRef.current && !personComboboxRef.current.contains(event.target)) {
+        setPersonDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [personDropdownOpen]);
+
+  const selectedPersonLabel = useMemo(() => {
+    if (!individual.personId) return '';
+    const parts = [individual.nome, formatPhoneBR(individual.celular || ''), individual.congregacao].filter(Boolean);
+    return parts.join(' • ');
+  }, [individual]);
 
   const handleByGroup = async () => {
     setSending(true);
@@ -131,10 +208,29 @@ export default function CommunicationPanel() {
     await api.post('/messages/send-individual', { ...individual, mensagem: mensagemIndividual });
     showToast('Mensagem individual enviada!');
     setMensagemIndividual('');
-    setIndividual({ personId: '', celular: '' });
+    setIndividual({ personId: '', celular: '', nome: '', congregacao: '' });
+    setPersonSearch('');
+    setPersonTypeFilter('');
     setSending(false);
     loadLog();
     loadSummary();
+  };
+
+  const handleSelectPerson = (person) => {
+    setIndividual({
+      personId: person._id,
+      celular: person.celular || '',
+      nome: person.nome || '',
+      congregacao: person.congregacao || '',
+    });
+    setPersonSearch(person.nome || '');
+    setPersonDropdownOpen(false);
+  };
+
+  const clearSelectedPerson = () => {
+    setIndividual({ personId: '', celular: '', nome: '', congregacao: '' });
+    setPersonSearch('');
+    setPersonDropdownOpen(true);
   };
 
   const resend = async (id) => {
@@ -328,7 +424,7 @@ export default function CommunicationPanel() {
             >
               <option value="">Todos os tipos</option>
               <option value="aniversario">Aniversário</option>
-              <option value="novo cadastro">Novo cadastro</option>
+              <option value="novo cadastro">Nova pessoa</option>
               <option value="projeto_amigo">Projeto Amigo</option>
               <option value="personalizada">Personalizada</option>
               <option value="oracao">Oração</option>
@@ -507,11 +603,84 @@ export default function CommunicationPanel() {
                 )}
                 {activeTab === 'individual' && (
                   <>
-                    <input className={inputClass} placeholder="Celular (WhatsApp)" value={individual.celular} onChange={(e) => setIndividual((p) => ({ ...p, celular: e.target.value }))} />
+                    <div className="grid grid-cols-1 sm:grid-cols-[170px_minmax(0,1fr)] gap-3">
+                      <select
+                        className={inputClass}
+                        value={personTypeFilter}
+                        onChange={(e) => {
+                          setPersonTypeFilter(e.target.value);
+                          setPersonDropdownOpen(true);
+                        }}
+                      >
+                        <option value="">Todos os tipos</option>
+                        {personTypes.map((tipo) => (
+                          <option key={tipo} value={tipo}>{tipo.toUpperCase()}</option>
+                        ))}
+                      </select>
+
+                      <div ref={personComboboxRef} className="relative">
+                        <input
+                          className={inputClass}
+                          placeholder="Buscar por nome ou celular"
+                          value={individual.personId ? selectedPersonLabel : personSearch}
+                          onFocus={() => setPersonDropdownOpen(true)}
+                          onChange={(e) => {
+                            setIndividual({ personId: '', celular: '', nome: '', congregacao: '' });
+                            setPersonSearch(e.target.value);
+                            setPersonDropdownOpen(true);
+                          }}
+                        />
+
+                        {individual.personId && (
+                          <button
+                            type="button"
+                            onClick={clearSelectedPerson}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                            title="Limpar seleção"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        )}
+
+                        {personDropdownOpen && (
+                          <div className="absolute z-20 mt-2 w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+                            {personLoading ? (
+                              <p className="px-4 py-3 text-sm text-slate-400">Buscando pessoas...</p>
+                            ) : personOptions.length === 0 ? (
+                              <p className="px-4 py-3 text-sm text-slate-400">Nenhuma pessoa encontrada com celular cadastrado.</p>
+                            ) : (
+                              <div className="max-h-64 overflow-y-auto divide-y divide-slate-100">
+                                {personOptions.map((person) => (
+                                  <PersonOption
+                                    key={person._id}
+                                    person={person}
+                                    selected={individual.personId === person._id}
+                                    onSelect={handleSelectPerson}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {individual.personId && (
+                      <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-blue-700">Destinatário selecionado</p>
+                        <p className="mt-1 text-sm font-semibold text-slate-800">{individual.nome}</p>
+                        <p className="text-xs text-slate-500">
+                          {formatPhoneBR(individual.celular || '') || 'Sem celular'}{individual.congregacao ? ` • ${individual.congregacao}` : ''}
+                        </p>
+                      </div>
+                    )}
+
                     <textarea className={textareaClass} rows={4} placeholder="Mensagem personalizada..." value={mensagemIndividual} onChange={(e) => setMensagemIndividual(e.target.value)} />
                     <button
                       onClick={async () => { await handleIndividual(); setShowNewMessage(false); }}
-                      disabled={sending || !individual.celular || !mensagemIndividual}
+                      disabled={sending || !individual.personId || !mensagemIndividual}
                       className="w-full bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white text-sm font-medium py-3 rounded-lg transition flex items-center justify-center gap-2 min-h-[44px]"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>

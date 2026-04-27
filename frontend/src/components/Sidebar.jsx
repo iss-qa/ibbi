@@ -98,7 +98,7 @@ const navItemsByRole = (role, user) => {
 
   const items = [
     { to: '/dashboard', label: 'Dashboard' },
-    { to: '/members', label: 'Membros' },
+    { to: '/members', label: 'Pessoas' },
     { to: '/approvals', label: 'Aprovações' },
     { to: '/communication', label: 'Comunicação' },
     { to: '/projeto-amigo', label: 'Projeto Amigo' },
@@ -172,7 +172,7 @@ export default function Sidebar({ user, isOpen, onClose }) {
           <img src={logo} alt="IBBI" className="w-12 h-12 rounded-full object-cover border-2 border-ibbiGold" />
           <div>
             <p className="font-display text-lg leading-tight">IBBI</p>
-            <p className="text-xs text-ibbiGold">Gestão de Membros</p>
+            <p className="text-xs text-ibbiGold">Gestão de Pessoas</p>
           </div>
         </div>
 

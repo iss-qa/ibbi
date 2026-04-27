@@ -112,9 +112,9 @@ export default function Dashboard() {
   }
 
   const cards = [
-    { label: 'Membros ativos', value: stats?.ativos ?? 0 },
-    { label: 'Membros inativos', value: stats?.inativos ?? 0 },
-    { label: 'Total de membros', value: stats?.total ?? 0 },
+    { label: 'Pessoas ativas', value: stats?.ativos ?? 0 },
+    { label: 'Pessoas inativas', value: stats?.inativos ?? 0 },
+    { label: 'Total de pessoas', value: stats?.total ?? 0 },
     { label: 'Aniversariantes da semana', value: stats?.aniversariantes?.length ?? 0 },
   ];
 
@@ -216,7 +216,7 @@ export default function Dashboard() {
       {/* Charts */}
       <section className="mt-8 grid md:grid-cols-2 gap-6">
         <div className="bg-white rounded-xl border border-stone-100 p-6">
-          <h3 className="font-display text-lg text-ibbiNavy">Crescimento de membros</h3>
+          <h3 className="font-display text-lg text-ibbiNavy">Crescimento de pessoas</h3>
           <p className="text-xs text-slate-400 mb-4">Novos cadastros nos últimos 6 meses</p>
           {loading.growth ? <SkeletonChart /> : (
             <div className="h-56">
@@ -233,7 +233,7 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-white rounded-xl border border-stone-100 p-6">
-          <h3 className="font-display text-lg text-ibbiNavy">Membros por congregação</h3>
+          <h3 className="font-display text-lg text-ibbiNavy">Pessoas por congregação</h3>
           <p className="text-xs text-slate-400 mb-4">Total por congregação</p>
           {loading.congregation ? <SkeletonChart height="h-[350px]" /> : (
             <div className="h-[350px]">

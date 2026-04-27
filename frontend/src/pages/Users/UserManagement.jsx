@@ -238,7 +238,7 @@ export default function UserManagement() {
             <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-4">
               <input
                 className="w-full border rounded-lg px-4 py-3 text-lg sm:text-base min-h-[44px] appearance-none focus:ring-2 focus:ring-blue-100 outline-none"
-                placeholder="Buscar membro pelo nome..."
+                placeholder="Buscar pessoa pelo nome..."
                 value={memberSearch}
                 onChange={(e) => searchMembers(e.target.value)}
               />

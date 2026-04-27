@@ -1,6 +1,7 @@
 const Invitation = require('../models/Invitation.model');
 const Person = require('../models/Person.model');
 const RegistrationRequest = require('../models/RegistrationRequest.model');
+const { sendPendingRegistrationWelcome } = require('../services/member.service');
 
 const PERMANENT_TOKEN = '9b34cf8ae96bc49d6b388b5a0a68f2a39578297def76faf6';
 
@@ -79,7 +80,7 @@ const submitInvitation = async (req, res) => {
   }
 
   // Criar solicitação pendente (não cria Person nem User)
-  await RegistrationRequest.create({
+  const request = await RegistrationRequest.create({
     nome: payload.nome,
     celular: payload.celular,
     congregacao: payload.congregacao,
@@ -87,6 +88,15 @@ const submitInvitation = async (req, res) => {
     submittedData: payload,
     status: 'pending',
   });
+
+  try {
+    await sendPendingRegistrationWelcome({
+      nome: request.nome,
+      celular: request.celular,
+    });
+  } catch (err) {
+    console.error('Erro ao enviar boas-vindas do cadastro pendente:', err.message);
+  }
 
   res.json({
     message: 'Cadastro recebido com sucesso! Sua solicitação está em análise. Aguarde a aprovação da administração da igreja.',

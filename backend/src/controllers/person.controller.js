@@ -7,6 +7,7 @@ const { onboardMember } = require('../services/member.service');
 const whatsapp = require('../services/whatsapp.service');
 const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
 const { escapeRegex } = require('../utils/sanitize');
+const { applyPersonBusinessRules } = require('../utils/person-rules');
 
 const normalizePhone = (value) => (value ? String(value).replace(/\D/g, '') : '');
 
@@ -57,7 +58,6 @@ const cleanEmptyEnums = (payload) => {
 const clearFieldsByTipo = (payload) => {
   if (payload.tipo === 'visitante' || payload.tipo === 'novo decidido') {
     delete payload.email;
-    delete payload.grupo;
     delete payload.estadoCivil;
     delete payload.endereco;
     delete payload.ministerio;
@@ -227,6 +227,7 @@ const create = async (req, res) => {
   if (payload.motivoInativacao === '') delete payload.motivoInativacao;
   cleanEmptyEnums(payload);
   clearFieldsByTipo(payload);
+  applyPersonBusinessRules(payload);
   if (payload.fotoUrl !== undefined) payload.fotoUrl = sanitizeFotoUrl(payload.fotoUrl);
   if (req.user.role === 'admin') {
     payload.congregacao = await getUserCongregacao(req.user);
@@ -302,6 +303,7 @@ const update = async (req, res) => {
   if (payload.motivoInativacao === '') delete payload.motivoInativacao;
   cleanEmptyEnums(payload);
   clearFieldsByTipo(payload);
+  applyPersonBusinessRules(payload);
   if (payload.fotoUrl !== undefined) payload.fotoUrl = sanitizeFotoUrl(payload.fotoUrl);
   if (req.user.role === 'admin') {
     payload.congregacao = await getUserCongregacao(req.user);

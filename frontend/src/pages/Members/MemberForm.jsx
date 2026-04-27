@@ -2,8 +2,9 @@ import { useRef, useState, useEffect } from 'react';
 import { CONGREGACOES } from '../../constants/congregacoes';
 import { formatPhoneBR } from '../../utils/phoneMask';
 import api from '../../services/api';
-import doveDefault from '../../assets/dove_ia.png';
+import doveDefault from '../../assets/logo-ibbi.jpeg';
 import CustomSelect from '../../components/CustomSelect';
+import { PERSON_TYPE_OPTIONS, calculateAge, determineGroup } from '../../utils/person';
 
 const initialState = {
   nome: '',
@@ -25,8 +26,6 @@ const initialState = {
   dataVisita: '',
   dataDecisao: '',
 };
-
-const TIPOS = ['congregado', 'membro', 'visitante', 'novo decidido', 'criança'];
 
 const MINISTERIOS = {
   'Ministério Pastoral': ['Pastor', 'Pastor Auxiliar', 'Evangelista', 'Missionário'],
@@ -52,29 +51,6 @@ function Field({ label, children }) {
     </div>
   );
 }
-
-const calculateAge = (birthday) => {
-  if (!birthday) return null;
-  const birthDate = new Date(birthday + 'T12:00:00Z');
-  const today = new Date();
-  let age = today.getFullYear() - birthDate.getFullYear();
-  const m = today.getMonth() - birthDate.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-    age--;
-  }
-  return age;
-};
-
-const determineGroup = (age) => {
-  if (age === null || isNaN(age)) return '';
-  if (age <= 9) return 'criança';
-  if (age <= 17) return 'adolescente';
-  if (age <= 35) return 'jovem';
-  if (age <= 50) return 'adulto 1';
-  if (age <= 60) return 'adulto 2';
-  if (age <= 75) return 'idoso';
-  return 'ancião';
-};
 
 async function optimizeImage(file) {
   const imageUrl = URL.createObjectURL(file);
@@ -117,14 +93,40 @@ async function optimizeImage(file) {
 }
 
 export default function MemberForm({ initialData, onSubmit, onCancel, lockedCongregacao, readOnly, isSelfEdit, isExternal, highlightPhoto = false }) {
+  const syncFormRules = (draft) => {
+    const next = { ...draft };
+    const autoGroup = determineGroup(calculateAge(next.dataNascimento));
+    if (autoGroup) {
+      next.grupo = autoGroup;
+    }
+
+    if (next.tipo === 'membro') {
+      next.batizado = true;
+    }
+
+    if (next.batizado || next.dataBatismo) {
+      next.batizado = true;
+      next.tipo = 'membro';
+    } else if (next.tipo === 'congregado') {
+      next.batizado = false;
+      next.dataBatismo = '';
+    }
+
+    return next;
+  };
+
   const [form, setForm] = useState({
-    ...initialState,
-    ...initialData,
-    congregacao: lockedCongregacao || initialData?.congregacao || initialState.congregacao,
+    ...syncFormRules({
+      ...initialState,
+      ...initialData,
+      congregacao: lockedCongregacao || initialData?.congregacao || initialState.congregacao,
+    }),
   });
   const [uploading, setUploading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const isCompactTipo = form.tipo === 'visitante' || form.tipo === 'novo decidido';
+  const selectedTipoMeta = PERSON_TYPE_OPTIONS.find((item) => item.value === form.tipo);
+  const showBaptismControls = !isCompactTipo && form.tipo !== 'congregado';
   
   // Inicializa o preview tratando URLs relativas
   const getInitialPreview = () => {
@@ -183,12 +185,17 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
   const handleChange = (field, value) => {
     setForm((prev) => {
       const next = { ...prev, [field]: value };
-      if (field === 'dataNascimento') {
-        const age = calculateAge(value);
-        const autoGroup = determineGroup(age);
-        if (autoGroup) next.grupo = autoGroup;
+      if (field === 'batizado') {
+        if (value) {
+          next.tipo = 'membro';
+        } else {
+          next.dataBatismo = '';
+          if (next.tipo === 'membro') {
+            next.tipo = 'congregado';
+          }
+        }
       }
-      return next;
+      return syncFormRules(next);
     });
   };
 
@@ -199,7 +206,6 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
           ...prev,
           tipo,
           email: '',
-          grupo: '',
           estadoCivil: '',
           batizado: false,
           dataBatismo: '',
@@ -216,7 +222,6 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
           ...prev,
           tipo,
           email: '',
-          grupo: '',
           estadoCivil: '',
           batizado: false,
           dataBatismo: '',
@@ -228,12 +233,17 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
         };
       }
 
-      return {
+      const next = {
         ...prev,
         tipo,
         dataVisita: '',
         dataDecisao: '',
       };
+      if (tipo === 'congregado') {
+        next.batizado = false;
+        next.dataBatismo = '';
+      }
+      return syncFormRules(next);
     });
   };
 
@@ -295,7 +305,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
         {/* Foto */}
         <div
           ref={photoFieldRef}
-          className={`flex flex-col items-center gap-1 shrink-0 rounded-2xl px-3 py-2 transition-all duration-300 ${
+          className={`flex flex-col items-center gap-2 shrink-0 rounded-3xl px-3 py-3 transition-all duration-300 ${
             photoHighlighted
               ? photoError
                 ? 'bg-red-50/80 ring-4 ring-red-300 shadow-lg shadow-red-100 animate-shake'
@@ -321,7 +331,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
           <div className="relative group cursor-pointer" onClick={() => !readOnly && fileInputRef.current?.click()} title={readOnly ? "Foto do Membro" : "Clique para alterar a foto"}>
             <button
               type="button"
-              className="w-20 h-20 sm:w-16 sm:h-16 rounded-full border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden hover:border-blue-300 hover:bg-blue-50 transition focus:outline-none focus:ring-2 focus:ring-blue-200"
+              className="w-32 h-40 sm:w-28 sm:h-36 rounded-3xl border-2 border-dashed border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden hover:border-blue-300 hover:bg-blue-50 transition focus:outline-none focus:ring-2 focus:ring-blue-200"
               disabled={readOnly}
             >
               {uploading ? (
@@ -330,7 +340,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z" />
                 </svg>
               ) : preview ? (
-                <img src={preview} alt="Foto" className="w-full h-full object-cover rounded-full" />
+                <img src={preview} alt="Foto" className="w-full h-full object-cover rounded-3xl" />
               ) : (
                 <svg className="w-6 h-6 text-slate-300 group-hover:text-blue-400 transition" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                   <circle cx="12" cy="8" r="3.5" />
@@ -398,7 +408,8 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
             <div className="min-w-0">
               <label className={labelClass}>Tipo</label>
               <div className="flex flex-wrap gap-1.5">
-                {TIPOS.map((t) => {
+                {PERSON_TYPE_OPTIONS.map((option) => {
+                  const t = option.value;
                   const isRestrictedDowngrade = isSelfEdit && 
                     ['membro', 'congregado', 'criança'].includes(initialData?.tipo) && 
                     ['visitante', 'novo decidido'].includes(t);
@@ -418,11 +429,16 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
                       }`}
                       title={isRestrictedDowngrade ? 'Você não pode rebaixar seu próprio status para visitante.' : null}
                     >
-                      {t}
+                      {option.label}
                     </button>
                   );
                 })}
               </div>
+              {selectedTipoMeta && (
+                <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                  {selectedTipoMeta.description}
+                </p>
+              )}
             </div>
 
             <Field label="Congregação">
@@ -481,6 +497,14 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
         <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2.5">Informações pessoais</p>
         {isCompactTipo ? (
           <div className="grid grid-cols-1 gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
+            <Field label={<>Nascimento {currentAge !== null && !isNaN(currentAge) ? <span className="text-slate-400 font-normal ml-0.5 lowercase">({currentAge} anos)</span> : null}</>}>
+              <input
+                type="date"
+                className={fieldClass}
+                value={form.dataNascimento}
+                onChange={(e) => handleChange('dataNascimento', e.target.value)}
+              />
+            </Field>
             {form.tipo === 'visitante' && (
               <Field label="Data da visita">
                 <input
@@ -519,6 +543,24 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
                 value={formatPhoneBR(form.celular)}
                 onChange={(e) => handleChange('celular', e.target.value)}
               />
+            </Field>
+            <Field label={<>Grupo {form.grupo ? <span className="text-slate-400 font-normal ml-0.5 lowercase">({form.grupo})</span> : null}</>}>
+              <CustomSelect
+                value={form.grupo}
+                onChange={(v) => handleChange('grupo', v)}
+                options={[
+                  { value: 'criança', label: 'Criança — 0 a 9 anos' },
+                  { value: 'adolescente', label: 'Adolescente — 10 a 17 anos' },
+                  { value: 'jovem', label: 'Jovem — 18 a 35 anos' },
+                  { value: 'adulto 1', label: 'Adulto 1 — 36 a 50 anos' },
+                  { value: 'adulto 2', label: 'Adulto 2 — 51 a 60 anos' },
+                  { value: 'idoso', label: 'Idoso — 61 a 75 anos' },
+                  { value: 'ancião', label: 'Ancião — acima de 76 anos' },
+                ]}
+              />
+              <p className="mt-1 text-[11px] text-slate-400">
+                Grupo sugerido automaticamente com base na idade informada.
+              </p>
             </Field>
           </div>
         ) : (
@@ -632,22 +674,28 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
                 </Field>
               </div>
 
-              <div className="shrink-0 flex items-center h-[44px] sm:h-[32px]">
-                <label className="flex items-center gap-2 px-3 h-full rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-sm text-slate-600 font-medium transition select-none">
-                  <input
-                    type="checkbox"
-                    className="accent-blue-600 w-3.5 h-3.5"
-                    checked={form.batizado}
-                    onChange={(e) => handleChange('batizado', e.target.checked)}
-                  />
-                  <svg className="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Batizado?
-                </label>
-              </div>
+              {showBaptismControls && (
+                <div className="shrink-0 flex flex-col justify-start min-w-[180px]">
+                  <label className={labelClass}>Batizado nas águas</label>
+                  <div className="flex items-center gap-3 bg-white border border-slate-200 px-3 py-2 rounded-2xl min-h-[48px]">
+                    <span className={`text-xs font-medium uppercase tracking-wider ${form.batizado ? 'text-blue-600' : 'text-slate-400'}`}>
+                      {form.batizado ? 'Sim' : 'Não'}
+                    </span>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={form.batizado}
+                      disabled={readOnly}
+                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-100 ${form.batizado ? 'bg-blue-600' : 'bg-slate-300'}`}
+                      onClick={() => handleChange('batizado', !form.batizado)}
+                    >
+                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${form.batizado ? 'translate-x-5' : 'translate-x-0'}`} />
+                    </button>
+                  </div>
+                </div>
+              )}
 
-              {form.batizado && (
+              {showBaptismControls && form.batizado && (
                 <div className="flex-1 w-full sm:min-w-[150px]">
                   <Field label="Data do batismo">
                     <input

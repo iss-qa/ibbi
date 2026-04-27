@@ -45,7 +45,7 @@ export default function ExternalMemberForm() {
             <h2 className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-3">Em Análise</h2>
             <p className="text-sm text-amber-800 leading-relaxed">
               Sua solicitação será analisada pela administração da igreja.
-              Após a aprovação, você receberá uma mensagem no WhatsApp com seus dados de acesso ao portal.
+              Você receberá uma mensagem de confirmação no WhatsApp agora e, após a aprovação, enviaremos também seus dados de acesso ao portal.
             </p>
           </div>
 
@@ -60,7 +60,7 @@ export default function ExternalMemberForm() {
   return (
     <div className="min-h-screen bg-ibbiCream p-6">
       <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-soft p-6">
-        <h1 className="font-display text-xl text-ibbiNavy mb-4">Cadastro de membro</h1>
+        <h1 className="font-display text-xl text-ibbiNavy mb-4">Cadastro de pessoa</h1>
         {status && (
           <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 animate-shake">
             <svg className="w-5 h-5 text-red-500 shrink-0 mt-0.5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">

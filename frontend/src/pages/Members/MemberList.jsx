@@ -7,7 +7,7 @@ import api from '../../services/api';
 import { onlyDigits } from '../../utils/phoneMask';
 import MemberForm from './MemberForm';
 import useAuth from '../../hooks/useAuth';
-import doveDefault from '../../assets/dove_ia.png';
+import doveDefault from '../../assets/logo-ibbi.jpeg';
 import { CONGREGACOES } from '../../constants/congregacoes';
 import CustomSelect from '../../components/CustomSelect';
 
@@ -129,7 +129,6 @@ export default function MemberList() {
     if (data.status !== 'inativo') delete data.motivoInativacao;
     if (data.tipo === 'visitante' || data.tipo === 'novo decidido') {
       delete data.email;
-      delete data.grupo;
       delete data.estadoCivil;
       delete data.endereco;
       delete data.ministerio;
@@ -187,7 +186,7 @@ export default function MemberList() {
       setShowForm(true);
     } catch (err) {
       console.error(err);
-      setError('Erro ao carregar os detalhes do membro.');
+      setError('Erro ao carregar os detalhes da pessoa.');
     }
   };
 
@@ -214,7 +213,7 @@ export default function MemberList() {
     const url = window.URL.createObjectURL(new Blob([response.data]));
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', 'membros.csv');
+    link.setAttribute('download', 'pessoas.csv');
     document.body.appendChild(link);
     link.click();
     link.remove();
@@ -224,7 +223,7 @@ export default function MemberList() {
     {
       key: 'edit',
       label: 'Editar',
-      title: 'Editar membro',
+      title: 'Editar pessoa',
       onClick: () => handleOpenForm(row, false),
       disabled: false,
       icon: (
@@ -274,7 +273,7 @@ export default function MemberList() {
     {
       key: 'delete',
       label: 'Excluir',
-      title: 'Excluir membro',
+      title: 'Excluir pessoa',
       onClick: () => setPendingDelete(row),
       disabled: false,
       icon: (
@@ -288,7 +287,7 @@ export default function MemberList() {
   return (
     <div className="min-h-screen">
       <Header
-        title="Membros"
+        title="Pessoas"
         subtitle="Gestão completa da membresia"
         action={
           <div className="flex items-center gap-2">
@@ -299,7 +298,7 @@ export default function MemberList() {
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
-              Novo membro
+              Nova pessoa
             </button>
             <button
               onClick={handleInvite}
@@ -424,7 +423,7 @@ export default function MemberList() {
           <div className="flex items-center justify-between px-3 sm:px-4 py-3 border-b border-slate-100">
             <div className="flex items-center gap-2 sm:gap-3">
               <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
-                {loading ? 'Carregando...' : <><span className="font-bold">{total}</span><span className="hidden sm:inline"> membros</span></>}
+                {loading ? 'Carregando...' : <><span className="font-bold">{total}</span><span className="hidden sm:inline"> pessoas</span></>}
               </span>
               <select
                 className="border border-slate-200 rounded-lg px-1 sm:px-2 py-1 text-xs text-slate-600 bg-white focus:outline-none"
@@ -453,7 +452,7 @@ export default function MemberList() {
             <table className="w-full text-sm">
             <thead>
               <tr className="bg-stone-50 text-left">
-                <th className="px-3 py-2.5 sm:px-4 sm:py-2.5 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wide max-w-0 sm:max-w-none">Membro</th>
+                <th className="px-3 py-2.5 sm:px-4 sm:py-2.5 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wide max-w-0 sm:max-w-none">Pessoa</th>
                 <th className="px-3 py-2.5 sm:px-4 sm:py-2.5 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wide hidden md:table-cell">Tipo</th>
                 <th className="px-3 py-2.5 sm:px-4 sm:py-2.5 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wide hidden md:table-cell">Grupo</th>
                 <th className="px-3 py-2.5 sm:px-4 sm:py-2.5 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wide hidden md:table-cell">Status</th>
@@ -479,7 +478,7 @@ export default function MemberList() {
                     <svg className="w-10 h-10 mx-auto mb-2 text-slate-200" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
-                    Nenhum membro encontrado
+                    Nenhuma pessoa encontrada
                   </td>
                 </tr>
               ) : (
@@ -656,10 +655,10 @@ export default function MemberList() {
             <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 sticky top-0 bg-white z-10 shrink-0">
               <div>
                 <h2 className="text-base font-semibold text-slate-800">
-                  {editing && viewingForm ? 'Visualizar membro' : editing ? 'Editar membro' : 'Novo membro'}
+                  {editing && viewingForm ? 'Visualizar pessoa' : editing ? 'Editar pessoa' : 'Nova pessoa'}
                 </h2>
                 <p className="text-xs text-slate-400 mt-0.5">
-                  {editing && viewingForm ? 'Dados preenchidos do membro' : editing ? 'Atualize as informações do membro' : 'Preencha os dados para cadastrar'}
+                  {editing && viewingForm ? 'Dados preenchidos da pessoa' : editing ? 'Atualize as informações da pessoa' : 'Preencha os dados para cadastrar'}
                 </p>
               </div>
               <button
@@ -717,7 +716,7 @@ export default function MemberList() {
               </svg>
             </div>
             <h3 className="text-lg font-semibold text-slate-800 mb-1">Cadastro realizado!</h3>
-            <p className="text-sm text-slate-500 mb-6">O membro foi criado e os acessos gerados (uma mensagem via WhatsApp também foi agendada).</p>
+            <p className="text-sm text-slate-500 mb-6">A pessoa foi criada e os acessos gerados (uma mensagem via WhatsApp também foi agendada).</p>
             
             <div className="bg-slate-50 w-full p-4 rounded-xl border border-slate-100 flex flex-col gap-2 mb-6">
                <div className="flex justify-between items-center text-sm">
@@ -751,7 +750,7 @@ export default function MemberList() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-slate-800 mb-2">Excluir membro</h3>
+            <h3 className="text-lg font-semibold text-slate-800 mb-2">Excluir pessoa</h3>
             <p className="text-sm text-slate-500 mb-6">
               Tem certeza que deseja excluir <span className="font-semibold text-slate-700">{pendingDelete.nome}</span>?
             </p>

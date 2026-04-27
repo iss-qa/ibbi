@@ -69,7 +69,7 @@ export default function Login() {
         <div className="flex flex-col items-center gap-3 mb-6">
           <img src={logo} alt="IBBI" className="w-16 h-16 rounded-full object-cover border-2 border-ibbiGold" />
           <h1 className="font-display text-2xl text-ibbiNavy">Bem-vindo à IBBI</h1>
-          <p className="text-sm text-slate-500">Acesse o sistema de gestão de membros</p>
+          <p className="text-sm text-slate-500">Acesse o sistema de gestão de pessoas</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

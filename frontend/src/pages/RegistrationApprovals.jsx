@@ -1,12 +1,80 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
 import Header from '../components/Header';
+import { calculateAge, determineGroupFromBirthDate } from '../utils/person';
 
 const STATUS_LABELS = { pending: 'Pendente', approved: 'Aprovado', rejected: 'Rejeitado' };
 const STATUS_COLORS = {
   pending: 'bg-amber-100 text-amber-800',
   approved: 'bg-green-100 text-green-800',
   rejected: 'bg-red-100 text-red-800',
+};
+const TYPE_LABELS = {
+  congregado: 'CONGREGADO',
+  membro: 'MEMBRO',
+  visitante: 'VISITANTE',
+  'novo decidido': 'NOVO DECIDIDO',
+  'criança': 'CRIANÇA',
+};
+
+const FIELD_LABELS = {
+  nome: 'Nome',
+  sexo: 'Sexo',
+  dataNascimento: 'Data de nascimento',
+  idade: 'Idade',
+  email: 'Email',
+  celular: 'Celular',
+  tipo: 'Tipo',
+  grupo: 'Grupo',
+  estadoCivil: 'Estado civil',
+  batizado: 'Batizado',
+  dataBatismo: 'Data de batismo',
+  congregacao: 'Congregação',
+  status: 'Status',
+  motivoInativacao: 'Motivo inativação',
+  endereco: 'Endereço',
+  ministerio: 'Ministério',
+  dataVisita: 'Data da visita',
+  dataDecisao: 'Data da decisão',
+};
+
+const formatValue = (key, value) => {
+  if (value === undefined || value === null || value === '') return '-';
+  if (key === 'tipo') return TYPE_LABELS[value] || String(value).toUpperCase();
+  if (key === 'batizado') return value ? 'SIM' : 'NÃO';
+  if (['dataNascimento', 'dataBatismo', 'dataVisita', 'dataDecisao'].includes(key)) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return String(value);
+    return date.toLocaleDateString('pt-BR');
+  }
+  return String(value);
+};
+
+const normalizeSubmittedData = (request) => {
+  const raw = { ...(request.submittedData || {}) };
+  const hasBaptism = Boolean(raw.batizado || raw.dataBatismo);
+  const age = calculateAge(raw.dataNascimento);
+  const autoGroup = determineGroupFromBirthDate(raw.dataNascimento);
+
+  return {
+    ...raw,
+    nome: raw.nome || request.nome,
+    celular: raw.celular || request.celular,
+    congregacao: raw.congregacao || request.congregacao,
+    batizado: hasBaptism,
+    tipo: hasBaptism ? 'membro' : raw.tipo,
+    grupo: raw.grupo || autoGroup,
+    idade: age,
+  };
+};
+
+const resolvePhotoUrl = (fotoUrl) => {
+  if (!fotoUrl) return '';
+  if (fotoUrl.startsWith('/uploads')) {
+    const baseUrl = api.defaults.baseURL.replace('/api', '');
+    return `${baseUrl}${fotoUrl}`;
+  }
+  return fotoUrl;
 };
 
 export default function RegistrationApprovals() {
@@ -46,10 +114,12 @@ export default function RegistrationApprovals() {
   useEffect(() => { load(); }, [load]);
 
   const handleApprove = async (id) => {
-    if (!confirm('Confirma a aprovação desta solicitação? Será criado um cadastro de membro e usuário.')) return;
+    if (!confirm('Confirma a aprovação desta solicitação? Será criado um cadastro de pessoa e usuário.')) return;
     setActionLoading(true);
     try {
-      const { data } = await api.put(`/registrations/${id}/approve`);
+      const request = requests.find((item) => item._id === id) || selected;
+      const personData = request ? normalizeSubmittedData(request) : undefined;
+      const { data } = await api.put(`/registrations/${id}/approve`, personData ? { personData } : undefined);
       showToast(`Aprovado! Login criado: ${data.credentials?.login || 'N/A'}`);
       setSelected(null);
       load();
@@ -81,7 +151,7 @@ export default function RegistrationApprovals() {
 
   return (
     <div>
-      <Header title="Aprovação de Cadastros" subtitle="Gerencie as solicitações de novos membros" />
+      <Header title="Aprovação de Cadastros" subtitle="Gerencie as solicitações de novas pessoas" />
 
       {toast && (
         <div className="fixed top-4 right-4 z-50 bg-emerald-600 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-fade-in">
@@ -128,12 +198,21 @@ export default function RegistrationApprovals() {
               onClick={() => setSelected(selected?._id === req._id ? null : req)}
               className={`bg-white border rounded-xl p-4 cursor-pointer transition hover:shadow-md ${selected?._id === req._id ? 'border-ibbiBlue ring-2 ring-ibbiBlue/20' : 'border-slate-200'}`}
             >
+              {(() => {
+                const normalized = normalizeSubmittedData(req);
+                const photoUrl = resolvePhotoUrl(req.fotoUrl || req.submittedData?.fotoUrl);
+                const detailEntries = Object.entries(normalized)
+                  .filter(([key]) => !['fotoUrl', '__v', '_id', 'submittedAt'].includes(key))
+                  .filter(([, value]) => value !== undefined && value !== null && value !== '');
+
+                return (
+                  <>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  {req.fotoUrl ? (
-                    <img src={req.fotoUrl} alt="" className="w-10 h-10 rounded-full object-cover" />
+                  {photoUrl ? (
+                    <img src={photoUrl} alt="" className="w-16 h-20 rounded-2xl object-cover border border-slate-200 shadow-sm" />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 text-sm font-bold">
+                    <div className="w-16 h-20 rounded-2xl bg-slate-200 flex items-center justify-center text-slate-500 text-lg font-bold border border-slate-200">
                       {req.nome?.charAt(0)}
                     </div>
                   )}
@@ -150,16 +229,26 @@ export default function RegistrationApprovals() {
               {/* Detalhes expandidos */}
               {selected?._id === req._id && (
                 <div className="mt-4 pt-4 border-t border-slate-100 animate-fade-in">
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-                    {req.submittedData && Object.entries(req.submittedData)
-                      .filter(([k]) => !['fotoUrl', '__v', '_id'].includes(k))
-                      .map(([key, val]) => (
-                        <div key={key}>
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{key}</span>
-                          <p className="text-slate-700">{val instanceof Object ? JSON.stringify(val) : String(val || '-')}</p>
+                  <div className="grid grid-cols-1 lg:grid-cols-[180px_minmax(0,1fr)] gap-5 items-start">
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-3">
+                      {photoUrl ? (
+                        <img src={photoUrl} alt={req.nome} className="w-full h-52 rounded-2xl object-cover bg-slate-100" />
+                      ) : (
+                        <div className="w-full h-52 rounded-2xl bg-slate-200 flex items-center justify-center text-slate-500 text-4xl font-bold">
+                          {req.nome?.charAt(0)}
                         </div>
-                      ))
-                    }
+                      )}
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                      {detailEntries.map(([key, val]) => (
+                        <div key={key}>
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                            {FIELD_LABELS[key] || key}
+                          </span>
+                          <p className="text-slate-700">{formatValue(key, val)}</p>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                   {req.reviewNote && (
                     <div className="mt-3 p-3 bg-slate-50 rounded-lg">
@@ -188,6 +277,9 @@ export default function RegistrationApprovals() {
                   )}
                 </div>
               )}
+                  </>
+                );
+              })()}
             </div>
           ))}
 

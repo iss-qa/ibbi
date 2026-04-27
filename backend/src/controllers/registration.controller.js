@@ -3,6 +3,7 @@ const Person = require('../models/Person.model');
 const { onboardMember } = require('../services/member.service');
 const { getUserCongregacao } = require('../utils/access');
 const { escapeRegex } = require('../utils/sanitize');
+const { applyPersonBusinessRules } = require('../utils/person-rules');
 
 const list = async (req, res) => {
   const { status, search, page = 1, limit = 20 } = req.query;
@@ -56,9 +57,10 @@ const approve = async (req, res) => {
   Object.keys(personPayload).forEach((key) => {
     if (personPayload[key] === '' || personPayload[key] === undefined) delete personPayload[key];
   });
+  applyPersonBusinessRules(personPayload);
 
   const person = await Person.create(personPayload);
-  const credentials = await onboardMember(person, req.user._id);
+  const credentials = await onboardMember(person, req.user._id, { context: 'approval' });
 
   request.status = 'approved';
   request.reviewedAt = new Date();

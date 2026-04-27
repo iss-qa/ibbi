@@ -3,12 +3,57 @@ const Message = require('../models/Message.model');
 const { buildUniqueLogin } = require('../utils/login');
 const whatsapp = require('./whatsapp.service');
 const { DEFAULT_USER_PASSWORD } = require('../config/defaults');
+const templates = require('../templates/messages.templates');
+
+const sendAndLogMemberMessage = async ({ tipo, personLike, conteudo, authorId = null }) => {
+  if (!personLike?.celular || !conteudo) return;
+
+  try {
+    await whatsapp.sendSingle(personLike.celular, conteudo);
+
+    await Message.create({
+      tipo,
+      destinatarios: [{ nome: personLike.nome, celular: personLike.celular }],
+      conteudo,
+      status: 'concluido',
+      enviadoPor: authorId,
+      criadoEm: new Date(),
+      concluidoEm: new Date(),
+    });
+  } catch (err) {
+    await Message.create({
+      tipo,
+      destinatarios: [{ nome: personLike.nome, celular: personLike.celular }],
+      conteudo,
+      status: 'erro',
+      enviadoPor: authorId,
+      criadoEm: new Date(),
+      concluidoEm: new Date(),
+      erros: [{ celular: personLike.celular, motivo: err.message }],
+    });
+    throw err;
+  }
+};
+
+const sendPendingRegistrationWelcome = async (personLike, authorId = null) => {
+  if (!personLike?.celular) return false;
+
+  const msgText = templates.boasVindasCadastroPendente();
+  await sendAndLogMemberMessage({
+    tipo: 'novo cadastro',
+    personLike,
+    conteudo: msgText,
+    authorId,
+  });
+
+  return true;
+};
 
 /**
- * Registra um novo membro no sistema de usuários e envia mensagem de boas-vindas.
+ * Registra um novo membro no sistema de usuários e envia mensagem de acesso.
  * Pode ser chamado via admin ou via cadastro externo.
  */
-const onboardMember = async (person, authorId = null) => {
+const onboardMember = async (person, authorId = null, options = {}) => {
   if (!person || !person.celular) return null;
 
   try {
@@ -28,28 +73,21 @@ const onboardMember = async (person, authorId = null) => {
       mustChangePassword: true,
     });
 
-    const msgText = `🙏 Bem-vindo(a) à Comunidade IBBI!
-Que alegria ter você conosco! Seus dados de acesso estão prontos:
-🔗 Portal: https://ibbi.issqa.com.br/login
-👤 Usuário: ${userLogin}
-🔑 Senha: ${defaultPassword}
+    const isApprovalFlow = options.context === 'approval';
+    const msgText = isApprovalFlow
+      ? templates.acessoCadastroLiberado(userLogin, defaultPassword)
+      : templates.acessoCadastroImediato(userLogin, defaultPassword);
 
-Através do portal você pode:
-✅ Realizar seu pedido de oração
-✏️ Atualizar seus dados cadastrais
-Qualquer dúvida, estamos aqui! 💙`;
-
-    await whatsapp.sendSingle(person.celular, msgText);
-
-    await Message.create({
-      tipo: 'novo cadastro',
-      destinatarios: [{ nome: person.nome, celular: person.celular }],
-      conteudo: msgText,
-      status: 'concluido',
-      enviadoPor: authorId,
-      criadoEm: new Date(),
-      concluidoEm: new Date(),
-    });
+    try {
+      await sendAndLogMemberMessage({
+        tipo: 'aviso - novo membro',
+        personLike: person,
+        conteudo: msgText,
+        authorId,
+      });
+    } catch (err) {
+      console.error('Erro ao enviar mensagem de acesso do membro:', err.message);
+    }
 
     return { login: userLogin, password: defaultPassword };
   } catch (err) {
@@ -58,4 +96,4 @@ Qualquer dúvida, estamos aqui! 💙`;
   }
 };
 
-module.exports = { onboardMember };
+module.exports = { onboardMember, sendPendingRegistrationWelcome };
