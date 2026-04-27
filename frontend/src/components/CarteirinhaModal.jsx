@@ -871,9 +871,12 @@ export default function CarteirinhaModal({ person, onClose, hideWhatsApp = false
               {hasHealthData && (
                 <button
                   onClick={() => setStep('form')}
-                  className="text-xs text-slate-400 hover:text-blue-600 transition mt-1"
+                  className="mt-3 flex items-center justify-center gap-2 w-full max-w-xs border border-blue-200 bg-blue-50 hover:bg-blue-100 text-blue-700 text-sm font-medium px-4 py-2.5 rounded-lg transition shadow-sm"
                 >
-                  ✏️ Editar dados de saúde
+                  <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                  Editar dados de saúde
                 </button>
               )}
             </div>
