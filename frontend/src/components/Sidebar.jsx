@@ -1,4 +1,4 @@
-import { Fragment, useState } from 'react';
+import { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import logo from '../assets/logo-ibbi.jpeg';
@@ -181,31 +181,28 @@ export default function Sidebar({ user, isOpen, onClose }) {
         <nav className="flex flex-col gap-2">
           <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/35">Menu</div>
           {navItemsByRole(user?.role, user).map((item) => (
-            <Fragment key={item.to}>
-              <NavLink
-                to={item.to}
-                className={({ isActive }) => {
-                  const forceActive = item.to === '/projeto-amigo' && PROJETO_AMIGO_ROUTES.some((r) => location.pathname.startsWith(r));
-                  return `px-3 py-2 rounded-lg transition flex items-center gap-3 ${
-                    isActive || forceActive ? 'bg-ibbiGold text-ibbiNavy font-semibold' : 'hover:bg-white/10'
-                  }`;
-                }}
-                onClick={onClose}
-              >
-                {navIconMap[item.to] || navIconMap['/dashboard']}
-                <span>{item.label}</span>
-              </NavLink>
-              {item.to === '/profile' && (
-                <button
-                  onClick={() => { setShowLogoutModal(true); onClose(); }}
-                  className="px-3 py-2 rounded-lg transition hover:bg-white/10 text-left text-red-300 hover:text-red-200 flex items-center gap-3"
-                >
-                  {logoutIcon}
-                  <span>Sair</span>
-                </button>
-              )}
-            </Fragment>
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) => {
+                const forceActive = item.to === '/projeto-amigo' && PROJETO_AMIGO_ROUTES.some((r) => location.pathname.startsWith(r));
+                return `px-3 py-2 rounded-lg transition flex items-center gap-3 ${
+                  isActive || forceActive ? 'bg-ibbiGold text-ibbiNavy font-semibold' : 'hover:bg-white/10'
+                }`;
+              }}
+              onClick={onClose}
+            >
+              {navIconMap[item.to] || navIconMap['/dashboard']}
+              <span>{item.label}</span>
+            </NavLink>
           ))}
+          <button
+            onClick={() => { setShowLogoutModal(true); onClose(); }}
+            className="px-3 py-2 rounded-lg transition hover:bg-white/10 text-left text-red-300 hover:text-red-200 flex items-center gap-3"
+          >
+            {logoutIcon}
+            <span>Sair</span>
+          </button>
         </nav>
       </aside>
 

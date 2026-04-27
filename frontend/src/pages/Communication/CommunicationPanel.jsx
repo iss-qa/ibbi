@@ -722,7 +722,7 @@ export default function CommunicationPanel() {
                       <option value="">Selecione o grupo</option>
                       {grupos.map((g) => <option key={g} value={g}>{g}</option>)}
                     </select>
-                    <textarea className={textareaClass} rows={4} placeholder="Mensagem... use {nome} e {congregacao}" value={mensagemGrupo} onChange={(e) => setMensagemGrupo(e.target.value)} />
+                    <textarea className={textareaClass} rows={10} placeholder="Mensagem... use {nome} e {congregacao}" value={mensagemGrupo} onChange={(e) => setMensagemGrupo(e.target.value)} />
                     <button
                       onClick={async () => { await handleByGroup(); setShowNewMessage(false); }}
                       disabled={sending || !grupo || !mensagemGrupo}
@@ -738,7 +738,7 @@ export default function CommunicationPanel() {
                     <select className={`${inputClass} disabled:bg-slate-100`} value={congregacao} onChange={(e) => setCongregacao(e.target.value)} disabled={Boolean(lockedCongregacao)}>
                       {CONGREGACOES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
-                    <textarea className={textareaClass} rows={4} placeholder="Mensagem... use {nome} e {congregacao}" value={mensagemCongregacao} onChange={(e) => setMensagemCongregacao(e.target.value)} />
+                    <textarea className={textareaClass} rows={10} placeholder="Mensagem... use {nome} e {congregacao}" value={mensagemCongregacao} onChange={(e) => setMensagemCongregacao(e.target.value)} />
                     <button
                       onClick={async () => { await handleByCongregation(); setShowNewMessage(false); }}
                       disabled={sending || !mensagemCongregacao}
@@ -825,7 +825,7 @@ export default function CommunicationPanel() {
                       </div>
                     )}
 
-                    <textarea className={textareaClass} rows={4} placeholder="Mensagem personalizada..." value={mensagemIndividual} onChange={(e) => setMensagemIndividual(e.target.value)} />
+                    <textarea className={textareaClass} rows={10} placeholder="Mensagem personalizada..." value={mensagemIndividual} onChange={(e) => setMensagemIndividual(e.target.value)} />
                     <button
                       onClick={async () => { await handleIndividual(); setShowNewMessage(false); }}
                       disabled={sending || !individual.personId || !mensagemIndividual}

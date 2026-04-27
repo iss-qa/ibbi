@@ -450,12 +450,17 @@ const updateHealth = async (req, res) => {
     return res.status(400).json({ message: 'Nenhum dado enviado' });
   }
 
+  const existing = await Person.findById(req.params.id);
+  if (!existing) return res.status(404).json({ message: 'Pessoa não encontrada' });
+
+  await assertPersonAccess(req.user, existing);
+
   const person = await Person.findByIdAndUpdate(
     req.params.id,
     update,
     { new: true, runValidators: true }
   );
-  if (!person) return res.status(404).json({ message: 'Pessoa não encontrada' });
+
   return res.json(person);
 };
 

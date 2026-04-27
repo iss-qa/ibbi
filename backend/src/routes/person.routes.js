@@ -22,7 +22,7 @@ router.post(
 );
 
 router.put('/:id', requireRole('user', 'admin', 'master'), controller.update);
-router.patch('/:id/health', requireRole('admin', 'master'), controller.updateHealth);
+router.patch('/:id/health', requireRole('user', 'admin', 'master'), controller.updateHealth);
 router.delete('/:id', requireRole('master'), controller.remove);
 
 router.post(
