@@ -28,5 +28,7 @@ router.get('/prayer-log', controller.prayerLog);
 router.get('/queue-status', controller.queueStatus);
 router.post('/cancel-queue', controller.cancelQueue);
 router.get('/evolution-status', controller.evolutionStatus);
+router.get('/pending-photos-count', controller.pendingPhotosCount);
+router.post('/send-pending-photos', body('mensagem').notEmpty(), controller.sendPendingPhotos);
 
 module.exports = router;

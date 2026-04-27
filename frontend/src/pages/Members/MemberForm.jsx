@@ -4,6 +4,7 @@ import { formatPhoneBR } from '../../utils/phoneMask';
 import api from '../../services/api';
 import doveDefault from '../../assets/logo-ibbi.jpeg';
 import CustomSelect from '../../components/CustomSelect';
+import CustomDatePicker from '../../components/CustomDatePicker';
 import { PERSON_TYPE_OPTIONS, calculateAge, determineGroup } from '../../utils/person';
 
 const initialState = {
@@ -498,30 +499,27 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
         {isCompactTipo ? (
           <div className="grid grid-cols-1 gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
             <Field label={<>Nascimento {currentAge !== null && !isNaN(currentAge) ? <span className="text-slate-400 font-normal ml-0.5 lowercase">({currentAge} anos)</span> : null}</>}>
-              <input
-                type="date"
+              <CustomDatePicker
                 className={fieldClass}
                 value={form.dataNascimento}
-                onChange={(e) => handleChange('dataNascimento', e.target.value)}
+                onChange={(val) => handleChange('dataNascimento', val)}
               />
             </Field>
             {form.tipo === 'visitante' && (
               <Field label="Data da visita">
-                <input
-                  type="date"
+                <CustomDatePicker
                   className={fieldClass}
                   value={form.dataVisita}
-                  onChange={(e) => handleChange('dataVisita', e.target.value)}
+                  onChange={(val) => handleChange('dataVisita', val)}
                 />
               </Field>
             )}
             {form.tipo === 'novo decidido' && (
               <Field label="Data da decisão">
-                <input
-                  type="date"
+                <CustomDatePicker
                   className={fieldClass}
                   value={form.dataDecisao}
-                  onChange={(e) => handleChange('dataDecisao', e.target.value)}
+                  onChange={(val) => handleChange('dataDecisao', val)}
                 />
               </Field>
             )}
@@ -567,11 +565,10 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
           <>
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
               <Field label={<>Nascimento {currentAge !== null && !isNaN(currentAge) ? <span className="text-slate-400 font-normal ml-0.5 lowercase">({currentAge} anos)</span> : null}</>}>
-                <input
-                  type="date"
+                <CustomDatePicker
                   className={fieldClass}
                   value={form.dataNascimento}
-                  onChange={(e) => handleChange('dataNascimento', e.target.value)}
+                  onChange={(val) => handleChange('dataNascimento', val)}
                 />
               </Field>
               <Field label="Sexo">
@@ -698,11 +695,10 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
               {showBaptismControls && form.batizado && (
                 <div className="flex-1 w-full sm:min-w-[150px]">
                   <Field label="Data do batismo">
-                    <input
-                      type="date"
+                    <CustomDatePicker
                       className={fieldClass}
                       value={form.dataBatismo}
-                      onChange={(e) => handleChange('dataBatismo', e.target.value)}
+                      onChange={(val) => handleChange('dataBatismo', val)}
                     />
                   </Field>
                 </div>

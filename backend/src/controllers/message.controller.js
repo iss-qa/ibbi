@@ -1,12 +1,14 @@
 const { validationResult } = require('express-validator');
 const Person = require('../models/Person.model');
 const Message = require('../models/Message.model');
+const User = require('../models/User.model');
 const whatsapp = require('../services/whatsapp.service');
 const { sendBirthdayMessages } = require('../services/scheduler.service');
 const { checkConnectionState } = require('../services/evolution-monitor.service');
 const templates = require('../templates/messages.templates');
 const { generateBirthdayCard } = require('../services/image.service');
 const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
+const { DEFAULT_USER_PASSWORD } = require('../config/defaults');
 
 const SUMMARY_TYPE_ORDER = [
   'aniversario',
@@ -381,6 +383,77 @@ const evolutionStatus = async (req, res) => {
   res.status(status).json(result);
 };
 
+const pendingPhotosCount = async (req, res) => {
+  const count = await Person.countDocuments({
+    status: 'ativo',
+    celular: { $exists: true, $ne: '' },
+    $or: [
+      { fotoUrl: { $exists: false } },
+      { fotoUrl: null },
+      { fotoUrl: '' },
+      { fotoUrl: /dove/i },
+      { fotoUrl: /logo/i }
+    ]
+  });
+  res.json({ count });
+};
+
+const sendPendingPhotos = async (req, res) => {
+  const { mensagem } = req.body;
+  res.json({ message: 'Envio de pendências de fotos iniciado em segundo plano.' });
+
+  // Executa em background para não travar a request
+  (async () => {
+    try {
+      const persons = await Person.find({
+        status: 'ativo',
+        celular: { $exists: true, $ne: '' },
+        $or: [
+          { fotoUrl: { $exists: false } },
+          { fotoUrl: null },
+          { fotoUrl: '' },
+          { fotoUrl: /dove/i },
+          { fotoUrl: /logo/i }
+        ]
+      });
+
+      const tasks = [];
+      for (const person of persons) {
+        const user = await User.findOne({ personId: person._id });
+        if (!user) continue;
+
+        let msgToSend = mensagem.replace(/\{nome\}/gi, person.nome)
+                                .replace(/\{login\}/gi, user.login)
+                                .replace(/\{senha\}/gi, DEFAULT_USER_PASSWORD);
+        tasks.push({ nome: person.nome, celular: person.celular, mensagem: msgToSend });
+      }
+
+      const BATCH_SIZE = 10;
+      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+      const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1) + min);
+
+      for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
+        const batch = tasks.slice(i, i + BATCH_SIZE);
+        for (let j = 0; j < batch.length; j++) {
+          const task = batch[j];
+          try {
+            await whatsapp.sendSingle(task.celular, task.mensagem);
+          } catch (e) {
+            console.error('Erro enviando pendência foto para', task.nome, e);
+          }
+          if (j < batch.length - 1) await sleep(10000); // 10 segundos
+        }
+        if (i + BATCH_SIZE < tasks.length) {
+          const msToWait = randomBetween(5, 10) * 60 * 1000; // 5 a 10 min
+          await sleep(msToWait);
+        }
+      }
+    } catch (err) {
+      console.error('Erro fatal no sendPendingPhotos background:', err);
+    }
+  })();
+};
+
 module.exports = {
   sendIndividual,
   sendByGroup,
@@ -395,4 +468,6 @@ module.exports = {
   sendCarteirinha,
   resendMessage,
   evolutionStatus,
+  pendingPhotosCount,
+  sendPendingPhotos,
 };

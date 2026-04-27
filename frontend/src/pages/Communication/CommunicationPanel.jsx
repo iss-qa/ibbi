@@ -112,6 +112,8 @@ export default function CommunicationPanel() {
   const [mensagemGrupo, setMensagemGrupo] = useState('');
   const [mensagemCongregacao, setMensagemCongregacao] = useState('');
   const [mensagemIndividual, setMensagemIndividual] = useState('');
+  const [mensagemFalhas, setMensagemFalhas] = useState('');
+  const [falhasCount, setFalhasCount] = useState(0);
   const [individual, setIndividual] = useState({ personId: '', celular: '', nome: '', congregacao: '' });
   const [personSearch, setPersonSearch] = useState('');
   const [personTypeFilter, setPersonTypeFilter] = useState('');
@@ -139,6 +141,14 @@ export default function CommunicationPanel() {
 
   useEffect(() => { loadLog(); loadPrayerLog(); loadSummary(); }, []);
   useEffect(() => { if (lockedCongregacao) setCongregacao(lockedCongregacao); }, [lockedCongregacao]);
+
+  useEffect(() => {
+    if (showNewMessage) {
+      api.get('/messages/pending-photos-count').then((res) => {
+        setFalhasCount(res.data.count);
+      }).catch(console.error);
+    }
+  }, [showNewMessage]);
 
   useEffect(() => {
     if (!showNewMessage || activeTab !== 'individual') return undefined;
@@ -565,6 +575,7 @@ export default function CommunicationPanel() {
                 <SendTab label="Por grupo" icon="👥" active={activeTab === 'grupo'} onClick={() => setActiveTab('grupo')} />
                 <SendTab label="Congregação" icon="🏛️" active={activeTab === 'congregacao'} onClick={() => setActiveTab('congregacao')} />
                 <SendTab label="Individual" icon="💬" active={activeTab === 'individual'} onClick={() => setActiveTab('individual')} />
+                <SendTab label="Falhas" icon="⚠️" active={activeTab === 'falhas'} onClick={() => { setActiveTab('falhas'); setMensagemFalhas(`Shalom amado(a) irmão(ã) {nome}, encontramos uma pendência no seu cadastro.\n\n* PROBLEMA -> Cadastro sem foto *\n\nAcesse nosso portal:\n🔗 Portal: https://ibbi.issqa.com.br/login\n👤 Usuário: {login}\n🔑 Senha: {senha}\n\nE atualize seu cadastro! Escolha a foto que preferir, porém insira uma foto no estilo 3x4, evite fotos abertas de paisagem, na qual não consiga identificar seu rosto.\n\n_Igreja Batista Bíblica Israel_`); }} />
               </div>
 
               <div className="flex flex-col gap-3">
@@ -685,6 +696,32 @@ export default function CommunicationPanel() {
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
                       Enviar mensagem
+                    </button>
+                  </>
+                )}
+                {activeTab === 'falhas' && (
+                  <>
+                    <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">⚠️</span>
+                        <p className="text-sm font-semibold text-red-800">{falhasCount} membros sem fotos</p>
+                      </div>
+                      <p className="text-xs text-red-600 mt-1">Ao enviar, a mensagem abaixo será disparada em segundo plano para todos os membros com pendência de foto. (Envios em lotes de 10, com pausas entre os lotes).</p>
+                    </div>
+                    <textarea className={textareaClass} rows={12} placeholder="Mensagem personalizada..." value={mensagemFalhas} onChange={(e) => setMensagemFalhas(e.target.value)} />
+                    <button
+                      onClick={async () => {
+                        setSending(true);
+                        await api.post('/messages/send-pending-photos', { mensagem: mensagemFalhas });
+                        showToast('Envio para pendências de foto iniciado!');
+                        setShowNewMessage(false);
+                        setSending(false);
+                      }}
+                      disabled={sending || falhasCount === 0 || !mensagemFalhas}
+                      className="w-full bg-red-600 hover:bg-red-700 disabled:opacity-40 text-white text-sm font-medium py-3 rounded-lg transition flex items-center justify-center gap-2 min-h-[44px]"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+                      Disparar para todos
                     </button>
                   </>
                 )}
