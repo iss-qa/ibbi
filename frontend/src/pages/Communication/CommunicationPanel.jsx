@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Header from '../../components/Header';
 import api from '../../services/api';
 import { CONGREGACOES } from '../../constants/congregacoes';
@@ -20,6 +20,20 @@ const STATUS_DOT = {
   erro: 'bg-red-500',
   enviando: 'bg-amber-400',
   pendente: 'bg-slate-400',
+};
+
+const RECIPIENT_STATUS_STYLE = {
+  concluido: 'bg-emerald-50 text-emerald-700 border border-emerald-200',
+  erro: 'bg-red-50 text-red-600 border border-red-200',
+  enviando: 'bg-amber-50 text-amber-700 border border-amber-200',
+  pendente: 'bg-slate-100 text-slate-500 border border-slate-200',
+};
+
+const RECIPIENT_STATUS_LABEL = {
+  concluido: 'Enviado',
+  erro: 'Falha',
+  enviando: 'Enviando',
+  pendente: 'Na fila',
 };
 
 const TIPO_ICON = {
@@ -103,6 +117,49 @@ function PersonOption({ person, selected, onSelect }) {
   );
 }
 
+const normalizeRecipientList = (msg) => {
+  const errorsByPhone = new Map((msg.erros || []).map((item) => [item.celular, item.motivo]));
+  return (msg.destinatarios || [])
+    .map((dest, index) => {
+      const inferredStatus = dest.status
+        || (errorsByPhone.has(dest.celular) ? 'erro' : null)
+        || (msg.status === 'concluido' ? 'concluido' : null)
+        || (msg.status === 'erro' && (msg.destinatarios || []).length === 1 ? 'erro' : null)
+        || (msg.status === 'enviando' && index === 0 ? 'enviando' : null)
+        || 'pendente';
+
+      return {
+        ...dest,
+        ordem: Number.isFinite(dest.ordem) ? dest.ordem : index,
+        status: inferredStatus,
+        erro: dest.erro || errorsByPhone.get(dest.celular) || '',
+      };
+    })
+    .sort((a, b) => a.ordem - b.ordem);
+};
+
+const getRecipientProgress = (msg) => {
+  const recipients = normalizeRecipientList(msg);
+  const counts = recipients.reduce((acc, dest) => {
+    acc[dest.status] = (acc[dest.status] || 0) + 1;
+    return acc;
+  }, {});
+
+  const currentRecipient = recipients.find((dest) => dest.status === 'enviando') || null;
+  const nextPending = recipients.find((dest) => dest.status === 'pendente') || null;
+
+  return {
+    recipients,
+    total: recipients.length,
+    sent: counts.concluido || 0,
+    failed: counts.erro || 0,
+    sending: counts.enviando || 0,
+    pending: counts.pendente || 0,
+    currentRecipient,
+    nextPending,
+  };
+};
+
 export default function CommunicationPanel() {
   const { user } = useAuth();
   const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
@@ -135,12 +192,39 @@ export default function CommunicationPanel() {
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 3000); };
 
-  const loadLog = async () => { const { data } = await api.get('/messages/log'); setLog(data); };
-  const loadPrayerLog = async () => { const { data } = await api.get('/messages/prayer-log'); setPrayerLog(data); };
-  const loadSummary = async () => { const { data } = await api.get('/messages/summary'); setSummary(data); };
+  const loadLog = useCallback(async () => {
+    const { data } = await api.get('/messages/log');
+    setLog(data);
+  }, []);
+  const loadPrayerLog = useCallback(async () => {
+    const { data } = await api.get('/messages/prayer-log');
+    setPrayerLog(data);
+  }, []);
+  const loadSummary = useCallback(async () => {
+    const { data } = await api.get('/messages/summary');
+    setSummary(data);
+  }, []);
 
-  useEffect(() => { loadLog(); loadPrayerLog(); loadSummary(); }, []);
+  useEffect(() => { loadLog(); loadPrayerLog(); loadSummary(); }, [loadLog, loadPrayerLog, loadSummary]);
   useEffect(() => { if (lockedCongregacao) setCongregacao(lockedCongregacao); }, [lockedCongregacao]);
+  useEffect(() => {
+    const hasSending = log.some((item) => item.status === 'enviando');
+    if (!hasSending) return undefined;
+
+    const timer = setInterval(() => {
+      loadLog().catch(console.error);
+      loadSummary().catch(console.error);
+    }, 10000);
+
+    return () => clearInterval(timer);
+  }, [log, loadLog, loadSummary]);
+  useEffect(() => {
+    if (!showMessage) return;
+    const updatedMessage = log.find((item) => item._id === showMessage._id);
+    if (updatedMessage) {
+      setShowMessage(updatedMessage);
+    }
+  }, [log, showMessage]);
 
   useEffect(() => {
     if (showNewMessage) {
@@ -245,11 +329,16 @@ export default function CommunicationPanel() {
 
   const resend = async (id) => {
     setSending(true);
-    await api.post(`/messages/resend/${id}`);
-    showToast('Reenvio enfileirado!');
-    setSending(false);
-    loadLog();
-    loadSummary();
+    try {
+      await api.post(`/messages/resend/${id}`);
+      showToast('Reenvio enfileirado!');
+      loadLog();
+      loadSummary();
+    } catch (err) {
+      showToast(err?.response?.data?.message || 'Não foi possível reenviar agora.');
+    } finally {
+      setSending(false);
+    }
   };
 
   const filteredLog = log.filter((item) => {
@@ -270,7 +359,8 @@ export default function CommunicationPanel() {
   // Build enriched content for birthday messages
   const renderMessageContent = (msg) => {
     const isBirthday = msg.tipo === 'aniversario';
-    const dest = msg.destinatarios?.[0];
+    const progress = getRecipientProgress(msg);
+    const dest = progress.recipients?.[0];
 
     return (
       <>
@@ -312,16 +402,57 @@ export default function CommunicationPanel() {
           </div>
         )}
 
-        {msg.destinatarios?.length > 1 && (
+        {progress.total > 1 && (
           <div className="mt-4">
             <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-2">
-              Destinatários ({msg.destinatarios.length})
+              Destinatários ({progress.total})
             </p>
-            <div className="max-h-40 overflow-y-auto space-y-1">
-              {msg.destinatarios.map((d, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs text-slate-600 bg-slate-50 rounded-lg px-3 py-1.5">
-                  <span className="font-medium">{d.nome}</span>
-                  {d.celular && <span className="text-slate-400">{d.celular}</span>}
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+              {[
+                { label: 'Enviados', value: progress.sent, style: 'text-emerald-700 bg-emerald-50' },
+                { label: 'Falhas', value: progress.failed, style: 'text-red-600 bg-red-50' },
+                { label: 'Em fila', value: progress.pending, style: 'text-slate-600 bg-slate-100' },
+                { label: 'Em envio', value: progress.sending, style: 'text-amber-700 bg-amber-50' },
+              ].map((item) => (
+                <div key={item.label} className={`rounded-xl px-3 py-2 ${item.style}`}>
+                  <p className="text-lg font-semibold">{item.value}</p>
+                  <p className="text-[11px] font-medium">{item.label}</p>
+                </div>
+              ))}
+            </div>
+
+            {(progress.currentRecipient || progress.nextPending) && (
+              <div className="mb-3 rounded-xl border border-slate-200 bg-stone-50 px-3 py-2.5 text-xs text-slate-600">
+                {progress.currentRecipient && (
+                  <p>
+                    <span className="font-semibold text-slate-700">Enviando agora:</span> {progress.currentRecipient.nome}
+                  </p>
+                )}
+                {progress.nextPending && (
+                  <p className={progress.currentRecipient ? 'mt-1' : ''}>
+                    <span className="font-semibold text-slate-700">Próximo da fila:</span> {progress.nextPending.nome}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="max-h-64 overflow-y-auto space-y-1">
+              {progress.recipients.map((d, i) => (
+                <div key={`${d.celular}-${i}`} className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs font-medium text-slate-700 truncate">{d.nome}</p>
+                      {d.celular && <p className="text-[11px] text-slate-400">{d.celular}</p>}
+                    </div>
+                    <span className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full ${RECIPIENT_STATUS_STYLE[d.status] || RECIPIENT_STATUS_STYLE.pendente}`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[d.status] || STATUS_DOT.pendente}`} />
+                      {RECIPIENT_STATUS_LABEL[d.status] || d.status}
+                    </span>
+                  </div>
+                  {d.erro && (
+                    <p className="mt-1 text-[11px] text-red-600">{d.erro}</p>
+                  )}
                 </div>
               ))}
             </div>
@@ -464,7 +595,9 @@ export default function CommunicationPanel() {
                 <p className="text-sm">Nenhuma mensagem encontrada</p>
               </div>
             ) : (
-              filteredLog.slice((logPage - 1) * LOG_PAGE_SIZE, logPage * LOG_PAGE_SIZE).map((row) => (
+              filteredLog.slice((logPage - 1) * LOG_PAGE_SIZE, logPage * LOG_PAGE_SIZE).map((row) => {
+                const progress = getRecipientProgress(row);
+                return (
                 <div
                   key={row._id}
                   className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-4 hover:bg-slate-50 transition group cursor-pointer relative"
@@ -481,11 +614,13 @@ export default function CommunicationPanel() {
                           <span className={`w-1.5 h-1.5 rounded-full ${STATUS_DOT[row.status] || 'bg-slate-400'}`} />
                           {row.status}
                         </span>
-                        {row.destinatarios?.length === 1 && (
-                          <span className="text-[10px] text-slate-400 font-medium">{row.destinatarios[0].nome}</span>
+                        {progress.total === 1 && progress.recipients[0]?.nome && (
+                          <span className="text-[10px] text-slate-400 font-medium">{progress.recipients[0].nome}</span>
                         )}
-                        {row.destinatarios?.length > 1 && (
-                          <span className="text-[10px] text-slate-400 font-medium">{row.destinatarios.length} destinatários</span>
+                        {progress.total > 1 && (
+                          <span className="text-[10px] text-slate-400 font-medium">
+                            {progress.total} destinatários • {progress.sent} enviados • {progress.failed} falhas • {progress.pending + progress.sending} na fila
+                          </span>
                         )}
                       </div>
                       <p className="text-xs text-slate-500 line-clamp-1">{row.conteudo || '—'}</p>
@@ -500,6 +635,7 @@ export default function CommunicationPanel() {
                     </div>
                     <div className="flex items-center gap-3">
                       <button
+                        disabled={sending || row.status === 'enviando'}
                         className="text-xs text-amber-600 font-semibold px-3 py-2 rounded-lg hover:bg-amber-50 active:bg-amber-100 transition border border-amber-200"
                         onClick={(e) => { e.stopPropagation(); resend(row._id); }}
                       >
@@ -514,7 +650,8 @@ export default function CommunicationPanel() {
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
                 </div>
-              ))
+                );
+              })
             )}
           </div>
 

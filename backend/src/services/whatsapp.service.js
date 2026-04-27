@@ -68,14 +68,15 @@ class WhatsAppQueue {
         }
       }
       try {
+        if (job.onStart) await job.onStart();
         await sendText(job.number, job.text);
         this.sent += 1;
         this.lastSentAt = Date.now();
-        if (job.onSuccess) job.onSuccess();
+        if (job.onSuccess) await job.onSuccess();
       } catch (err) {
         this.errors += 1;
         this.lastSentAt = Date.now();
-        if (job.onError) job.onError(err);
+        if (job.onError) await job.onError(err);
       }
     }
 
@@ -87,20 +88,24 @@ class WhatsAppQueue {
     if (!this.isProcessing && this.queue.length === 0 && jobs.length > 0) {
       const [first, ...rest] = jobs;
       this.queue.push(...rest);
-      sendText(first.number, first.text)
-        .then(() => {
-          this.sent += 1;
-          this.lastSentAt = Date.now();
-          if (first.onSuccess) first.onSuccess();
-        })
-        .catch((err) => {
-          this.errors += 1;
-          this.lastSentAt = Date.now();
-          if (first.onError) first.onError(err);
-        })
-        .finally(() => {
-          this.processNext();
-        });
+      this.isProcessing = true;
+      this.canceled = false;
+      const runFirst = async () => {
+        if (first.onStart) await first.onStart();
+        await sendText(first.number, first.text);
+        this.sent += 1;
+        this.lastSentAt = Date.now();
+        if (first.onSuccess) await first.onSuccess();
+      };
+
+      runFirst().catch(async (err) => {
+        this.errors += 1;
+        this.lastSentAt = Date.now();
+        if (first.onError) await first.onError(err);
+      }).finally(() => {
+        this.isProcessing = false;
+        this.processNext();
+      });
       return;
     }
     this.queue.push(...jobs);
@@ -202,13 +207,23 @@ const sendSingle = async (celular, mensagem) => {
   await sendText(celular, mensagem);
 };
 
-const sendBatch = async (destinatarios, mensagem, onProgress) => {
+const sendBatch = async (destinatarios, mensagem, handlers = {}) => {
   const getText = typeof mensagem === 'function' ? mensagem : () => mensagem;
+  const normalizedHandlers = typeof handlers === 'function'
+    ? { onProgress: handlers }
+    : handlers || {};
   const jobs = destinatarios.map((dest) => ({
     number: dest.celular,
     text: getText(dest),
-    onSuccess: () => onProgress && onProgress(dest, null),
-    onError: (err) => onProgress && onProgress(dest, err),
+    onStart: () => normalizedHandlers.onStart && normalizedHandlers.onStart(dest),
+    onSuccess: () => {
+      if (normalizedHandlers.onSuccess) normalizedHandlers.onSuccess(dest);
+      if (normalizedHandlers.onProgress) normalizedHandlers.onProgress(dest, null);
+    },
+    onError: (err) => {
+      if (normalizedHandlers.onError) normalizedHandlers.onError(dest, err);
+      if (normalizedHandlers.onProgress) normalizedHandlers.onProgress(dest, err);
+    },
   }));
 
   queue.enqueueBatch(jobs);

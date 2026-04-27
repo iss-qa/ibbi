@@ -48,31 +48,91 @@ const formatSummaryLabel = (tipo) => {
   return tipo.charAt(0).toUpperCase() + tipo.slice(1);
 };
 
+const buildDestinatarioLog = (destinatarios = [], initialStatus = 'pendente') => destinatarios.map((dest, index) => ({
+  nome: dest.nome,
+  celular: dest.celular,
+  status: initialStatus,
+  ordem: index,
+}));
+
 const logAndSendBatch = async ({ tipo, destinatarios, mensagem, enviadoPor }) => {
+  const queuedDestinatarios = destinatarios.map((dest, index) => ({
+    ...dest,
+    ordem: index,
+  }));
+
   const messageLog = await Message.create({
     tipo,
-    destinatarios,
+    destinatarios: buildDestinatarioLog(queuedDestinatarios),
     conteudo: mensagem,
     status: 'enviando',
     enviadoPor,
   });
 
-  const erros = [];
-  let processed = 0;
+  const updateDestinatario = async (ordem, patch) => {
+    await Message.updateOne(
+      { _id: messageLog._id },
+      {
+        $set: Object.fromEntries(
+          Object.entries(patch)
+            .filter(([, value]) => value !== undefined)
+            .map(([key, value]) => [`destinatarios.$[dest].${key}`, value])
+        ),
+      },
+      {
+        arrayFilters: [{ 'dest.ordem': ordem }],
+      }
+    );
 
-  await whatsapp.sendBatch(destinatarios, (dest) => applyVariables(mensagem, dest), async (dest, err) => {
-    processed += 1;
-    if (err) {
-      erros.push({ celular: dest.celular, motivo: err.message });
-    }
+    const current = await Message.findById(messageLog._id).lean();
+    if (!current) return null;
 
-    if (processed === destinatarios.length) {
-      await Message.findByIdAndUpdate(messageLog._id, {
-        status: erros.length > 0 ? 'erro' : 'concluido',
-        concluidoEm: new Date(),
+    const destinatariosAtualizados = current.destinatarios || [];
+
+    const counts = destinatariosAtualizados.reduce((acc, dest) => {
+      acc[dest.status] = (acc[dest.status] || 0) + 1;
+      return acc;
+    }, {});
+
+    const processed = (counts.concluido || 0) + (counts.erro || 0);
+    const allProcessed = processed === destinatariosAtualizados.length && destinatariosAtualizados.length > 0;
+    const allSucceeded = allProcessed && (counts.erro || 0) === 0;
+    const erros = destinatariosAtualizados
+      .filter((dest) => dest.status === 'erro' && dest.erro)
+      .map((dest) => ({ celular: dest.celular, motivo: dest.erro }));
+
+    return Message.findByIdAndUpdate(
+      messageLog._id,
+      {
+        destinatarios: destinatariosAtualizados,
         erros,
+        status: allProcessed ? (allSucceeded ? 'concluido' : 'erro') : 'enviando',
+        ...(allProcessed ? { concluidoEm: new Date() } : {}),
+      },
+      { new: true }
+    );
+  };
+
+  await whatsapp.sendBatch(queuedDestinatarios, (dest) => applyVariables(mensagem, dest), {
+    onStart: async (dest) => {
+      await updateDestinatario(dest.ordem, {
+        status: 'enviando',
       });
-    }
+    },
+    onSuccess: async (dest) => {
+      await updateDestinatario(dest.ordem, {
+        status: 'concluido',
+        processadoEm: new Date(),
+        erro: null,
+      });
+    },
+    onError: async (dest, err) => {
+      await updateDestinatario(dest.ordem, {
+        status: 'erro',
+        processadoEm: new Date(),
+        erro: err.message,
+      });
+    },
   });
 
   return messageLog;
@@ -103,7 +163,10 @@ const sendIndividual = async (req, res) => {
     await whatsapp.sendSingle(destinatario.celular, conteudo);
     const messageLog = await Message.create({
       tipo: 'personalizada',
-      destinatarios: [{ nome: destinatario.nome, celular: destinatario.celular }],
+      destinatarios: buildDestinatarioLog([{ nome: destinatario.nome, celular: destinatario.celular }], 'concluido').map((dest) => ({
+        ...dest,
+        processadoEm: new Date(),
+      })),
       conteudo,
       status: 'concluido',
       enviadoPor: req.user._id,
@@ -113,7 +176,11 @@ const sendIndividual = async (req, res) => {
   } catch (err) {
     const messageLog = await Message.create({
       tipo: 'personalizada',
-      destinatarios: [{ nome: destinatario.nome, celular: destinatario.celular }],
+      destinatarios: buildDestinatarioLog([{ nome: destinatario.nome, celular: destinatario.celular }], 'erro').map((dest) => ({
+        ...dest,
+        processadoEm: new Date(),
+        erro: err.message,
+      })),
       conteudo,
       status: 'erro',
       enviadoPor: req.user._id,
@@ -279,7 +346,10 @@ const sendCarteirinha = async (req, res) => {
 
     await Message.create({
       tipo: 'documento',
-      destinatarios: [{ nome: person.nome, celular: person.celular }],
+      destinatarios: buildDestinatarioLog([{ nome: person.nome, celular: person.celular }], 'concluido').map((dest) => ({
+        ...dest,
+        processadoEm: new Date(),
+      })),
       conteudo: 'Envio de Carteirinha de Membro',
       status: 'concluido',
       enviadoPor: req.user._id,
@@ -313,7 +383,10 @@ const sendBirthdayImage = async (req, res) => {
     // Log the manual send
     await Message.create({
       tipo: 'aniversario',
-      destinatarios: [{ nome: person.nome, celular: person.celular }],
+      destinatarios: buildDestinatarioLog([{ nome: person.nome, celular: person.celular }], 'concluido').map((dest) => ({
+        ...dest,
+        processadoEm: new Date(),
+      })),
       conteudo: 'Envio manual de aniversário (texto + imagem)',
       status: 'concluido',
       enviadoPor: req.user._id,
@@ -332,6 +405,9 @@ const resendMessage = async (req, res) => {
   if (!msg) return res.status(404).json({ message: 'Mensagem não encontrada' });
   if (!msg.destinatarios || msg.destinatarios.length === 0) {
     return res.status(400).json({ message: 'Mensagem sem destinatários' });
+  }
+  if (msg.status === 'enviando') {
+    return res.status(409).json({ message: 'Esta mensagem ainda está em processamento. Aguarde a finalização antes de reenviar.' });
   }
 
   // Birthday messages: re-send text + image via sendBirthdayImage logic
@@ -355,7 +431,11 @@ const resendMessage = async (req, res) => {
 
     const newLog = await Message.create({
       tipo: 'aniversario',
-      destinatarios: msg.destinatarios,
+      destinatarios: buildDestinatarioLog(msg.destinatarios, erros.length > 0 ? 'erro' : 'concluido').map((dest) => ({
+        ...dest,
+        processadoEm: new Date(),
+        ...(erros.find((err) => err.celular === dest.celular) ? { erro: erros.find((err) => err.celular === dest.celular).motivo } : {}),
+      })),
       conteudo: `Reenvio de aniversário (texto + imagem) para ${msg.destinatarios.map(d => d.nome).join(', ')}`,
       status: erros.length > 0 ? 'erro' : 'concluido',
       enviadoPor: req.user._id,

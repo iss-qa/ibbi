@@ -159,6 +159,56 @@ const mapCongregacao = (value) => {
   return map[v] || value;
 };
 
+const buildDuplicateQuery = (payload) => {
+  const orConditions = [];
+  
+  const nomeCompleto = payload.nome ? payload.nome.trim() : '';
+  const nameParts = nomeCompleto.split(/\s+/);
+  
+  let nomeRegex;
+  let nomePrimeiroUltimoRegex;
+  
+  if (nomeCompleto) {
+    const escapedNome = nomeCompleto.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    nomeRegex = new RegExp(`^${escapedNome}$`, 'i');
+    
+    if (nameParts.length > 1) {
+      const primeiro = nameParts[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const ultimo = nameParts[nameParts.length - 1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      nomePrimeiroUltimoRegex = new RegExp(`^${primeiro}.*${ultimo}$`, 'i');
+    } else {
+      nomePrimeiroUltimoRegex = nomeRegex;
+    }
+  }
+
+  // 1. Nome aproximado + Celular
+  if (nomePrimeiroUltimoRegex && payload.celular) {
+    orConditions.push({ nome: { $regex: nomePrimeiroUltimoRegex }, celular: payload.celular });
+  }
+
+  // 2. Nome aproximado + Data Nascimento
+  if (nomePrimeiroUltimoRegex && payload.dataNascimento) {
+    orConditions.push({ nome: { $regex: nomePrimeiroUltimoRegex }, dataNascimento: new Date(payload.dataNascimento) });
+  }
+
+  // 3. Nome aproximado + Email
+  if (nomePrimeiroUltimoRegex && payload.email) {
+    orConditions.push({ nome: { $regex: nomePrimeiroUltimoRegex }, email: payload.email });
+  }
+
+  // 4. Data Nascimento + Celular
+  if (payload.dataNascimento && payload.celular) {
+    orConditions.push({ dataNascimento: new Date(payload.dataNascimento), celular: payload.celular });
+  }
+
+  // 5. Nome exato + Congregação
+  if (nomeRegex && payload.congregacao && payload.congregacao !== 'Não atribuído') {
+    orConditions.push({ nome: nomeRegex, congregacao: payload.congregacao });
+  }
+  
+  return orConditions.length > 0 ? { $or: orConditions } : null;
+};
+
 const list = async (req, res) => {
   const { page = 1, limit = 20, search, tipo, grupo, congregacao, status, batizado } = req.query;
   let filter = {};
@@ -233,25 +283,15 @@ const create = async (req, res) => {
     payload.congregacao = await getUserCongregacao(req.user);
   }
 
-  // Validação de duplicidade: nome + celular OU nome + dataNascimento
+  // Nova Validação de duplicidade forte
   if (payload.nome) {
-    const escapedNome = payload.nome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const nomeRegex = { $regex: new RegExp(`^${escapedNome}$`, 'i') };
-    const orConditions = [];
-
-    if (payload.celular) {
-      orConditions.push({ nome: nomeRegex, celular: payload.celular });
-    }
-    if (payload.dataNascimento) {
-      orConditions.push({ nome: nomeRegex, dataNascimento: new Date(payload.dataNascimento) });
-    }
-
-    if (orConditions.length > 0) {
-      const exists = await Person.findOne({ $or: orConditions });
+    const duplicateQuery = buildDuplicateQuery(payload);
+    if (duplicateQuery) {
+      const exists = await Person.findOne(duplicateQuery);
       if (exists) {
         return res.status(409).json({
           code: 'DUPLICATE',
-          message: `O cadastro de "${payload.nome}" já foi realizado anteriormente. Caso precise atualizar seus dados, entre em contato com a secretaria da igreja.`,
+          message: `Um cadastro semelhante (mesmo nome, celular, data de nascimento, email ou congregação) já foi detectado para "${payload.nome}". Caso precise atualizar os dados, entre em contato com a secretaria da igreja.`,
         });
       }
     }
@@ -346,10 +386,21 @@ const importCsv = async (req, res) => {
       continue;
     }
 
-    const exists = await Person.findOne({ nome, celular });
-    if (exists) {
-      skipped.push({ row, motivo: 'Já existe' });
-      continue;
+    const payloadCheck = {
+      nome,
+      celular,
+      dataNascimento: row['Data de Aniversário'] ? new Date(row['Data de Aniversário']) : undefined,
+      email: row['E-mail'] || undefined,
+      congregacao: mapCongregacao(row['Congregação'])
+    };
+
+    const duplicateQuery = buildDuplicateQuery(payloadCheck);
+    if (duplicateQuery) {
+      const exists = await Person.findOne(duplicateQuery);
+      if (exists) {
+        skipped.push({ row, motivo: 'Duplicidade detectada (Nome/Celular/Nascimento/Email)' });
+        continue;
+      }
     }
 
     const pessoa = await Person.create({
