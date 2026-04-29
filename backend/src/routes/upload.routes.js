@@ -20,7 +20,7 @@ const publicUploadLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-router.post('/person-photo', auth, requirePasswordChanged, requireRole('admin', 'master'), upload.single('file'), controller.uploadPersonPhoto);
+router.post('/person-photo', auth, requirePasswordChanged, requireRole('user', 'admin', 'master'), upload.single('file'), controller.uploadPersonPhoto);
 router.post('/person-photo/public', publicUploadLimiter, upload.single('file'), controller.uploadPersonPhoto);
 
 module.exports = router;
