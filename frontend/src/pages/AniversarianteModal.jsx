@@ -407,7 +407,12 @@ export default function AniversarianteModal({ person, onClose }) {
     try {
       setSending(true);
       setError(null);
-      await api.post('/messages/send-birthday-image', { personId: person._id });
+      const canvas = await captureHiddenCard();
+      const imageBase64 = canvas ? canvas.toDataURL('image/png') : null;
+      await api.post('/messages/send-birthday-image', {
+        personId: person._id,
+        imageBase64,
+      });
       setSending(false);
       setError(null);
       alert('Cartão de aniversário enviado com sucesso via WhatsApp!');

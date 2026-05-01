@@ -36,6 +36,7 @@ const growth = async (req, res) => {
     total: map[`${m.year}-${m.month}`] || 0,
   }));
 
+  res.set('Cache-Control', 'private, max-age=300');
   res.json(data);
 };
 
@@ -48,6 +49,7 @@ const byCongregation = async (req, res) => {
     { $project: { congregacao: '$_id', total: 1, _id: 0 } },
     { $sort: { total: -1 } },
   ]);
+  res.set('Cache-Control', 'private, max-age=300');
   res.json(data);
 };
 
@@ -60,6 +62,7 @@ const byGroup = async (req, res) => {
     { $project: { grupo: '$_id', total: 1, _id: 0 } },
     { $sort: { total: -1 } },
   ]);
+  res.set('Cache-Control', 'private, max-age=300');
   res.json(data);
 };
 
@@ -93,6 +96,7 @@ const retention = async (req, res) => {
     saidas: saidasMap[`${m.year}-${m.month}`] || 0,
   }));
 
+  res.set('Cache-Control', 'private, max-age=300');
   res.json(data);
 };
 

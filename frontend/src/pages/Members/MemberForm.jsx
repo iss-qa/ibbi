@@ -240,7 +240,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
         dataVisita: '',
         dataDecisao: '',
       };
-      if (tipo === 'congregado') {
+      if (tipo === 'congregado' || tipo === 'criança') {
         next.batizado = false;
         next.dataBatismo = '';
       }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Header from '../../components/Header';
 import CarteirinhaModal from '../../components/CarteirinhaModal';
 import CertificadoBatismoModal from '../../components/CertificadoBatismoModal';
@@ -93,20 +93,42 @@ export default function MemberList() {
   const [total, setTotal] = useState(0);
   const [ativos, setAtivos] = useState(0);
   const [inativos, setInativos] = useState(0);
+  const [debouncedSearch, setDebouncedSearch] = useState(filters.search);
+  const requestIdRef = useRef(0);
   const totalPages = Math.ceil(total / limit);
 
-  const load = async () => {
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(filters.search), 300);
+    return () => clearTimeout(t);
+  }, [filters.search]);
+
+  const load = async (signal, requestId = ++requestIdRef.current) => {
     setLoading(true);
-    const { data } = await api.get('/persons', { params: { ...filters, page, limit } });
-    setItems(data.items || []);
-    setTotal(data.total || 0);
-    setAtivos(data.ativos || 0);
-    setInativos(data.inativos || 0);
-    setLoading(false);
+    try {
+      const { data } = await api.get('/persons', {
+        params: { ...filters, search: debouncedSearch, page, limit },
+        signal,
+      });
+      if (requestId !== requestIdRef.current) return;
+      setItems(data.items || []);
+      setTotal(data.total || 0);
+      setAtivos(data.ativos || 0);
+      setInativos(data.inativos || 0);
+    } catch (err) {
+      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
+      throw err;
+    } finally {
+      if (requestId === requestIdRef.current) setLoading(false);
+    }
   };
 
-  useEffect(() => { setPage(1); }, [filters.search, filters.tipo, filters.grupo, filters.congregacao]);
-  useEffect(() => { load(); }, [filters.search, filters.tipo, filters.grupo, filters.congregacao, page, limit]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, filters.tipo, filters.grupo, filters.congregacao]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const id = ++requestIdRef.current;
+    load(controller.signal, id);
+    return () => controller.abort();
+  }, [debouncedSearch, filters.tipo, filters.grupo, filters.congregacao, page, limit]);
 
   const handleSave = async (payload) => {
     const normalizeDate = (value) => {

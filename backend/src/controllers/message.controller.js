@@ -365,7 +365,7 @@ const sendCarteirinha = async (req, res) => {
 
 const sendBirthdayImage = async (req, res) => {
   try {
-    const { personId } = req.body;
+    const { personId, imageBase64 } = req.body;
     const person = await Person.findById(personId);
     if (!person || !person.celular) {
       return res.status(400).json({ message: 'Membro inválido ou sem celular' });
@@ -375,9 +375,15 @@ const sendBirthdayImage = async (req, res) => {
     const textContent = templates.aniversario(person.nome);
     await whatsapp.sendSingle(person.celular, textContent);
 
-    // Gerar imagem do cartão diretamente e enviar
-    const imageBuffer = await generateBirthdayCard(person, 'portrait');
-    const base64Image = imageBuffer.toString('base64');
+    // Se o cliente já renderizou e enviou a imagem, usa ela; caso contrário
+    // gera no servidor via Puppeteer (não funciona em ambientes serverless sem libnss3)
+    let base64Image;
+    if (imageBase64) {
+      base64Image = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+    } else {
+      const imageBuffer = await generateBirthdayCard(person, 'portrait');
+      base64Image = imageBuffer.toString('base64');
+    }
     await whatsapp.sendMedia(person.celular, '', base64Image);
     
     // Log the manual send

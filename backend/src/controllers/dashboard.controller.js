@@ -6,33 +6,30 @@ const APP_TIMEZONE = process.env.APP_TIMEZONE || 'America/Bahia';
 const toZonedDate = (date) =>
   new Date(date.toLocaleString('en-US', { timeZone: APP_TIMEZONE }));
 
-const getBirthdayParts = (birthDate) => {
-  if (!birthDate) return null;
-
-  return {
-    day: birthDate.getUTCDate(),
-    month: birthDate.getUTCMonth(),
-  };
+const buildWeekDayMonthPairs = (start, end) => {
+  const pairs = [];
+  const cur = new Date(start);
+  cur.setHours(12, 0, 0, 0);
+  const last = new Date(end);
+  last.setHours(12, 0, 0, 0);
+  while (cur <= last) {
+    pairs.push({ day: cur.getDate(), month: cur.getMonth() + 1 });
+    cur.setDate(cur.getDate() + 1);
+  }
+  return pairs;
 };
 
-const buildBirthdayForYear = (birthDate, year) => {
-  const parts = getBirthdayParts(birthDate);
-  if (!parts) return null;
-
-  return new Date(year, parts.month, parts.day);
-};
-
-const isBirthdayInRange = (birthDate, start, end) => {
-  if (!birthDate) return false;
-  const year = start.getFullYear();
-  const thisYear = buildBirthdayForYear(birthDate, year);
-  const nextYear = buildBirthdayForYear(birthDate, year + 1);
-
-  return (
-    (thisYear >= start && thisYear <= end) ||
-    (nextYear >= start && nextYear <= end && end.getFullYear() > start.getFullYear())
-  );
-};
+const projectBirthdayPerson = (p) => ({
+  _id: p._id,
+  nome: p.nome,
+  data: p.dataNascimento,
+  diaMes: String(p.bDay).padStart(2, '0'),
+  bDay: p.bDay,
+  bMonth: p.bMonth,
+  celular: p.celular || '',
+  fotoUrl: p.fotoUrl || '',
+  congregacao: p.congregacao || '',
+});
 
 const getDashboard = async (req, res) => {
   const { congregacao } = req.query;
@@ -40,14 +37,6 @@ const getDashboard = async (req, res) => {
 
   const seteDiasAtras = new Date();
   seteDiasAtras.setDate(seteDiasAtras.getDate() - 7);
-
-  const [total, ativos, inativos, pessoas, novosCadastros] = await Promise.all([
-    Person.countDocuments(filter),
-    Person.countDocuments({ ...filter, status: 'ativo' }),
-    Person.countDocuments({ ...filter, status: 'inativo' }),
-    Person.find({ ...filter, status: 'ativo', dataNascimento: { $ne: null } }).select('nome dataNascimento celular fotoUrl'),
-    Person.countDocuments({ ...filter, createdAt: { $gte: seteDiasAtras } })
-  ]);
 
   const agora = toZonedDate(new Date());
   const inicioSemana = new Date(agora);
@@ -58,46 +47,86 @@ const getDashboard = async (req, res) => {
   fimSemana.setDate(fimSemana.getDate() + 6);
   fimSemana.setHours(23, 59, 59, 999);
 
-  const mesAtual = agora.getMonth();
+  const mesAtual = agora.getMonth() + 1;
+  const diaAtual = agora.getDate();
+  const weekPairs = buildWeekDayMonthPairs(inicioSemana, fimSemana);
 
-  const aniversariantes = pessoas
-    .filter((p) => isBirthdayInRange(p.dataNascimento, inicioSemana, fimSemana))
-    .sort((a, b) => {
-      const dataA = buildBirthdayForYear(a.dataNascimento, inicioSemana.getFullYear());
-      const dataB = buildBirthdayForYear(b.dataNascimento, inicioSemana.getFullYear());
-      return dataA - dataB || a.nome.localeCompare(b.nome, 'pt-BR');
-    })
-    .map((p) => ({
-      _id: p._id,
-      nome: p.nome,
-      data: p.dataNascimento,
-      diaMes: String(getBirthdayParts(p.dataNascimento)?.day || '').padStart(2, '0'),
-      celular: p.celular || '',
-      fotoUrl: p.fotoUrl || '',
-    }));
+  const birthdayBaseFilter = { ...filter, status: 'ativo', dataNascimento: { $ne: null } };
 
-  const aniversariantesMes = pessoas
-    .filter((p) => getBirthdayParts(p.dataNascimento)?.month === mesAtual)
-    .sort((a, b) => {
-      const diaA = getBirthdayParts(a.dataNascimento)?.day || 0;
-      const diaB = getBirthdayParts(b.dataNascimento)?.day || 0;
-      return diaA - diaB || a.nome.localeCompare(b.nome, 'pt-BR');
-    })
-    .map((p) => ({
-      _id: p._id,
-      nome: p.nome,
-      data: p.dataNascimento,
-      diaMes: String(getBirthdayParts(p.dataNascimento)?.day || '').padStart(2, '0'),
-      celular: p.celular || '',
-      fotoUrl: p.fotoUrl || '',
-    }));
+  const [counts, aniversariantesSemanaRaw, aniversariantesMesRaw, novosCadastros] = await Promise.all([
+    Person.aggregate([
+      { $match: filter },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          ativos: { $sum: { $cond: [{ $eq: ['$status', 'ativo'] }, 1, 0] } },
+          inativos: { $sum: { $cond: [{ $eq: ['$status', 'inativo'] }, 1, 0] } },
+        },
+      },
+    ]),
+    Person.aggregate([
+      { $match: birthdayBaseFilter },
+      {
+        $addFields: {
+          bDay: { $dayOfMonth: { date: '$dataNascimento', timezone: 'UTC' } },
+          bMonth: { $month: { date: '$dataNascimento', timezone: 'UTC' } },
+        },
+      },
+      { $match: { $or: weekPairs.map((p) => ({ bDay: p.day, bMonth: p.month })) } },
+      { $sort: { bMonth: 1, bDay: 1, nome: 1 } },
+      {
+        $project: {
+          nome: 1,
+          dataNascimento: 1,
+          celular: 1,
+          fotoUrl: 1,
+          congregacao: 1,
+          bDay: 1,
+          bMonth: 1,
+        },
+      },
+    ]),
+    Person.aggregate([
+      { $match: birthdayBaseFilter },
+      {
+        $addFields: {
+          bDay: { $dayOfMonth: { date: '$dataNascimento', timezone: 'UTC' } },
+          bMonth: { $month: { date: '$dataNascimento', timezone: 'UTC' } },
+        },
+      },
+      { $match: { bMonth: mesAtual } },
+      { $sort: { bDay: 1, nome: 1 } },
+      {
+        $project: {
+          nome: 1,
+          dataNascimento: 1,
+          celular: 1,
+          fotoUrl: 1,
+          congregacao: 1,
+          bDay: 1,
+          bMonth: 1,
+        },
+      },
+    ]),
+    Person.countDocuments({ ...filter, createdAt: { $gte: seteDiasAtras } }),
+  ]);
 
+  const totalsRow = counts[0] || { total: 0, ativos: 0, inativos: 0 };
+  const aniversariantes = aniversariantesSemanaRaw.map(projectBirthdayPerson);
+  const aniversariantesMes = aniversariantesMesRaw.map(projectBirthdayPerson);
+  const aniversariantesHoje = aniversariantes.filter(
+    (p) => p.bDay === diaAtual && p.bMonth === mesAtual,
+  ).length;
+
+  res.set('Cache-Control', 'private, max-age=30');
   res.json({
-    total,
-    ativos,
-    inativos,
+    total: totalsRow.total,
+    ativos: totalsRow.ativos,
+    inativos: totalsRow.inativos,
     aniversariantes,
     aniversariantesMes,
+    aniversariantesHoje,
     novosCadastros,
   });
 };
