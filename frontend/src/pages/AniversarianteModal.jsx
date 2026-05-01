@@ -345,15 +345,94 @@ function CardLandscape({ person, versiculoRef, animated }) {
   );
 }
 
+// ─── WhatsApp Preview ─────────────────────────────────────────────────────────
+function WhatsAppPreview({ person, texto, enviadoEm, enviadoPor, automatico, versiculoRef }) {
+  const horario = enviadoEm
+    ? new Date(enviadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    : '';
+  const dataFmt = enviadoEm
+    ? new Date(enviadoEm).toLocaleDateString('pt-BR')
+    : '';
+  const phoneFormatted = (person.celular || '').replace(/^(\d{2})(\d{5})(\d{4})$/, '($1) $2-$3');
+
+  return (
+    <div className="border border-slate-200 rounded-2xl overflow-hidden bg-slate-100 shadow-sm max-w-sm mx-auto">
+      <div className="bg-[#075e54] text-white px-4 py-3 flex items-center gap-3">
+        <svg className="w-4 h-4 opacity-80 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+          <path fillRule="evenodd" d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z" clipRule="evenodd" />
+        </svg>
+        <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center text-lg shrink-0">
+          {person.fotoUrl ? (
+            <img
+              src={getFullFotoUrl(person.fotoUrl)}
+              alt=""
+              className="w-full h-full object-cover rounded-full"
+              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+            />
+          ) : '👤'}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold truncate">{person.nome.split(' ').slice(0, 2).join(' ')}</p>
+          <p className="text-[11px] opacity-80 truncate">{phoneFormatted || person.celular || 'sem telefone'}</p>
+        </div>
+        <span className="text-[10px] opacity-80 shrink-0">online</span>
+      </div>
+
+      <div
+        className="px-3 py-4 space-y-2"
+        style={{
+          background: '#e5ddd5',
+          backgroundImage: 'radial-gradient(rgba(0,0,0,0.04) 1px, transparent 1px)',
+          backgroundSize: '12px 12px',
+          minHeight: '420px',
+        }}
+      >
+        <div className="flex justify-end">
+          <div className="bg-[#dcf8c6] rounded-2xl rounded-tr-sm p-1.5 shadow-sm">
+            <div
+              className="overflow-hidden rounded-lg"
+              style={{ width: '210px', height: '335px' }}
+            >
+              <div style={{ transform: 'scale(0.39)', transformOrigin: 'top left', width: '540px' }}>
+                <CardPortrait person={person} versiculoRef={versiculoRef} animated={false} />
+              </div>
+            </div>
+            <p className="text-right text-[10px] text-slate-500 mt-1 pr-1 flex items-center justify-end gap-1">
+              {horario} <span className="text-blue-500">✓✓</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex justify-end">
+          <div className="bg-[#dcf8c6] rounded-2xl rounded-tr-sm px-3 py-2 shadow-sm max-w-[85%]">
+            <p className="text-[13px] text-slate-800 whitespace-pre-line leading-relaxed font-sans">{texto}</p>
+            <p className="text-right text-[10px] text-slate-500 mt-1 flex items-center justify-end gap-1">
+              {horario} <span className="text-blue-500">✓✓</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white px-4 py-2 border-t border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
+        <span className="flex items-center gap-1">
+          {automatico ? '🤖 Envio automático' : `👤 ${enviadoPor || 'Manual'}`}
+        </span>
+        <span>{dataFmt} · {horario}</span>
+      </div>
+    </div>
+  );
+}
+
 // ─── Modal Principal ──────────────────────────────────────────────────────────
 export default function AniversarianteModal({ person, onClose }) {
   const [format, setFormat] = useState('portrait');
   const [sending, setSending] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState(null);
+  const [lastSent, setLastSent] = useState(null);
+  const [showSentPreview, setShowSentPreview] = useState(false);
 
   const cardRef = useRef(null);
-  // Hidden card sem animação para captura fiel
   const hiddenCardRef = useRef(null);
 
   const versiculoRef = VERSICULOS[
@@ -361,7 +440,6 @@ export default function AniversarianteModal({ person, onClose }) {
   ]?.ref || 'Salmos 118:24';
 
   useEffect(() => {
-    // Fonte
     if (!document.getElementById('playfair-font')) {
       const link = document.createElement('link');
       link.id = 'playfair-font';
@@ -369,9 +447,23 @@ export default function AniversarianteModal({ person, onClose }) {
       link.href = 'https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&display=swap';
       document.head.appendChild(link);
     }
-    // Animações dos balões
     injectBalloonCSS();
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!person?._id) return undefined;
+    api.get(`/messages/last-birthday/${person._id}`)
+      .then((r) => {
+        if (cancelled) return;
+        if (r.data?.enviada) {
+          setLastSent(r.data);
+          setShowSentPreview(true);
+        }
+      })
+      .catch(() => { /* silencioso */ });
+    return () => { cancelled = true; };
+  }, [person?._id]);
 
   const captureHiddenCard = async () => {
     if (!hiddenCardRef.current) return null;
@@ -404,6 +496,7 @@ export default function AniversarianteModal({ person, onClose }) {
   };
 
   const handleWhatsApp = async () => {
+    const wasAlreadySent = Boolean(lastSent?.enviada);
     try {
       setSending(true);
       setError(null);
@@ -415,7 +508,14 @@ export default function AniversarianteModal({ person, onClose }) {
       });
       setSending(false);
       setError(null);
-      alert('Cartão de aniversário enviado com sucesso via WhatsApp!');
+      try {
+        const { data } = await api.get(`/messages/last-birthday/${person._id}`);
+        if (data?.enviada) {
+          setLastSent(data);
+          setShowSentPreview(true);
+        }
+      } catch { /* silencioso */ }
+      alert(wasAlreadySent ? 'Reenvio realizado com sucesso!' : 'Cartão de aniversário enviado com sucesso via WhatsApp!');
     } catch (err) {
       setSending(false);
       setError(err?.response?.data?.message || 'Erro ao enviar. Tente novamente.');
@@ -464,6 +564,53 @@ export default function AniversarianteModal({ person, onClose }) {
         </div>
 
         <div className="p-6">
+          {/* Banner de mensagem já enviada */}
+          {lastSent?.enviada && (
+            <div className="mb-5 bg-emerald-50 border border-emerald-200 rounded-xl overflow-hidden">
+              <button
+                type="button"
+                onClick={() => setShowSentPreview((v) => !v)}
+                className="w-full flex items-center gap-3 px-4 py-3 hover:bg-emerald-100/60 transition text-left"
+              >
+                <span className="w-8 h-8 rounded-full bg-emerald-500 text-white flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                  </svg>
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-emerald-800">Mensagem de aniversário já enviada</p>
+                  <p className="text-xs text-emerald-700/80">
+                    {new Date(lastSent.enviadoEm).toLocaleString('pt-BR', {
+                      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+                    })}
+                    {lastSent.automatico ? ' · envio automático' : ` · por ${lastSent.enviadoPor}`}
+                  </p>
+                </div>
+                <svg
+                  className={`w-4 h-4 text-emerald-700 transition-transform ${showSentPreview ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              {showSentPreview && (
+                <div className="px-4 pb-4 pt-1 bg-white border-t border-emerald-100">
+                  <p className="text-[11px] uppercase tracking-wider text-slate-500 mb-3 mt-2 font-semibold">
+                    Conteúdo enviado via WhatsApp
+                  </p>
+                  <WhatsAppPreview
+                    person={person}
+                    texto={lastSent.textoEnviado}
+                    enviadoEm={lastSent.enviadoEm}
+                    enviadoPor={lastSent.enviadoPor}
+                    automatico={lastSent.automatico}
+                    versiculoRef={versiculoRef}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Toggle de formato */}
           <div className="flex bg-slate-100 p-1 rounded-xl mb-5 w-max mx-auto gap-1">
             {[
@@ -576,7 +723,7 @@ export default function AniversarianteModal({ person, onClose }) {
                     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
                     <path d="M12 0C5.373 0 0 5.373 0 12c0 2.123.557 4.116 1.532 5.845L.057 23.571l5.882-1.541A11.945 11.945 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 22c-1.886 0-3.66-.502-5.196-1.38l-.374-.22-3.89 1.02 1.04-3.796-.242-.39A9.96 9.96 0 012 12C2 6.477 6.477 2 12 2s10 4.477 10 10-4.477 10-10 10z" />
                   </svg>
-                  Enviar via WhatsApp
+                  {lastSent?.enviada ? 'Reenviar via WhatsApp' : 'Enviar via WhatsApp'}
                 </>
               )}
             </button>

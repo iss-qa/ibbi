@@ -406,6 +406,46 @@ const sendBirthdayImage = async (req, res) => {
   }
 };
 
+const lastBirthdayMessage = async (req, res) => {
+  const { personId } = req.params;
+  const person = await Person.findById(personId).select('nome celular congregacao').lean();
+  if (!person) return res.status(404).json({ message: 'Pessoa não encontrada' });
+  await assertPersonAccess(req.user, person);
+
+  if (!person.celular) return res.json({ enviada: false });
+
+  const startOfYear = new Date(new Date().getFullYear(), 0, 1);
+  const msg = await Message.findOne({
+    tipo: 'aniversario',
+    criadoEm: { $gte: startOfYear },
+    'destinatarios.celular': person.celular,
+    'destinatarios.status': 'concluido',
+  })
+    .sort({ criadoEm: -1 })
+    .select('_id criadoEm concluidoEm conteudo destinatarios enviadoPor')
+    .populate('enviadoPor', 'nome')
+    .lean();
+
+  if (!msg) return res.json({ enviada: false });
+
+  const dest = (msg.destinatarios || []).find((d) => d.celular === person.celular && d.status === 'concluido');
+
+  // O texto enviado de fato é o template renderizado com o nome da pessoa.
+  // O campo `conteudo` da mensagem registra o tipo de envio (manual/automático), não o texto.
+  const textoEnviado = templates.aniversario(person.nome);
+
+  res.json({
+    enviada: true,
+    mensagemId: msg._id,
+    enviadoEm: dest?.processadoEm || msg.concluidoEm || msg.criadoEm,
+    enviadoPor: msg.enviadoPor?.nome || 'Sistema (envio automático)',
+    automatico: !msg.enviadoPor,
+    textoEnviado,
+    descricao: msg.conteudo,
+    incluiImagem: true,
+  });
+};
+
 const resendMessage = async (req, res) => {
   const msg = await Message.findById(req.params.id);
   if (!msg) return res.status(404).json({ message: 'Mensagem não encontrada' });
@@ -553,6 +593,7 @@ module.exports = {
   sendBirthdayImage,
   sendCarteirinha,
   resendMessage,
+  lastBirthdayMessage,
   evolutionStatus,
   pendingPhotosCount,
   sendPendingPhotos,

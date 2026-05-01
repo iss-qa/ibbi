@@ -26,12 +26,15 @@ const COLORS = {
   cardBg3: '#f0ede4',
 };
 
-// Format date to DD/MM/YYYY
+// Format date to DD/MM/YYYY (uses UTC to avoid timezone day-shift)
 const fmtDate = (iso) => {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString('pt-BR');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const yyyy = d.getUTCFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 };
 
 // Generate a deterministic random membership number from person _id
@@ -70,19 +73,20 @@ const maskPhone = (value) => {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 };
 
-// Year from ISO date
+// Year from ISO date (UTC)
 const yearFrom = (iso) => {
   if (!iso) return '—';
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '—' : d.getFullYear();
+  return Number.isNaN(d.getTime()) ? '—' : d.getUTCFullYear();
 };
 
 const validUntilFrom = (iso) => {
   const baseDate = iso ? new Date(iso) : new Date();
   if (Number.isNaN(baseDate.getTime())) return '—';
-  const expiry = new Date(baseDate);
-  expiry.setFullYear(expiry.getFullYear() + 2);
-  return expiry.toLocaleDateString('pt-BR');
+  const dd = String(baseDate.getUTCDate()).padStart(2, '0');
+  const mm = String(baseDate.getUTCMonth() + 1).padStart(2, '0');
+  const yyyy = baseDate.getUTCFullYear() + 2;
+  return `${dd}/${mm}/${yyyy}`;
 };
 
 // Resolve full photo URL

@@ -59,8 +59,28 @@ const formatBirthdayDate = (person) => {
   return `${dia}/${mes}`;
 };
 
+function SentBadge({ enviadoEm }) {
+  const tooltip = enviadoEm
+    ? `Mensagem enviada em ${new Date(enviadoEm).toLocaleString('pt-BR', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit',
+    })}`
+    : 'Mensagem de aniversário enviada';
+  return (
+    <span
+      className="shrink-0 inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200"
+      title={tooltip}
+      aria-label={tooltip}
+    >
+      <svg viewBox="0 0 20 20" fill="currentColor" className="w-3 h-3">
+        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+      </svg>
+    </span>
+  );
+}
+
 function BirthdayItem({ person, onClick }) {
   const today = isToday(person);
+  const enviada = Boolean(person.mensagemEnviada);
   return (
     <button
       type="button"
@@ -71,7 +91,13 @@ function BirthdayItem({ person, onClick }) {
           : 'hover:bg-slate-50'
       }`}
     >
-      {today && <span className="text-base shrink-0" aria-hidden>🎂</span>}
+      {enviada ? (
+        <SentBadge enviadoEm={person.mensagemEnviadaEm} />
+      ) : today ? (
+        <span className="text-base shrink-0" aria-hidden>🎂</span>
+      ) : (
+        <span className="shrink-0 w-5 h-5" aria-hidden />
+      )}
       <span className="min-w-0 flex-1 truncate">
         <span className="text-ibbiBlue font-medium hover:underline underline-offset-2">{person.nome}</span>
         {person.congregacao && (
@@ -215,12 +241,20 @@ export default function Dashboard() {
 
       <section className="mt-6 sm:mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         <div className="bg-white rounded-xl border border-stone-100 p-4 sm:p-6">
-          <div className="flex items-baseline justify-between mb-3 sm:mb-4">
+          <div className="flex items-baseline justify-between mb-1">
             <h3 className="font-display text-lg sm:text-xl text-ibbiNavy">Aniversariantes da semana</h3>
             {stats?.aniversariantes?.length > 0 && (
               <span className="text-xs text-slate-400 tabular-nums">{stats.aniversariantes.length}</span>
             )}
           </div>
+          <p className="text-[11px] text-slate-400 mb-3 flex items-center gap-1.5">
+            <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full bg-emerald-100 text-emerald-700 ring-1 ring-emerald-200">
+              <svg viewBox="0 0 20 20" fill="currentColor" className="w-2 h-2">
+                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+              </svg>
+            </span>
+            <span>= mensagem já enviada</span>
+          </p>
           {loadingStats ? <SkeletonList rows={4} /> : (
             <div className="space-y-1">
               {stats?.aniversariantes?.length > 0 ? (
@@ -241,12 +275,15 @@ export default function Dashboard() {
         </div>
 
         <div className="bg-white rounded-xl border border-stone-100 p-4 sm:p-6">
-          <div className="flex items-baseline justify-between mb-3 sm:mb-4">
+          <div className="flex items-baseline justify-between mb-1">
             <h3 className="font-display text-lg sm:text-xl text-ibbiNavy">Aniversariantes do mês</h3>
             {stats?.aniversariantesMes?.length > 0 && (
-              <span className="text-xs text-slate-400 tabular-nums">{stats.aniversariantesMes.length}</span>
+              <span className="text-xs text-slate-400 tabular-nums">
+                {stats.aniversariantesMes.filter((p) => p.mensagemEnviada).length}/{stats.aniversariantesMes.length}
+              </span>
             )}
           </div>
+          <p className="text-[11px] text-slate-400 mb-3">Total enviadas no mês</p>
           {loadingStats ? <SkeletonList rows={6} /> : (
             <div className="space-y-1 max-h-[280px] overflow-y-auto pr-1 -mr-1">
               {stats?.aniversariantesMes?.length > 0 ? (

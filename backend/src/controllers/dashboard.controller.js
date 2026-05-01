@@ -1,4 +1,5 @@
 const Person = require('../models/Person.model');
+const Message = require('../models/Message.model');
 const { applyScopedCongregacaoFilter } = require('../utils/access');
 
 const APP_TIMEZONE = process.env.APP_TIMEZONE || 'America/Bahia';
@@ -115,7 +116,60 @@ const getDashboard = async (req, res) => {
   const totalsRow = counts[0] || { total: 0, ativos: 0, inativos: 0 };
   const aniversariantes = aniversariantesSemanaRaw.map(projectBirthdayPerson);
   const aniversariantesMes = aniversariantesMesRaw.map(projectBirthdayPerson);
-  const aniversariantesHoje = aniversariantes.filter(
+
+  // Anota cada aniversariante com info da última mensagem 'aniversario' enviada com sucesso
+  // no ano corrente (manual ou pelo scheduler). Usado pelo dashboard para sinalizar quem já
+  // recebeu o cartão.
+  const celulares = [
+    ...new Set(
+      [...aniversariantes, ...aniversariantesMes]
+        .map((p) => p.celular)
+        .filter(Boolean),
+    ),
+  ];
+
+  const sentMap = new Map();
+  if (celulares.length > 0) {
+    const inicioAno = new Date(agora.getFullYear(), 0, 1);
+    const mensagens = await Message.find({
+      tipo: 'aniversario',
+      criadoEm: { $gte: inicioAno },
+      'destinatarios.celular': { $in: celulares },
+      'destinatarios.status': 'concluido',
+    })
+      .select('_id criadoEm concluidoEm destinatarios')
+      .sort({ criadoEm: -1 })
+      .lean();
+
+    for (const msg of mensagens) {
+      for (const dest of msg.destinatarios || []) {
+        if (dest.status !== 'concluido' || !dest.celular) continue;
+        if (!celulares.includes(dest.celular)) continue;
+        const existing = sentMap.get(dest.celular);
+        const enviadoEm = dest.processadoEm || msg.concluidoEm || msg.criadoEm;
+        if (!existing || new Date(enviadoEm) > new Date(existing.enviadoEm)) {
+          sentMap.set(dest.celular, {
+            enviadoEm,
+            mensagemId: msg._id,
+          });
+        }
+      }
+    }
+  }
+
+  const annotateMensagem = (p) => {
+    const info = p.celular ? sentMap.get(p.celular) : null;
+    return {
+      ...p,
+      mensagemEnviada: Boolean(info),
+      mensagemEnviadaEm: info?.enviadoEm || null,
+      mensagemId: info?.mensagemId || null,
+    };
+  };
+
+  const aniversariantesAnotados = aniversariantes.map(annotateMensagem);
+  const aniversariantesMesAnotados = aniversariantesMes.map(annotateMensagem);
+  const aniversariantesHoje = aniversariantesAnotados.filter(
     (p) => p.bDay === diaAtual && p.bMonth === mesAtual,
   ).length;
 
@@ -124,8 +178,8 @@ const getDashboard = async (req, res) => {
     total: totalsRow.total,
     ativos: totalsRow.ativos,
     inativos: totalsRow.inativos,
-    aniversariantes,
-    aniversariantesMes,
+    aniversariantes: aniversariantesAnotados,
+    aniversariantesMes: aniversariantesMesAnotados,
     aniversariantesHoje,
     novosCadastros,
   });

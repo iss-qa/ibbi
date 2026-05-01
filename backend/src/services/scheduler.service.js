@@ -35,16 +35,53 @@ const findBirthdaysToday = async () => {
 const DELAY_BETWEEN_SENDS_MS = 30 * 1000;
 
 const sendBirthdayMessages = async () => {
-  const aniversariantes = await findBirthdaysToday();
-  if (aniversariantes.length === 0) return;
+  const todosAniversariantes = await findBirthdaysToday();
+  if (todosAniversariantes.length === 0) return;
 
-  const destinatarios = aniversariantes.map((p) => ({ nome: p.nome, celular: p.celular }));
+  // Idempotência: ignora quem já recebeu mensagem de aniversário com sucesso hoje
+  const startOfDay = toZonedDate(new Date());
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const celulares = todosAniversariantes.map((p) => p.celular).filter(Boolean);
+  const jaEnviadas = celulares.length
+    ? await Message.find({
+      tipo: 'aniversario',
+      criadoEm: { $gte: startOfDay },
+      'destinatarios.celular': { $in: celulares },
+      'destinatarios.status': 'concluido',
+    }).select('destinatarios').lean()
+    : [];
+
+  const celularesEnviadosHoje = new Set();
+  for (const msg of jaEnviadas) {
+    for (const dest of msg.destinatarios || []) {
+      if (dest.status === 'concluido' && dest.celular) {
+        celularesEnviadosHoje.add(dest.celular);
+      }
+    }
+  }
+
+  const aniversariantes = todosAniversariantes.filter(
+    (p) => !celularesEnviadosHoje.has(p.celular),
+  );
+
+  if (aniversariantes.length === 0) {
+    console.log(`[scheduler] ${todosAniversariantes.length} aniversariantes hoje, todos já receberam.`);
+    return;
+  }
+
+  const destinatarios = aniversariantes.map((p, index) => ({
+    nome: p.nome,
+    celular: p.celular,
+    status: 'pendente',
+    ordem: index,
+  }));
 
   const messageLog = await Message.create({
     tipo: 'aniversario',
     destinatarios,
     conteudo: 'Envio automático de aniversário',
-    status: 'pendente',
+    status: 'enviando',
   });
 
   const erros = [];
@@ -52,22 +89,36 @@ const sendBirthdayMessages = async () => {
 
   for (let i = 0; i < aniversariantes.length; i++) {
     const person = aniversariantes[i];
+    let destStatus = 'concluido';
+    let destErro;
+
     try {
-      // 1) Enviar texto
       await whatsapp.sendSingle(person.celular, templates.aniversario(person.nome));
 
-      // 2) Gerar imagem do cartão e enviar
       const imageBuffer = await generateBirthdayCard(person, 'portrait');
       const base64Image = imageBuffer.toString('base64');
       await whatsapp.sendMedia(person.celular, '', base64Image);
 
       enviados += 1;
     } catch (err) {
+      destStatus = 'erro';
+      destErro = err.message;
       erros.push({ celular: person.celular, motivo: err.message });
       console.error(`Erro ao enviar aniversário para ${person.nome}:`, err.message);
     }
 
-    // Delay entre destinatários para evitar rate-limit
+    await Message.updateOne(
+      { _id: messageLog._id },
+      {
+        $set: {
+          'destinatarios.$[dest].status': destStatus,
+          'destinatarios.$[dest].processadoEm': new Date(),
+          ...(destErro ? { 'destinatarios.$[dest].erro': destErro } : {}),
+        },
+      },
+      { arrayFilters: [{ 'dest.ordem': i }] },
+    );
+
     if (i < aniversariantes.length - 1) {
       await new Promise((resolve) => setTimeout(resolve, DELAY_BETWEEN_SENDS_MS));
     }
