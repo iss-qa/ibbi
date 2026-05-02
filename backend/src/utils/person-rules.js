@@ -1,5 +1,21 @@
 const coerceTruthy = (value) => value === true || value === 'true' || value === 1 || value === '1';
 
+const LOWERCASE_NAME_WORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'com']);
+
+const normalizeName = (name) => {
+  if (!name) return name;
+  return String(name)
+    .trim()
+    .replace(/\s+/g, ' ')
+    .toLocaleLowerCase('pt-BR')
+    .split(' ')
+    .map((word, i) => {
+      if (i > 0 && LOWERCASE_NAME_WORDS.has(word)) return word;
+      return word.charAt(0).toLocaleUpperCase('pt-BR') + word.slice(1);
+    })
+    .join(' ');
+};
+
 const calculateAge = (birthday) => {
   if (!birthday) return null;
   const date = birthday instanceof Date ? birthday : new Date(birthday);
@@ -32,6 +48,13 @@ const determineGroupFromBirthDate = (birthday) => determineGroup(calculateAge(bi
 const applyPersonBusinessRules = (target) => {
   if (!target || typeof target !== 'object') return target;
 
+  if (typeof target.nome === 'string' && target.nome.trim()) {
+    target.nome = normalizeName(target.nome);
+  }
+  if (typeof target.acompanhadoNome === 'string' && target.acompanhadoNome.trim()) {
+    target.acompanhadoNome = normalizeName(target.acompanhadoNome);
+  }
+
   if (target.dataNascimento) {
     const autoGroup = determineGroupFromBirthDate(target.dataNascimento);
     if (autoGroup && !target.grupo) {
@@ -58,4 +81,5 @@ module.exports = {
   calculateAge,
   determineGroup,
   determineGroupFromBirthDate,
+  normalizeName,
 };

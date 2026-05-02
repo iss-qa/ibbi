@@ -30,7 +30,7 @@ const initialState = {
 
 const MINISTERIOS = {
   'Ministério Pastoral': ['Pastor', 'Pastor Auxiliar', 'Evangelista', 'Missionário'],
-  'Ministério de Louvor — Levitas': ['Levita — Vocais (Voz)', 'Levita — Instrumentos (Músico)', 'Levita — Sonoplastia / Técnico de Som', 'Levita — Projeção / Mídia', 'Levita — Transmissão / Live'],
+  'Ministério de Louvor': ['Vocais (Voz)', 'Instrumentos (Músico)', 'Sonoplastia / Técnico de Som', 'Projeção / Mídia', 'Transmissão / Live'],
   'Ministério Diaconal': ['Diácono', 'Diaconisa'],
   'Ministério da Palavra': ['Professor de Escola Bíblica Dominical (EBD)', 'Líder de Célula / Grupo', 'Obreiro / Obreria'],
   'Ministério com Crianças e Jovens': ['Líder do Ministério Infantil', 'Professor de Crianças', 'Líder de Jovens / Adolescentes', 'Auxiliar de Jovens'],

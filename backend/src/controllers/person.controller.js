@@ -7,7 +7,7 @@ const { onboardMember } = require('../services/member.service');
 const whatsapp = require('../services/whatsapp.service');
 const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
 const { escapeRegex } = require('../utils/sanitize');
-const { applyPersonBusinessRules } = require('../utils/person-rules');
+const { applyPersonBusinessRules, normalizeName } = require('../utils/person-rules');
 
 const normalizePhone = (value) => (value ? String(value).replace(/\D/g, '') : '');
 
@@ -103,22 +103,6 @@ const sanitizeFotoUrl = (url) => {
   // Aceitar apenas data: URIs (uploads controlados) ou paths relativos do /uploads/
   if (url.startsWith('data:image/') || url.startsWith('/uploads/')) return url;
   return undefined; // Rejeitar URLs externas (previne SSRF)
-};
-
-const LOWERCASE_WORDS = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'em', 'com']);
-
-const normalizeName = (name) => {
-  if (!name) return name;
-  return String(name)
-    .trim()
-    .replace(/\s+/g, ' ')
-    .toLowerCase()
-    .split(' ')
-    .map((word, i) => {
-      if (i > 0 && LOWERCASE_WORDS.has(word)) return word;
-      return word.charAt(0).toUpperCase() + word.slice(1);
-    })
-    .join(' ');
 };
 
 const mapEstadoCivil = (value) => {

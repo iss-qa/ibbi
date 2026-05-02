@@ -59,6 +59,11 @@ const formatBirthdayDate = (person) => {
   return `${dia}/${mes}`;
 };
 
+const shortName = (nome) => {
+  if (!nome) return '';
+  return nome.trim().split(/\s+/).slice(0, 2).join(' ');
+};
+
 function SentBadge({ enviadoEm }) {
   const tooltip = enviadoEm
     ? `Mensagem enviada em ${new Date(enviadoEm).toLocaleString('pt-BR', {
@@ -78,9 +83,10 @@ function SentBadge({ enviadoEm }) {
   );
 }
 
-function BirthdayItem({ person, onClick }) {
+function BirthdayItem({ person, onClick, compact = false }) {
   const today = isToday(person);
   const enviada = Boolean(person.mensagemEnviada);
+  const displayName = compact ? shortName(person.nome) : person.nome;
   return (
     <button
       type="button"
@@ -99,7 +105,7 @@ function BirthdayItem({ person, onClick }) {
         <span className="shrink-0 w-5 h-5" aria-hidden />
       )}
       <span className="min-w-0 flex-1 truncate">
-        <span className="text-ibbiBlue font-medium hover:underline underline-offset-2">{person.nome}</span>
+        <span className="text-ibbiBlue font-medium hover:underline underline-offset-2">{displayName}</span>
         {person.congregacao && (
           <span className="text-slate-500 font-normal"> — {person.congregacao}</span>
         )}
@@ -263,6 +269,7 @@ export default function Dashboard() {
                     key={person._id}
                     person={person}
                     onClick={setSelectedBirthdayPerson}
+                    compact
                   />
                 ))
               ) : (
