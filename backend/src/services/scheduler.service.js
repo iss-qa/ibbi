@@ -133,8 +133,18 @@ const sendBirthdayMessages = async () => {
 };
 
 const startScheduler = () => {
+  // Executa o check de aniversários na inicialização (após 10 segundos) 
+  // para garantir que se o servidor reiniciou (ex: deploy), ele mande quem faltou.
+  setTimeout(() => {
+    console.log('[scheduler] Rodando verificação de aniversários na inicialização...');
+    sendBirthdayMessages().catch((err) => {
+      console.error('Erro ao enviar aniversários na inicialização:', err);
+    });
+  }, 10000);
+
+  // Agenda para rodar no minuto 0 de cada hora
   cron.schedule(
-    '*/5 * * * *', // Modificado para a cada 5 minutos para teste
+    '0 * * * *',
     () => {
       sendBirthdayMessages().catch((err) => {
         console.error('Erro ao enviar aniversários:', err);
