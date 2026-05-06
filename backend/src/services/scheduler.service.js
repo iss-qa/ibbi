@@ -134,7 +134,7 @@ const sendBirthdayMessages = async () => {
 
 const startScheduler = () => {
   cron.schedule(
-    '0 8 * * *',
+    '*/5 * * * *', // Modificado para a cada 5 minutos para teste
     () => {
       sendBirthdayMessages().catch((err) => {
         console.error('Erro ao enviar aniversários:', err);
