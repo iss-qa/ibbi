@@ -112,6 +112,7 @@ const generateBirthdayCard = async (person, format = 'portrait', options = {}) =
       const puppeteerLocal = require('puppeteer');
       browser = await puppeteerLocal.launch({
         headless: 'new',
+        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
       });
     }

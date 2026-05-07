@@ -106,9 +106,6 @@ app.use('/api/grupos', triagemRoutes);
 app.use('/api/projeto-amigo', projetoAmigoRoutes);
 app.use('/api/registrations', registrationRoutes);
 
-// Vercel Cron Endpoint
-const cronRoutes = require('../backend/src/routes/cron.routes');
-app.use('/api/cron', cronRoutes);
 
 // Error Handling
 app.use((err, req, res, next) => {

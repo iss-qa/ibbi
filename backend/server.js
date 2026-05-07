@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 
 const connectDb = require('./src/config/db');
 const authRoutes = require('./src/routes/auth.routes');
@@ -22,7 +23,7 @@ const imageRoutes = require('./src/routes/image.routes');
 const { startScheduler } = require('./src/services/scheduler.service');
 const { startEvolutionMonitor } = require('./src/services/evolution-monitor.service');
 
-dotenv.config({ path: require('path').join(__dirname, '..', '.env') });
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
 // Validar variáveis de ambiente obrigatórias
 const REQUIRED_ENV = ['MONGO_URI', 'JWT_SECRET'];
@@ -72,7 +73,7 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.use('/uploads', express.static(require('path').join(__dirname, '..', 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
@@ -98,6 +99,13 @@ app.use('/api/triagem-grupos', triagemRoutes);
 app.use('/api/grupos', triagemRoutes);
 app.use('/api/projeto-amigo', projetoAmigoRoutes);
 app.use('/api/registrations', registrationRoutes);
+
+const publicDir = path.join(__dirname, '..', 'public');
+app.use(express.static(publicDir));
+app.get('*', (req, res, next) => {
+  if (req.path.startsWith('/api/')) return next();
+  return res.sendFile(path.join(publicDir, 'index.html'));
+});
 
 app.use((err, req, res, next) => {
   console.error('[SERVER ERROR]', {
