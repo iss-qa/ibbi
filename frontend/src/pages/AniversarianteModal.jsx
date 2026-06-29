@@ -149,7 +149,7 @@ function Avatar({ person, size = 200, fontSize = '80px' }) {
 // ─── Cartão Portrait ──────────────────────────────────────────────────────────
 function CardPortrait({ person, versiculoRef, animated }) {
   const firstName = person.nome.split(' ')[0];
-  const birthDate = new Date(person.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+  const birthDate = new Date(person.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', timeZone: 'UTC' });
 
   return (
     <div style={{
@@ -258,7 +258,7 @@ function CardPortrait({ person, versiculoRef, animated }) {
 // ─── Cartão Landscape ─────────────────────────────────────────────────────────
 function CardLandscape({ person, versiculoRef, animated }) {
   const firstName = person.nome.split(' ')[0];
-  const birthDate = new Date(person.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long' });
+  const birthDate = new Date(person.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', timeZone: 'UTC' });
 
   return (
     <div style={{

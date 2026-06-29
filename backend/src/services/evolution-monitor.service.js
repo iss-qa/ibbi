@@ -5,7 +5,16 @@ const { sendEmail } = require('./email.service');
 
 const APP_TIMEZONE = process.env.APP_TIMEZONE || 'America/Bahia';
 const CHECK_INTERVAL = process.env.EVOLUTION_MONITOR_CRON || '*/5 * * * *'; // a cada 5 minutos
-const ALERT_EMAIL = process.env.ALERT_EMAIL || '';
+
+// Destinatários dos alertas. Aceita múltiplos emails separados por vírgula no
+// ALERT_EMAIL. Se não configurado, usa os contatos padrão da IBBI.
+const DEFAULT_ALERT_EMAILS = ['isaiasilva.info@gmail.com', 'ibbisede@gmail.com'];
+const ALERT_EMAILS = (process.env.ALERT_EMAIL || '')
+  .split(/[,;]/)
+  .map((e) => e.trim())
+  .filter(Boolean);
+const ALERT_RECIPIENTS = ALERT_EMAILS.length ? ALERT_EMAILS : DEFAULT_ALERT_EMAILS;
+const ALERT_EMAIL = ALERT_RECIPIENTS.join(', '); // nodemailer aceita lista separada por vírgula
 
 let wasOffline = false; // evita spam de alertas repetidos
 let lastAlertAt = null;
@@ -178,4 +187,4 @@ const startEvolutionMonitor = () => {
   console.log(`[MONITOR] Evolution API monitor ativo — verificando ${CHECK_INTERVAL}`);
 };
 
-module.exports = { startEvolutionMonitor, checkConnectionState };
+module.exports = { startEvolutionMonitor, checkConnectionState, runCheck };

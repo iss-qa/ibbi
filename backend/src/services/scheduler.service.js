@@ -4,6 +4,7 @@ const Message = require('../models/Message.model');
 const templates = require('../templates/messages.templates');
 const whatsapp = require('./whatsapp.service');
 const { generateBirthdayCard } = require('./image.service');
+const { sendBirthdayEmail } = require('./birthday-email.service');
 
 const APP_TIMEZONE = process.env.APP_TIMEZONE || 'America/Bahia';
 
@@ -100,6 +101,17 @@ const sendBirthdayMessages = async () => {
       await whatsapp.sendMedia(person.celular, '', base64Image);
 
       enviados += 1;
+
+      // Canal secundário: email de aniversário com o mesmo cartão embutido.
+      // Roda em try/catch próprio para não afetar o status/idempotência do WhatsApp.
+      if (person.email) {
+        try {
+          await sendBirthdayEmail(person, imageBuffer);
+          console.log(`[scheduler] Email de aniversário enviado para ${person.nome} <${person.email}>`);
+        } catch (emailErr) {
+          console.error(`[scheduler] Falha ao enviar email de aniversário para ${person.nome}:`, emailErr.message);
+        }
+      }
     } catch (err) {
       destStatus = 'erro';
       destErro = err.message;

@@ -44,11 +44,94 @@ const fieldClass =
 
 const labelClass = 'block text-xs font-medium text-slate-500 mb-1';
 
+const SEXO_OPTIONS = [
+  { value: 'Masculino', label: 'Masculino' },
+  { value: 'Feminino', label: 'Feminino' },
+];
+
+const ESTADO_CIVIL_OPTIONS = [
+  { value: 'solteiro(a)', label: 'Solteiro(a)' },
+  { value: 'casado(a)', label: 'Casado(a)' },
+  { value: 'divorciado(a)', label: 'Divorciado(a)' },
+  { value: 'viúvo(a)', label: 'Viúvo(a)' },
+  { value: 'separado(a)', label: 'Separado(a)' },
+  { value: 'união estável', label: 'União estável' },
+];
+
+const GRUPO_OPTIONS = [
+  { value: 'criança', label: 'Criança — 0 a 9 anos' },
+  { value: 'adolescente', label: 'Adolescente — 10 a 17 anos' },
+  { value: 'jovem', label: 'Jovem — 18 a 35 anos' },
+  { value: 'adulto 1', label: 'Adulto 1 — 36 a 50 anos' },
+  { value: 'adulto 2', label: 'Adulto 2 — 51 a 60 anos' },
+  { value: 'idoso', label: 'Idoso — 61 a 75 anos' },
+  { value: 'ancião', label: 'Ancião — acima de 76 anos' },
+];
+
 function Field({ label, children }) {
   return (
     <div className="min-w-0">
       <label className={labelClass}>{label}</label>
       {children}
+    </div>
+  );
+}
+
+// Botão "pílula" reutilizado nos seletores em formato de chips (apenas link externo)
+function ChipButton({ selected, onClick, children }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`px-3 py-1.5 rounded-full text-xs border transition font-medium ${
+        selected
+          ? 'bg-blue-50 text-blue-700 border-blue-200'
+          : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Seletor exibido como opções visíveis (chips) em vez de combobox
+function OptionChips({ value, onChange, options }) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((opt) => (
+        <ChipButton key={opt.value} selected={value === opt.value} onClick={() => onChange(opt.value)}>
+          {opt.label}
+        </ChipButton>
+      ))}
+    </div>
+  );
+}
+
+// Ministério com opções agrupadas: rótulo do grupo e suas opções na mesma linha
+function MinisterioChips({ value, onChange }) {
+  return (
+    <div className="flex flex-col divide-y divide-slate-100 rounded-xl border border-slate-100">
+      {Object.entries(MINISTERIOS).map(([grupo, opcoes]) => (
+        <div key={grupo} className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-3 px-3 py-2">
+          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider shrink-0 sm:w-44 leading-tight">{grupo}</p>
+          <div className="flex flex-wrap gap-1.5">
+            {opcoes.map((op) => (
+              <button
+                key={op}
+                type="button"
+                onClick={() => onChange(value === op ? '' : op)}
+                className={`px-2 py-0.5 rounded-full text-[11px] border transition font-medium ${
+                  value === op
+                    ? 'bg-blue-50 text-blue-700 border-blue-200'
+                    : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:text-slate-700'
+                }`}
+              >
+                {op}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -147,6 +230,19 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
   const [photoError, setPhotoError] = useState(false);
 
   const currentAge = calculateAge(form.dataNascimento);
+
+  // No link externo, usa input de data nativo (sem máscara dd/mm/aaaa)
+  const renderDate = (value, onChange) =>
+    isExternal ? (
+      <input
+        type="date"
+        className={fieldClass}
+        value={value || ''}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    ) : (
+      <CustomDatePicker className={fieldClass} value={value} onChange={onChange} />
+    );
 
   // Auto-preenche o grupo se houver mudança de idade
   useEffect(() => {
@@ -302,7 +398,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
     <form onSubmit={handleSubmit} className="flex flex-col gap-0 w-full max-w-full overflow-x-hidden">
       <fieldset disabled={readOnly} className="w-full flex-1 flex flex-col">
       {/* ── Header: Foto + Nome ─────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-4 px-4 sm:px-6 pt-5 pb-4 w-full max-w-full">
+      <div className={`flex flex-col sm:flex-row gap-4 px-4 sm:px-6 pt-5 pb-4 w-full max-w-full ${isExternal ? 'sm:items-start' : 'sm:items-center'}`}>
         {/* Foto */}
         <div
           ref={photoFieldRef}
@@ -382,6 +478,27 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
               </div>
             </div>
           )}
+
+          {isExternal && !readOnly && (
+            <div className="mt-3 w-full sm:w-32">
+              <label className={`${labelClass} text-center`}>Status</label>
+              <button
+                type="button"
+                role="switch"
+                onClick={() => handleChange('status', form.status === 'ativo' ? 'inativo' : 'ativo')}
+                className={`w-full flex items-center justify-center gap-2 border px-3 py-2 rounded-lg transition ${
+                  form.status === 'ativo'
+                    ? 'bg-blue-50 border-blue-200 text-blue-700'
+                    : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}
+              >
+                <span className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full transition-colors ${form.status === 'ativo' ? 'bg-blue-600' : 'bg-slate-300'}`}>
+                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition duration-200 mt-0.5 ${form.status === 'ativo' ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                </span>
+                <span className="text-xs font-medium uppercase tracking-wider">{form.status === 'ativo' ? 'Ativo' : 'Inativo'}</span>
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Nome */}
@@ -405,7 +522,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
             </div>
           )}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-[1fr_minmax(0,1fr)_max-content] gap-4 sm:gap-3 mt-4 w-full items-start">
+          <div className={`grid grid-cols-1 gap-4 sm:gap-3 mt-4 w-full items-start ${isExternal ? '' : 'sm:grid-cols-3 md:grid-cols-[1fr_minmax(0,1fr)_max-content]'}`}>
             <div className="min-w-0">
               <label className={labelClass}>Tipo</label>
               <div className="flex flex-wrap gap-1.5">
@@ -435,40 +552,63 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
                   );
                 })}
               </div>
-              {selectedTipoMeta && (
-                <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                  {selectedTipoMeta.description}
-                </p>
+              {!isExternal && selectedTipoMeta && (
+                <div className="mt-2.5 flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50/60 px-3 py-2.5">
+                  <svg className="w-4 h-4 shrink-0 mt-0.5 text-blue-400" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="9" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 11v5M12 8h.01" />
+                  </svg>
+                  <p className="text-xs leading-relaxed text-slate-600">
+                    <span className="font-semibold text-slate-700">{selectedTipoMeta.label}</span>
+                    <span className="mx-1 text-blue-300">·</span>
+                    {selectedTipoMeta.description}
+                  </p>
+                </div>
               )}
             </div>
 
-            <Field label="Congregação">
-              <CustomSelect
-                value={lockedCongregacao || form.congregacao}
+            {!isExternal && (
+              <Field label="Congregação">
+                <CustomSelect
+                  value={lockedCongregacao || form.congregacao}
+                  onChange={(v) => handleChange('congregacao', v)}
+                  disabled={Boolean(lockedCongregacao)}
+                  options={CONGREGACOES.map((c) => ({ value: c, label: c }))}
+                />
+              </Field>
+            )}
+
+            {!isExternal && (
+              <div className="flex flex-col sm:items-end justify-start min-w-0">
+                <label className={labelClass}>Status</label>
+                <div className="flex items-center gap-3 bg-white border border-slate-200 px-3 py-1.5 rounded-lg h-[44px] sm:h-[32px]">
+                  <span className={`text-xs font-medium uppercase tracking-wider ${form.status === 'ativo' ? 'text-blue-600' : 'text-slate-400'}`}>
+                    {form.status === 'ativo' ? 'Ativo' : 'Inativo'}
+                  </span>
+                  <button
+                    type="button"
+                    role="switch"
+                    disabled={readOnly}
+                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-100 ${form.status === 'ativo' ? 'bg-blue-600' : 'bg-slate-300'}`}
+                    onClick={() => handleChange('status', form.status === 'ativo' ? 'inativo' : 'ativo')}
+                  >
+                    <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${form.status === 'ativo' ? 'translate-x-4' : 'translate-x-0'}`} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {isExternal && !lockedCongregacao && (
+            <div className="mt-4 w-full">
+              <label className={labelClass}>Congregação</label>
+              <OptionChips
+                value={form.congregacao}
                 onChange={(v) => handleChange('congregacao', v)}
-                disabled={Boolean(lockedCongregacao)}
                 options={CONGREGACOES.map((c) => ({ value: c, label: c }))}
               />
-            </Field>
-
-            <div className="flex flex-col sm:items-end justify-start min-w-0">
-              <label className={labelClass}>Status</label>
-              <div className="flex items-center gap-3 bg-white border border-slate-200 px-3 py-1.5 rounded-lg h-[44px] sm:h-[32px]">
-                <span className={`text-xs font-medium uppercase tracking-wider ${form.status === 'ativo' ? 'text-blue-600' : 'text-slate-400'}`}>
-                  {form.status === 'ativo' ? 'Ativo' : 'Inativo'}
-                </span>
-                <button
-                  type="button"
-                  role="switch"
-                  disabled={readOnly}
-                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-100 ${form.status === 'ativo' ? 'bg-blue-600' : 'bg-slate-300'}`}
-                  onClick={() => handleChange('status', form.status === 'ativo' ? 'inativo' : 'ativo')}
-                >
-                  <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${form.status === 'ativo' ? 'translate-x-4' : 'translate-x-0'}`} />
-                </button>
-              </div>
             </div>
-          </div>
+          )}
 
           {form.status === 'inativo' && (
             <div className="mt-3 w-full">
@@ -497,41 +637,65 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
       <div className="px-4 sm:px-6 pt-3 pb-3 w-full overflow-hidden">
         <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2.5">Informações pessoais</p>
         {isCompactTipo ? (
+          isExternal ? (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-[150px_auto_minmax(0,1fr)] gap-4 sm:gap-3 mb-3 w-full items-start">
+                <Field label={<>Nascimento {currentAge !== null && !isNaN(currentAge) ? <span className="text-slate-400 font-normal ml-0.5 lowercase">({currentAge} anos)</span> : null}</>}>
+                  {renderDate(form.dataNascimento, (val) => handleChange('dataNascimento', val))}
+                </Field>
+                <Field label="Sexo">
+                  <OptionChips value={form.sexo} onChange={(v) => handleChange('sexo', v)} options={SEXO_OPTIONS} />
+                </Field>
+                <Field label="Celular (WhatsApp)">
+                  <input
+                    type="tel"
+                    className={fieldClass}
+                    placeholder="(00) 00000-0000"
+                    value={formatPhoneBR(form.celular)}
+                    onChange={(e) => handleChange('celular', e.target.value)}
+                  />
+                </Field>
+              </div>
+              {form.tipo === 'visitante' && (
+                <div className="mb-3 w-full sm:max-w-[200px]">
+                  <Field label="Data da visita">
+                    {renderDate(form.dataVisita, (val) => handleChange('dataVisita', val))}
+                  </Field>
+                </div>
+              )}
+              {form.tipo === 'novo decidido' && (
+                <div className="mb-3 w-full sm:max-w-[200px]">
+                  <Field label="Data da decisão">
+                    {renderDate(form.dataDecisao, (val) => handleChange('dataDecisao', val))}
+                  </Field>
+                </div>
+              )}
+              <div className="mb-3 w-full">
+                <Field label={<>Grupo {form.grupo ? <span className="text-slate-400 font-normal ml-0.5 lowercase">({form.grupo})</span> : null}</>}>
+                  <OptionChips value={form.grupo} onChange={(v) => handleChange('grupo', v)} options={GRUPO_OPTIONS} />
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Grupo sugerido automaticamente com base na idade informada.
+                  </p>
+                </Field>
+              </div>
+            </>
+          ) : (
           <div className="grid grid-cols-1 gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
             <Field label={<>Nascimento {currentAge !== null && !isNaN(currentAge) ? <span className="text-slate-400 font-normal ml-0.5 lowercase">({currentAge} anos)</span> : null}</>}>
-              <CustomDatePicker
-                className={fieldClass}
-                value={form.dataNascimento}
-                onChange={(val) => handleChange('dataNascimento', val)}
-              />
+              {renderDate(form.dataNascimento, (val) => handleChange('dataNascimento', val))}
             </Field>
             {form.tipo === 'visitante' && (
               <Field label="Data da visita">
-                <CustomDatePicker
-                  className={fieldClass}
-                  value={form.dataVisita}
-                  onChange={(val) => handleChange('dataVisita', val)}
-                />
+                {renderDate(form.dataVisita, (val) => handleChange('dataVisita', val))}
               </Field>
             )}
             {form.tipo === 'novo decidido' && (
               <Field label="Data da decisão">
-                <CustomDatePicker
-                  className={fieldClass}
-                  value={form.dataDecisao}
-                  onChange={(val) => handleChange('dataDecisao', val)}
-                />
+                {renderDate(form.dataDecisao, (val) => handleChange('dataDecisao', val))}
               </Field>
             )}
             <Field label="Sexo">
-              <CustomSelect
-                value={form.sexo}
-                onChange={(v) => handleChange('sexo', v)}
-                options={[
-                  { value: 'Masculino', label: 'Masculino' },
-                  { value: 'Feminino', label: 'Feminino' },
-                ]}
-              />
+              <CustomSelect value={form.sexo} onChange={(v) => handleChange('sexo', v)} options={SEXO_OPTIONS} />
             </Field>
             <Field label="Celular (WhatsApp)">
               <input
@@ -543,74 +707,61 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
               />
             </Field>
             <Field label={<>Grupo {form.grupo ? <span className="text-slate-400 font-normal ml-0.5 lowercase">({form.grupo})</span> : null}</>}>
-              <CustomSelect
-                value={form.grupo}
-                onChange={(v) => handleChange('grupo', v)}
-                options={[
-                  { value: 'criança', label: 'Criança — 0 a 9 anos' },
-                  { value: 'adolescente', label: 'Adolescente — 10 a 17 anos' },
-                  { value: 'jovem', label: 'Jovem — 18 a 35 anos' },
-                  { value: 'adulto 1', label: 'Adulto 1 — 36 a 50 anos' },
-                  { value: 'adulto 2', label: 'Adulto 2 — 51 a 60 anos' },
-                  { value: 'idoso', label: 'Idoso — 61 a 75 anos' },
-                  { value: 'ancião', label: 'Ancião — acima de 76 anos' },
-                ]}
-              />
+              <CustomSelect value={form.grupo} onChange={(v) => handleChange('grupo', v)} options={GRUPO_OPTIONS} />
               <p className="mt-1 text-[11px] text-slate-400">
                 Grupo sugerido automaticamente com base na idade informada.
               </p>
             </Field>
           </div>
+          )
         ) : (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
-              <Field label={<>Nascimento {currentAge !== null && !isNaN(currentAge) ? <span className="text-slate-400 font-normal ml-0.5 lowercase">({currentAge} anos)</span> : null}</>}>
-                <CustomDatePicker
-                  className={fieldClass}
-                  value={form.dataNascimento}
-                  onChange={(val) => handleChange('dataNascimento', val)}
-                />
-              </Field>
-              <Field label="Sexo">
-                <CustomSelect
-                  value={form.sexo}
-                  onChange={(v) => handleChange('sexo', v)}
-                  options={[
-                    { value: 'Masculino', label: 'Masculino' },
-                    { value: 'Feminino', label: 'Feminino' },
-                  ]}
-                />
-              </Field>
-              <Field label="Estado civil">
-                <CustomSelect
-                  value={form.estadoCivil}
-                  onChange={(v) => handleChange('estadoCivil', v)}
-                  options={[
-                    { value: 'solteiro(a)', label: 'Solteiro(a)' },
-                    { value: 'casado(a)', label: 'Casado(a)' },
-                    { value: 'divorciado(a)', label: 'Divorciado(a)' },
-                    { value: 'viúvo(a)', label: 'Viúvo(a)' },
-                    { value: 'separado(a)', label: 'Separado(a)' },
-                    { value: 'união estável', label: 'União estável' },
-                  ]}
-                />
-              </Field>
-              <Field label="Grupo">
-                <CustomSelect
-                  value={form.grupo}
-                  onChange={(v) => handleChange('grupo', v)}
-                  options={[
-                    { value: 'criança', label: 'Criança — 0 a 9 anos' },
-                    { value: 'adolescente', label: 'Adolescente — 10 a 17 anos' },
-                    { value: 'jovem', label: 'Jovem — 18 a 35 anos' },
-                    { value: 'adulto 1', label: 'Adulto 1 — 36 a 50 anos' },
-                    { value: 'adulto 2', label: 'Adulto 2 — 51 a 60 anos' },
-                    { value: 'idoso', label: 'Idoso — 61 a 75 anos' },
-                    { value: 'ancião', label: 'Ancião — acima de 76 anos' },
-                  ]}
-                />
-              </Field>
-            </div>
+            {isExternal ? (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-[150px_auto_minmax(0,1fr)] gap-4 sm:gap-3 mb-3 w-full items-start">
+                  <Field label={<>Nascimento {currentAge !== null && !isNaN(currentAge) ? <span className="text-slate-400 font-normal ml-0.5 lowercase">({currentAge} anos)</span> : null}</>}>
+                    {renderDate(form.dataNascimento, (val) => handleChange('dataNascimento', val))}
+                  </Field>
+                  <Field label="Sexo">
+                    <OptionChips value={form.sexo} onChange={(v) => handleChange('sexo', v)} options={SEXO_OPTIONS} />
+                  </Field>
+                  <Field label="Celular (WhatsApp)">
+                    <input
+                      type="tel"
+                      className={fieldClass}
+                      placeholder="(00) 00000-0000"
+                      value={formatPhoneBR(form.celular)}
+                      onChange={(e) => handleChange('celular', e.target.value)}
+                    />
+                  </Field>
+                </div>
+                <div className="mb-3 w-full">
+                  <Field label="Estado civil">
+                    <OptionChips value={form.estadoCivil} onChange={(v) => handleChange('estadoCivil', v)} options={ESTADO_CIVIL_OPTIONS} />
+                  </Field>
+                </div>
+                <div className="mb-3 w-full">
+                  <Field label={<>Grupo {form.grupo ? <span className="text-slate-400 font-normal ml-0.5 lowercase">({form.grupo})</span> : null}</>}>
+                    <OptionChips value={form.grupo} onChange={(v) => handleChange('grupo', v)} options={GRUPO_OPTIONS} />
+                  </Field>
+                </div>
+              </>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
+                <Field label={<>Nascimento {currentAge !== null && !isNaN(currentAge) ? <span className="text-slate-400 font-normal ml-0.5 lowercase">({currentAge} anos)</span> : null}</>}>
+                  {renderDate(form.dataNascimento, (val) => handleChange('dataNascimento', val))}
+                </Field>
+                <Field label="Sexo">
+                  <CustomSelect value={form.sexo} onChange={(v) => handleChange('sexo', v)} options={SEXO_OPTIONS} />
+                </Field>
+                <Field label="Estado civil">
+                  <CustomSelect value={form.estadoCivil} onChange={(v) => handleChange('estadoCivil', v)} options={ESTADO_CIVIL_OPTIONS} />
+                </Field>
+                <Field label="Grupo">
+                  <CustomSelect value={form.grupo} onChange={(v) => handleChange('grupo', v)} options={GRUPO_OPTIONS} />
+                </Field>
+              </div>
+            )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
               <Field label="Email">
@@ -622,25 +773,38 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
                   onChange={(e) => handleChange('email', e.target.value)}
                 />
               </Field>
-              <Field label="Celular (WhatsApp)">
-                <input
-                  type="tel"
-                  className={fieldClass}
-                  placeholder="(00) 00000-0000"
-                  value={formatPhoneBR(form.celular)}
-                  onChange={(e) => handleChange('celular', e.target.value)}
-                />
-              </Field>
+              {isExternal ? (
+                <Field label="Endereço">
+                  <input
+                    className={fieldClass}
+                    placeholder="Rua, número, bairro"
+                    value={form.endereco}
+                    onChange={(e) => handleChange('endereco', e.target.value)}
+                  />
+                </Field>
+              ) : (
+                <Field label="Celular (WhatsApp)">
+                  <input
+                    type="tel"
+                    className={fieldClass}
+                    placeholder="(00) 00000-0000"
+                    value={formatPhoneBR(form.celular)}
+                    onChange={(e) => handleChange('celular', e.target.value)}
+                  />
+                </Field>
+              )}
             </div>
 
-            <Field label="Endereço">
-              <input
-                className={fieldClass}
-                placeholder="Rua, número, bairro"
-                value={form.endereco}
-                onChange={(e) => handleChange('endereco', e.target.value)}
-              />
-            </Field>
+            {!isExternal && (
+              <Field label="Endereço">
+                <input
+                  className={fieldClass}
+                  placeholder="Rua, número, bairro"
+                  value={form.endereco}
+                  onChange={(e) => handleChange('endereco', e.target.value)}
+                />
+              </Field>
+            )}
           </>
         )}
       </div>
@@ -656,18 +820,22 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
             <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
               <div className="flex-1 w-full sm:min-w-[200px]">
                 <Field label="Ministério">
-                  <CustomSelect
-                    value={form.ministerio}
-                    onChange={(v) => handleChange('ministerio', v)}
-                    placeholder="— Nenhum —"
-                    options={[
-                      { value: '', label: '— Nenhum —' },
-                      ...Object.entries(MINISTERIOS).map(([grupo, opcoes]) => ({
-                        group: grupo,
-                        options: opcoes.map((op) => ({ value: op, label: op })),
-                      })),
-                    ]}
-                  />
+                  {isExternal ? (
+                    <MinisterioChips value={form.ministerio} onChange={(v) => handleChange('ministerio', v)} />
+                  ) : (
+                    <CustomSelect
+                      value={form.ministerio}
+                      onChange={(v) => handleChange('ministerio', v)}
+                      placeholder="— Nenhum —"
+                      options={[
+                        { value: '', label: '— Nenhum —' },
+                        ...Object.entries(MINISTERIOS).map(([grupo, opcoes]) => ({
+                          group: grupo,
+                          options: opcoes.map((op) => ({ value: op, label: op })),
+                        })),
+                      ]}
+                    />
+                  )}
                 </Field>
               </div>
 
@@ -695,11 +863,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
               {showBaptismControls && form.batizado && (
                 <div className="flex-1 w-full sm:min-w-[150px]">
                   <Field label="Data do batismo">
-                    <CustomDatePicker
-                      className={fieldClass}
-                      value={form.dataBatismo}
-                      onChange={(val) => handleChange('dataBatismo', val)}
-                    />
+                    {renderDate(form.dataBatismo, (val) => handleChange('dataBatismo', val))}
                   </Field>
                 </div>
               )}
@@ -711,7 +875,25 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
        </fieldset>
       {/* ── Footer ─────────────────────────────────────────── */}
       {!readOnly && (
-        <div className="border-t border-slate-100 px-4 sm:px-6 py-4 bg-slate-50 flex justify-end sticky bottom-0 z-10 mt-auto w-full overflow-hidden">
+        <div
+          className={`px-4 sm:px-6 py-4 sticky bottom-0 z-10 mt-auto w-full overflow-hidden flex gap-3 ${
+            isExternal
+              ? 'bg-white justify-center flex-col-reverse sm:flex-row'
+              : 'border-t border-slate-100 bg-slate-50 justify-end'
+          }`}
+        >
+          {isExternal && (
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="px-5 py-3 sm:py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 text-base sm:text-sm font-medium transition min-h-[44px] w-full sm:w-auto flex items-center justify-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 9V3h12v6M6 18H4a2 2 0 01-2-2v-4a2 2 0 012-2h16a2 2 0 012 2v4a2 2 0 01-2 2h-2M6 14h12v7H6v-7z" />
+              </svg>
+              Imprimir
+            </button>
+          )}
           <button
             type="submit"
             disabled={submitting}

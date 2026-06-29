@@ -4,7 +4,16 @@ const Message = require('../models/Message.model');
 const User = require('../models/User.model');
 const whatsapp = require('../services/whatsapp.service');
 const { sendBirthdayMessages } = require('../services/scheduler.service');
-const { checkConnectionState } = require('../services/evolution-monitor.service');
+const { checkConnectionState, runCheck } = require('../services/evolution-monitor.service');
+
+// Em caso de falha de envio WhatsApp, dispara uma verificação imediata da
+// conexão Evolution. Se a instância estiver realmente offline, o monitor
+// envia o email de alerta na hora (respeitando o cooldown de 30 min).
+const triggerEvolutionCheckOnFailure = () => {
+  Promise.resolve()
+    .then(() => runCheck())
+    .catch((err) => console.error('[MONITOR] Falha ao verificar conexão após erro de envio:', err.message));
+};
 const templates = require('../templates/messages.templates');
 const { generateBirthdayCard } = require('../services/image.service');
 const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
@@ -187,6 +196,7 @@ const sendIndividual = async (req, res) => {
       concluidoEm: new Date(),
       erros: [{ celular: destinatario.celular, motivo: err.message }],
     });
+    triggerEvolutionCheckOnFailure();
     return res.status(500).json({ message: err.message, log: messageLog });
   }
 };
@@ -359,6 +369,7 @@ const sendCarteirinha = async (req, res) => {
     res.json({ message: 'Carteirinha enviada com sucesso ao membro' });
   } catch (err) {
     console.error('Erro ao enviar carteirinha:', err);
+    triggerEvolutionCheckOnFailure();
     res.status(500).json({ message: err.message || 'Erro ao enviar carteirinha' });
   }
 };
@@ -402,6 +413,7 @@ const sendBirthdayImage = async (req, res) => {
     res.json({ message: 'Mensagem e cartão de aniversário enviados com sucesso' });
   } catch (err) {
     console.error('Erro ao enviar imagem e texto de aniversário:', err);
+    triggerEvolutionCheckOnFailure();
     res.status(500).json({ message: err.message || 'Erro ao enviar' });
   }
 };

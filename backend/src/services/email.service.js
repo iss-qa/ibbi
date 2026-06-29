@@ -26,13 +26,13 @@ const getTransporter = () => {
   return transporter;
 };
 
-const sendEmail = async ({ to, subject, text, html }) => {
+const sendEmail = async ({ to, subject, text, html, attachments, from }) => {
   const t = getTransporter();
   if (!t) throw new Error('Transporter SMTP não configurado');
 
-  const from = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const fromAddress = from || process.env.SMTP_FROM || process.env.SMTP_USER;
 
-  const info = await t.sendMail({ from, to, subject, text, html });
+  const info = await t.sendMail({ from: fromAddress, to, subject, text, html, attachments });
   console.log(`[EMAIL] Enviado para ${to} — messageId: ${info.messageId}`);
   return info;
 };
