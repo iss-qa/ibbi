@@ -103,10 +103,17 @@ const sendBirthdayMessages = async () => {
       enviados += 1;
 
       // Canal secundário: email de aniversário com o mesmo cartão embutido.
-      // Roda em try/catch próprio para não afetar o status/idempotência do WhatsApp.
-      if (person.email) {
+      // Idempotência própria (1x por dia por pessoa): só envia se ainda não
+      // enviou hoje. Roda em try/catch próprio para não afetar o WhatsApp.
+      const emailJaEnviadoHoje =
+        person.aniversarioEmailEnviadoEm && person.aniversarioEmailEnviadoEm >= startOfDay;
+      if (person.email && !emailJaEnviadoHoje) {
         try {
           await sendBirthdayEmail(person, imageBuffer);
+          await Person.updateOne(
+            { _id: person._id },
+            { $set: { aniversarioEmailEnviadoEm: new Date() } },
+          );
           console.log(`[scheduler] Email de aniversário enviado para ${person.nome} <${person.email}>`);
         } catch (emailErr) {
           console.error(`[scheduler] Falha ao enviar email de aniversário para ${person.nome}:`, emailErr.message);

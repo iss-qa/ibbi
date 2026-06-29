@@ -40,6 +40,8 @@ const PersonSchema = new mongoose.Schema(
     },
     batizado: { type: Boolean, default: false },
     dataBatismo: { type: Date },
+    // Controle de idempotência: data do último email de aniversário enviado (1x/dia)
+    aniversarioEmailEnviadoEm: { type: Date },
     congregacao: { type: String, enum: CONGREGACOES, default: 'Não atribuído' },
     status: { type: String, enum: ['ativo', 'inativo'], default: 'ativo' },
     motivoInativacao: {
