@@ -817,8 +817,9 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
           <div className="px-4 sm:px-6 pt-3 pb-3 w-full overflow-hidden">
             <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest mb-2.5">Perfil na igreja</p>
 
-            <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
-              <div className="flex-1 w-full sm:min-w-[200px]">
+            <div className="flex flex-col gap-4 sm:gap-3 mb-4 sm:mb-3 w-full">
+              {/* Ministério em sua própria linha (no form externo vira uma grade alta de chips) */}
+              <div className="w-full">
                 <Field label="Ministério">
                   {isExternal ? (
                     <MinisterioChips value={form.ministerio} onChange={(v) => handleChange('ministerio', v)} />
@@ -839,32 +840,35 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
                 </Field>
               </div>
 
+              {/* Batizado + data numa linha separada, para não conflitar com a altura do Ministério */}
               {showBaptismControls && (
-                <div className="shrink-0 flex flex-col justify-start min-w-[180px]">
-                  <label className={labelClass}>Batizado nas águas</label>
-                  <div className="flex items-center gap-3 bg-white border border-slate-200 px-3 py-2 rounded-2xl min-h-[48px]">
-                    <span className={`text-xs font-medium uppercase tracking-wider ${form.batizado ? 'text-blue-600' : 'text-slate-400'}`}>
-                      {form.batizado ? 'Sim' : 'Não'}
-                    </span>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={form.batizado}
-                      disabled={readOnly}
-                      className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-100 ${form.batizado ? 'bg-blue-600' : 'bg-slate-300'}`}
-                      onClick={() => handleChange('batizado', !form.batizado)}
-                    >
-                      <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${form.batizado ? 'translate-x-5' : 'translate-x-0'}`} />
-                    </button>
+                <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-3 w-full">
+                  <div className="shrink-0 flex flex-col justify-start w-full sm:w-auto sm:min-w-[180px]">
+                    <label className={labelClass}>Batizado nas águas</label>
+                    <div className="flex items-center gap-3 bg-white border border-slate-200 px-3 py-2 rounded-2xl min-h-[48px]">
+                      <span className={`text-xs font-medium uppercase tracking-wider ${form.batizado ? 'text-blue-600' : 'text-slate-400'}`}>
+                        {form.batizado ? 'Sim' : 'Não'}
+                      </span>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={form.batizado}
+                        disabled={readOnly}
+                        className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-100 ${form.batizado ? 'bg-blue-600' : 'bg-slate-300'}`}
+                        onClick={() => handleChange('batizado', !form.batizado)}
+                      >
+                        <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${form.batizado ? 'translate-x-5' : 'translate-x-0'}`} />
+                      </button>
+                    </div>
                   </div>
-                </div>
-              )}
 
-              {showBaptismControls && form.batizado && (
-                <div className="flex-1 w-full sm:min-w-[150px]">
-                  <Field label="Data do batismo">
-                    {renderDate(form.dataBatismo, (val) => handleChange('dataBatismo', val))}
-                  </Field>
+                  {form.batizado && (
+                    <div className="flex-1 w-full sm:min-w-[150px]">
+                      <Field label="Data do batismo">
+                        {renderDate(form.dataBatismo, (val) => handleChange('dataBatismo', val))}
+                      </Field>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

@@ -175,6 +175,83 @@ export default function Dashboard() {
   const stats = statsQuery.data;
   const loadingStats = statsQuery.loading && !stats;
 
+  const printBirthdayList = (titulo, list) => {
+    if (!list?.length) return;
+
+    const esc = (s) =>
+      String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    const rows = list
+      .map(
+        (p) => `<tr>
+          <td class="nome">${esc(p.nome)}${isToday(p) ? ' <span class="hoje">(hoje)</span>' : ''}</td>
+          <td class="cong">${esc(p.congregacao || '—')}</td>
+          <td class="data">${esc(formatBirthdayDate(p))}</td>
+        </tr>`,
+      )
+      .join('');
+
+    const filtro = congregacao && congregacao !== 'Todos' ? ` · ${esc(congregacao)}` : '';
+    const monthName = new Date().toLocaleDateString('pt-BR', { month: 'long' });
+    const geradoEm = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+    const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8" />
+      <title>${esc(titulo)} — IBBI</title>
+      <style>
+        * { box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color: #1f2937; margin: 32px; }
+        header { border-bottom: 2px solid #0a1f44; padding-bottom: 12px; margin-bottom: 22px; }
+        h1 { margin: 0; font-size: 22px; color: #0a1f44; letter-spacing: -0.01em; }
+        .count { font-size: 14px; color: #b8860b; font-weight: 700; margin-left: 8px; }
+        .sub { margin: 5px 0 0; font-size: 13px; color: #334155; font-weight: 600; }
+        .meta { margin: 2px 0 0; font-size: 12px; color: #64748b; text-transform: capitalize; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; border-bottom: 1.5px solid #cbd5e1; padding: 6px 8px; }
+        td { padding: 6px 8px; border-bottom: 1px solid #eef2f7; vertical-align: top; }
+        tr { page-break-inside: avoid; }
+        td.nome { font-weight: 600; color: #0f172a; }
+        td.cong { color: #475569; }
+        th.data, td.data { text-align: right; white-space: nowrap; }
+        td.data { font-weight: 700; color: #92400e; font-variant-numeric: tabular-nums; }
+        .hoje { color: #d97706; font-weight: 700; font-size: 11px; }
+        footer { margin-top: 24px; font-size: 10px; color: #94a3b8; text-align: center; }
+        @page { margin: 14mm; }
+        @media print { body { margin: 0; } }
+      </style>
+    </head><body>
+      <header>
+        <h1>${esc(titulo)}<span class="count">${list.length}</span></h1>
+        <p class="sub">Igreja Batista Bíblica Israel${filtro}</p>
+        <p class="meta">Mês de ${monthName} · Gerado em ${geradoEm}</p>
+      </header>
+      <table>
+        <thead><tr><th>Nome</th><th>Congregação</th><th class="data">Data</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <footer>Sistema IBBI</footer>
+    </body></html>`;
+
+    const win = window.open('', '_blank');
+    if (!win) {
+      alert('Permita pop-ups neste site para imprimir a lista de aniversariantes.');
+      return;
+    }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(() => {
+      win.print();
+    }, 350);
+  };
+
+  const printBtnClass =
+    'inline-flex items-center justify-center gap-2 mt-3 w-full px-4 py-2.5 sm:py-2 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-600 hover:text-ibbiNavy text-sm font-medium transition shadow-sm min-h-[44px]';
+  const PrinterIcon = () => (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6 9V4h12v5M6 18h12v3H6v-3zM6 14h12a2 2 0 002-2v-1a2 2 0 00-2-2H6a2 2 0 00-2 2v1a2 2 0 002 2z" />
+    </svg>
+  );
+
   const cards = useMemo(() => ([
     { label: 'Pessoas ativas', value: stats?.ativos ?? 0 },
     { label: 'Pessoas inativas', value: stats?.inativos ?? 0 },
@@ -279,6 +356,16 @@ export default function Dashboard() {
               )}
             </div>
           )}
+          {!loadingStats && (stats?.aniversariantes?.length ?? 0) > 0 && (
+            <button
+              type="button"
+              onClick={() => printBirthdayList('Aniversariantes da semana', stats.aniversariantes)}
+              className={printBtnClass}
+            >
+              <PrinterIcon />
+              Imprimir aniversariantes da semana
+            </button>
+          )}
         </div>
 
         <div className="bg-white rounded-xl border border-stone-100 p-4 sm:p-6">
@@ -305,6 +392,16 @@ export default function Dashboard() {
                 <p className="text-sm text-slate-500 py-4 text-center">Sem aniversariantes neste mês.</p>
               )}
             </div>
+          )}
+          {!loadingStats && (stats?.aniversariantesMes?.length ?? 0) > 0 && (
+            <button
+              type="button"
+              onClick={() => printBirthdayList('Aniversariantes do mês', stats.aniversariantesMes)}
+              className={printBtnClass}
+            >
+              <PrinterIcon />
+              Imprimir aniversariantes do mês
+            </button>
           )}
         </div>
       </section>
