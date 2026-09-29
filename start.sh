@@ -78,14 +78,8 @@ echo -e "${GREEN}   Dependencias instaladas com sucesso  ${NC}"
 echo -e "${GREEN}========================================${NC}"
 echo ""
 
-# Perguntar se deseja rodar o seed
-echo -e "${YELLOW}Deseja executar o seed do banco de dados? (s/N)${NC}"
-read -r run_seed
-if [[ "$run_seed" =~ ^[sS]$ ]]; then
-    echo -e "${BLUE}Executando seed...${NC}"
-    npm run seed
-    echo ""
-fi
+# Encerrar instância anterior (inclusive suspensa com Ctrl+Z) e liberar portas
+bash "$PROJECT_DIR/scripts/stop-dev.sh"
 
 # Iniciar o projeto
 echo -e "${BLUE}========================================${NC}"
@@ -93,9 +87,9 @@ echo -e "${BLUE}   Iniciando o projeto...               ${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 echo -e "${GREEN}Backend:${NC}  http://localhost:3001"
-echo -e "${GREEN}Frontend:${NC} http://localhost:5173"
+echo -e "${GREEN}Frontend:${NC} http://localhost:4173"
 echo ""
-echo -e "${YELLOW}Pressione Ctrl+C para encerrar.${NC}"
+echo -e "${YELLOW}Pressione Ctrl+C para encerrar (Ctrl+Z só pausa e deixa as portas presas).${NC}"
 echo ""
 
 npm run dev

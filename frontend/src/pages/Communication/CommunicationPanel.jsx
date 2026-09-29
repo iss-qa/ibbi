@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Header from '../../components/Header';
 import api from '../../services/api';
-import { CONGREGACOES } from '../../constants/congregacoes';
 import useAuth from '../../hooks/useAuth';
 import { formatPhoneBR } from '../../utils/phoneMask';
+import useCongregacaoScope from '../../hooks/useCongregacaoScope';
 
 const grupos = ['criança', 'adolescente', 'jovem', 'adulto 1', 'adulto 2', 'idoso', 'ancião'];
 const personTypes = ['congregado', 'membro', 'visitante', 'novo decidido', 'criança'];
@@ -160,9 +160,9 @@ const getRecipientProgress = (msg) => {
   };
 };
 
-export default function CommunicationPanel() {
+export default function CommunicationPanel({ embedded = false }) {
   const { user } = useAuth();
-  const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
+  const { locked: lockedCongregacao, options: congregacaoOptions } = useCongregacaoScope();
   const [activeTab, setActiveTab] = useState('grupo');
   const [grupo, setGrupo] = useState('');
   const [congregacao, setCongregacao] = useState('Sede');
@@ -479,7 +479,7 @@ export default function CommunicationPanel() {
 
   return (
     <div className="min-h-screen">
-      <Header title="Comunicação" subtitle="Envios via WhatsApp" />
+      {!embedded && <Header title="Comunicação" subtitle="Envios via WhatsApp" />}
 
       {toast && (
         <div className="fixed top-4 right-4 z-50 bg-emerald-600 text-white text-sm px-4 py-3 rounded-xl shadow-lg flex items-center gap-2 animate-fade-in">
@@ -736,7 +736,7 @@ export default function CommunicationPanel() {
                 {activeTab === 'congregacao' && (
                   <>
                     <select className={`${inputClass} disabled:bg-slate-100`} value={congregacao} onChange={(e) => setCongregacao(e.target.value)} disabled={Boolean(lockedCongregacao)}>
-                      {CONGREGACOES.map((c) => <option key={c} value={c}>{c}</option>)}
+                      {congregacaoOptions.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                     <textarea className={textareaClass} rows={16} placeholder="Mensagem... use {nome} e {congregacao}" value={mensagemCongregacao} onChange={(e) => setMensagemCongregacao(e.target.value)} />
                     <button

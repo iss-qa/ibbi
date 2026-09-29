@@ -8,6 +8,7 @@ const User = require('../models/User.model');
 const { buildUniqueLogin } = require('../utils/login');
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '..', '.env') });
+const { runInTenant } = require('./tenant-script');
 
 const { DEFAULT_USER_PASSWORD, SEED_MASTER_PASSWORD } = require('../config/defaults');
 
@@ -218,7 +219,7 @@ const main = async () => {
   await mongoose.disconnect();
 };
 
-main().catch((err) => {
+runInTenant(main).catch((err) => {
   console.error(err);
   mongoose.disconnect();
   process.exit(1);

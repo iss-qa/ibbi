@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import logo from '../assets/logo-ibbi.jpeg';
+import TenantLogo from './TenantLogo';
+import { useTenant } from '../context/TenantContext';
 
 const iconClass = 'w-[18px] h-[18px] shrink-0';
 
@@ -51,6 +53,44 @@ const navIconMap = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2m16 0v-2a4 4 0 00-3-3.87M12 7a4 4 0 11-8 0 4 4 0 018 0zm8 2a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   ),
+  '/cuidado': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.5l2.5-2 3 3 4-6 3 4 2.5-1.5M5 19h14" />
+    </svg>
+  ),
+  '/assistente': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 3l1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8L12 3zm6 11l.9 2.1L21 17l-2.1.9L18 20l-.9-2.1L15 17l2.1-.9L18 14z" />
+    </svg>
+  ),
+  '/configuracoes': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h10m4 0h2M4 12h4m4 0h8M4 18h12m4 0h0M16 4v4M8 10v4m10 2v4" />
+    </svg>
+  ),
+  '/assinatura': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h3" />
+    </svg>
+  ),
+  '/whatsapp': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 20l1.3-3.9A8 8 0 1120 12a8 8 0 01-11.8 7L4 20z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 9.5c.3 1.8 2.7 4.2 4.5 4.5l1-1.2 1.8.8-.3 1.4c-3.6.4-7.5-3.5-7.1-7.1l1.4-.3.8 1.8L9 9.5z" />
+    </svg>
+  ),
+  '/encontros': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h4v-2a3 3 0 00-5.4-1.8M17 20H7m10 0v-2c0-.7-.1-1.3-.4-1.8M7 20H3v-2a3 3 0 015.4-1.8M7 20v-2c0-.7.1-1.3.4-1.8m0 0a5 5 0 019.2 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  ),
+  '/whatsapp/central': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 20l1.3-3.9A8 8 0 1120 12a8 8 0 01-11.8 7L4 20z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 10.5h7M8.5 13.5h4.5" />
+    </svg>
+  ),
   '/carteirinha': (
     <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">
       <rect x="3" y="6" width="18" height="12" rx="2" />
@@ -71,10 +111,11 @@ const logoutIcon = (
   </svg>
 );
 
-const navItemsByRole = (role, user) => {
+const navItemsByRole = (role, user, features = {}) => {
   if (role === 'user') {
     const items = [
       { to: '/profile', label: 'Meu perfil' },
+      { to: '/whatsapp', label: 'Meu WhatsApp' },
     ];
 
     // Carteirinha: only for tipo membro
@@ -100,15 +141,21 @@ const navItemsByRole = (role, user) => {
     { to: '/dashboard', label: 'Dashboard' },
     { to: '/members', label: 'Pessoas' },
     { to: '/approvals', label: 'Aprovações' },
-    { to: '/communication', label: 'Comunicação' },
+    { to: '/whatsapp/central', label: 'Central WhatsApp' },
+    { to: '/cuidado', label: 'Cuidado Pastoral' },
+    ...(features.agenteWhatsApp ? [{ to: '/assistente', label: 'Assistente IA' }] : []),
     { to: '/projeto-amigo', label: 'Projeto Amigo' },
     { to: '/ebd', label: 'EBD' },
-    { to: '/prayer', label: 'Pedido de Oração' },
+    { to: '/encontros', label: 'Encontros' },
+    { to: '/prayer', label: 'Pedidos de Oração' },
     { to: '/profile', label: 'Meu perfil' },
   ];
 
   if (role === 'master') {
-    items.splice(7, 0, { to: '/users', label: 'Usuários' });
+    items.splice(items.length - 1, 0,
+      { to: '/users', label: 'Usuários' },
+      { to: '/configuracoes', label: 'Configurações' },
+      { to: '/assinatura', label: 'Assinatura' });
   }
 
   return items;
@@ -155,6 +202,8 @@ export default function Sidebar({ user, isOpen, onClose }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const { tenant, features } = useTenant();
+  const brand = tenant || user?.tenant;
 
   const handleLogout = () => {
     logout();
@@ -164,14 +213,14 @@ export default function Sidebar({ user, isOpen, onClose }) {
   return (
     <>
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-40 w-72 md:w-64 bg-ibbiNavy text-white min-h-screen px-6 py-8 transform transition-transform duration-200 ${
+        className={`fixed md:static inset-y-0 left-0 z-40 w-72 md:w-64 bg-ibbiNavy text-white min-h-screen px-6 py-8 overflow-y-auto md:max-h-screen md:sticky md:top-0 transform transition-transform duration-200 ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
         <div className="flex items-center gap-3 mb-8">
-          <img src={logo} alt="IBBI" className="w-12 h-12 rounded-full object-cover border-2 border-ibbiGold" />
-          <div>
-            <p className="font-display text-lg leading-tight">IBBI</p>
+          <TenantLogo tenant={brand} fallback={logo} />
+          <div className="min-w-0">
+            <p className="font-display text-lg leading-tight truncate" title={brand?.nome}>{brand?.nomeCurto || 'Igreja'}</p>
             <p className="text-xs text-ibbiGold">Gestão de Pessoas</p>
           </div>
         </div>
@@ -180,7 +229,7 @@ export default function Sidebar({ user, isOpen, onClose }) {
 
         <nav className="flex flex-col gap-2">
           <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/35">Menu</div>
-          {navItemsByRole(user?.role, user).map((item) => (
+          {navItemsByRole(user?.role, user, features).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}

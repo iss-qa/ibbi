@@ -1,6 +1,6 @@
 const EbdAula = require('../models/EbdAula.model');
 const Person = require('../models/Person.model');
-const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
+const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao, resolveWritableCongregacao } = require('../utils/access');
 const { escapeRegex } = require('../utils/sanitize');
 
 const ensureSunday = (date) => {
@@ -51,11 +51,12 @@ const create = async (req, res) => {
   try {
     const data = ensureSunday(req.body.data);
     const { tema, descricao, professor, classe } = req.body;
-    const congregacao = req.user.role === 'master'
-      ? req.body.congregacao
-      : await getUserCongregacao(req.user);
+    const congregacao = await resolveWritableCongregacao(req.user, req.body.congregacao);
 
     const existing = await EbdAula.findOne({ data, classe, congregacao });
+    if (congregacao && req.tenant?.congregacoes?.length && !req.tenant.congregacoes.includes(congregacao)) {
+      return res.status(400).json({ message: 'Congregação inválida' });
+    }
     if (existing) return res.status(409).json({ message: 'Aula já registrada para essa classe' });
 
     const pessoas = await Person.find({
@@ -97,7 +98,7 @@ const update = async (req, res) => {
     }
   }
   if (req.user.role !== 'master') {
-    updates.congregacao = await getUserCongregacao(req.user);
+    updates.congregacao = await resolveWritableCongregacao(req.user, updates.congregacao || aula.congregacao);
   }
 
   const updated = await EbdAula.findByIdAndUpdate(req.params.id, updates, { new: true });
@@ -111,6 +112,7 @@ const updatePresencas = async (req, res) => {
   if (!canEditAula(aula, req.user)) return res.status(403).json({ message: 'Edição bloqueada' });
 
   aula.presencas = req.body.presencas || [];
+  aula.ausenciasProcessadasEm = undefined; // reprocessa ausências (idempotente por pessoa)
   await aula.save();
   res.json(aula);
 };

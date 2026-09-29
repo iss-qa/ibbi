@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
-import { CONGREGACOES } from '../constants/congregacoes';
+import useCongregacaoScope from '../hooks/useCongregacaoScope';
 
 const ETAPAS_ROW1 = [
   {
@@ -78,7 +78,7 @@ const isWithinMonth = (value, month, year) => {
 export default function ProjetoAmigoDash() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
+  const { locked: lockedCongregacao, options: congregacaoOptions } = useCongregacaoScope();
   const [congregacao, setCongregacao] = useState('Todos');
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -201,7 +201,7 @@ export default function ProjetoAmigoDash() {
                 disabled={Boolean(lockedCongregacao)}
               >
                 {!lockedCongregacao && <option value="Todos">Todos</option>}
-                {CONGREGACOES.map((c) => (
+                {congregacaoOptions.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>

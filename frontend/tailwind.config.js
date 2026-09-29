@@ -6,7 +6,13 @@ export default {
         ibbiBlue: '#0b4dbf',
         ibbiGold: '#c9a227',
         ibbiNavy: '#0a1f44',
-        ibbiCream: '#f7f3ea'
+        ibbiCream: '#f7f3ea',
+        // Marca da plataforma (PastorIA). Mesma paleta; nome neutro para telas públicas.
+        brandBlue: '#0b4dbf',
+        brandGold: '#c9a227',
+        brandNavy: '#0a1f44',
+        brandCream: '#f7f3ea',
+        whats: '#25d366',
       },
       fontFamily: {
         display: ['"Playfair Display"', 'serif'],

@@ -2,18 +2,18 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../../components/Header';
 import api from '../../services/api';
-import { CONGREGACOES } from '../../constants/congregacoes';
 import useAuth from '../../hooks/useAuth';
+import useCongregacaoScope from '../../hooks/useCongregacaoScope';
 
 const classes = ['Crianças', 'Adolescentes', 'Jovens', 'Adultos 1', 'Adultos 2', 'Idosos', 'Anciãos'];
 
 export default function EbdList() {
   const { user } = useAuth();
-  const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
+  const { locked: lockedCongregacao, options: congregacaoOptions } = useCongregacaoScope();
   const [aulas, setAulas] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
-  const [form, setForm] = useState({ data: '', classe: 'Jovens', congregacao: 'Sede', tema: '', descricao: '' });
+  const [form, setForm] = useState({ data: '', classe: 'Jovens', congregacao: congregacaoOptions[0] || 'Sede', tema: '', descricao: '' });
   const [error, setError] = useState('');
   const [filters, setFilters] = useState({ search: '', month: '', year: '', congregacao: '' });
   const navigate = useNavigate();
@@ -102,7 +102,7 @@ export default function EbdList() {
           </select>
           <select className="border rounded-lg px-3 py-2 disabled:bg-slate-100 disabled:text-slate-500" value={filters.congregacao} onChange={(e) => setFilters((f) => ({ ...f, congregacao: e.target.value }))} disabled={Boolean(lockedCongregacao)}>
             {!lockedCongregacao && <option value="">Todas as congregações</option>}
-            {CONGREGACOES.map((c) => (
+            {congregacaoOptions.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
@@ -166,7 +166,7 @@ export default function EbdList() {
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium text-slate-500">Congregação</label>
                 <select className="w-full border rounded-lg px-3 py-2.5 sm:py-2 text-lg sm:text-base min-h-[44px] appearance-none disabled:bg-slate-100 disabled:text-slate-500" value={lockedCongregacao || form.congregacao} onChange={(e) => setForm({ ...form, congregacao: e.target.value })} disabled={Boolean(lockedCongregacao)}>
-                  {CONGREGACOES.map((c) => (
+                  {congregacaoOptions.map((c) => (
                     <option key={c} value={c}>{c}</option>
                   ))}
                 </select>

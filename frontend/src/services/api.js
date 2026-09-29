@@ -12,4 +12,17 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+// Igreja suspensa por inadimplência: leva o master para a tela de assinatura.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 402 && error.response.data?.code === 'TENANT_SUSPENDED') {
+      if (!window.location.pathname.startsWith('/assinatura')) {
+        window.dispatchEvent(new CustomEvent('tenant-suspended', { detail: error.response.data.message }));
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
 export default api;

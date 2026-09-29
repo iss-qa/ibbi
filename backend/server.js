@@ -22,6 +22,15 @@ const statsRoutes = require('./src/routes/stats.routes');
 const imageRoutes = require('./src/routes/image.routes');
 const { startScheduler } = require('./src/services/scheduler.service');
 const { startEvolutionMonitor } = require('./src/services/evolution-monitor.service');
+const tenantRoutes = require('./src/routes/tenant.routes');
+const careRoutes = require('./src/routes/care.routes');
+const assistantRoutes = require('./src/routes/assistant.routes');
+const webhookRoutes = require('./src/routes/webhook.routes');
+const platformRoutes = require('./src/routes/platform.routes');
+const meRoutes = require('./src/routes/me.routes');
+const whatsappPanelRoutes = require('./src/routes/whatsapp-panel.routes');
+const encontroRoutes = require('./src/routes/encontro.routes');
+const { bootstrapTenancy } = require('./src/tenancy/bootstrap');
 
 dotenv.config({ path: path.join(__dirname, '..', '.env') });
 
@@ -52,9 +61,11 @@ app.use(cors({
       /\.vercel\.app$/,
       /wastezero\.com\.br$/,
       /issqa\.com\.br$/,
+      ...(process.env.APP_BASE_DOMAIN ? [new RegExp(`${process.env.APP_BASE_DOMAIN.replace(/\./g, '\\.')}$`)] : []),
+      ...(process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean),
     ];
 
-    const isAllowed = allowedOrigins.some(regex => regex.test(origin));
+    const isAllowed = allowedOrigins.some((rule) => (typeof rule === 'string' ? rule === origin : rule.test(origin)));
     
     if (isAllowed || process.env.NODE_ENV === 'development') {
       return callback(null, true);
@@ -64,7 +75,19 @@ app.use(cors({
   },
   credentials: true,
 }));
-app.use(express.json({ limit: '10mb' }));
+// rawBody: validação da assinatura dos webhooks da Meta (X-Hub-Signature-256)
+app.use(express.json({
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    if (req.originalUrl.startsWith('/api/webhooks/')) req.rawBody = buf;
+  },
+}));
+
+// A igreja vem sempre do contexto (JWT/slug), nunca do corpo: evita mass assignment de tenantId.
+app.use((req, res, next) => {
+  if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) delete req.body.tenantId;
+  next();
+});
 
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -91,6 +114,14 @@ app.use('/api/ebd', ebdRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/images', imageRoutes);
+app.use('/api/tenant', tenantRoutes);
+app.use('/api/care', careRoutes);
+app.use('/api/assistant', assistantRoutes);
+app.use('/api/webhooks', webhookRoutes);
+app.use('/api/platform', platformRoutes);
+app.use('/api/me', meRoutes);
+app.use('/api/whatsapp-panel', whatsappPanelRoutes);
+app.use('/api/encontros', encontroRoutes);
 
 const triagemRoutes = require('./src/routes/triagem.routes');
 const projetoAmigoRoutes = require('./src/routes/projeto-amigo.routes');
@@ -121,6 +152,7 @@ app.use((err, req, res, next) => {
 });
 
 connectDb()
+  .then(bootstrapTenancy)
   .then(() => {
     startScheduler();
     startEvolutionMonitor();

@@ -3,14 +3,19 @@ const Person = require('../models/Person.model');
 const RegistrationRequest = require('../models/RegistrationRequest.model');
 const { sendPendingRegistrationWelcome } = require('../services/member.service');
 
-const PERMANENT_TOKEN = '9b34cf8ae96bc49d6b388b5a0a68f2a39578297def76faf6';
+const { runAsPlatform, runWithTenant } = require('../tenancy/context');
+const { getTenantById, serializePublic } = require('../tenancy/tenant.service');
+const { portalUrl } = require('../tenancy/brand');
+const { randomToken } = require('../utils/crypto');
 
+// Link permanente de cadastro externo: um por igreja (o da IBBI é migrado com o token histórico).
 const createInvitation = async (req, res) => {
-  let invite = await Invitation.findOne({ token: PERMANENT_TOKEN });
+  let invite = await Invitation.findOne({ permanente: true });
 
   if (!invite) {
     invite = await Invitation.create({
-      token: PERMANENT_TOKEN,
+      token: randomToken(24),
+      permanente: true,
       createdBy: req.user?._id,
       expiresAt: null,
     });
@@ -19,7 +24,7 @@ const createInvitation = async (req, res) => {
     await invite.save();
   }
 
-  const origin = req.headers.origin || 'https://ibbi.issqa.com.br';
+  const origin = req.headers.origin || portalUrl();
   const link = `${origin}/external/${invite.token}`;
 
   res.json({ token: invite.token, link, expiresAt: null });
@@ -34,13 +39,24 @@ const normalizeName = (nome) => {
     }).join(' ');
 };
 
-const submitInvitation = async (req, res) => {
-  const { token } = req.params;
-  const invite = await Invitation.findOne({ token });
+// Rotas públicas: o token do convite identifica a igreja.
+const findInviteTenant = async (token) => {
+  const invite = await runAsPlatform(() => Invitation.findOne({ token }).lean());
+  if (!invite) return {};
+  return { invite, tenant: await getTenantById(invite.tenantId) };
+};
 
-  if (!invite) return res.status(404).json({ message: 'Convite inválido' });
+const withInviteTenant = (handler) => async (req, res) => {
+  const { invite, tenant } = await findInviteTenant(req.params.token);
+  if (!invite || !tenant) return res.status(404).json({ message: 'Convite inválido' });
+  req.tenant = tenant;
+  return runWithTenant(tenant, () => handler(req, res, invite));
+};
 
-  if (invite.token !== PERMANENT_TOKEN && invite.expiresAt && invite.expiresAt < new Date()) {
+const invitationTenant = withInviteTenant(async (req, res) => res.json(serializePublic(req.tenant)));
+
+const submitInvitation = withInviteTenant(async (req, res, invite) => {
+  if (!invite.permanente && invite.expiresAt && invite.expiresAt < new Date()) {
     return res.status(400).json({ message: 'Convite expirado' });
   }
 
@@ -102,6 +118,6 @@ const submitInvitation = async (req, res) => {
     message: 'Cadastro recebido com sucesso! Sua solicitação está em análise. Aguarde a aprovação da administração da igreja.',
     status: 'pending',
   });
-};
+});
 
-module.exports = { createInvitation, submitInvitation };
+module.exports = { createInvitation, submitInvitation, invitationTenant };

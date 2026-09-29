@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const tenantPlugin = require('../tenancy/plugin');
 
 const AtividadeSchema = new mongoose.Schema({
   titulo: { type: String, required: true, trim: true },
@@ -59,5 +60,7 @@ const TriagemGrupoSchema = new mongoose.Schema({
   created_at: { type: Date, default: Date.now },
   updated_at: { type: Date, default: Date.now },
 });
+
+TriagemGrupoSchema.plugin(tenantPlugin);
 
 module.exports = mongoose.models.TriagemGrupo || mongoose.model('TriagemGrupo', TriagemGrupoSchema);

@@ -1,18 +1,34 @@
-const axios = require('axios');
-const https = require('https');
+const { createEvolutionProvider } = require('./whatsapp/providers/evolution.provider');
+const { createCloudProvider } = require('./whatsapp/providers/cloud.provider');
+const { decrypt } = require('../utils/crypto');
+const { getTenant, runWithTenant } = require('../tenancy/context');
+const usage = require('./usage.service');
+const antiban = require('./whatsapp/antiban');
 
-const MIN_DELAY_MS = 30 * 1000;
+// Regra anti-banimento: piso de 30s entre mensagens de lote (as regras completas ficam em
+// whatsapp/antiban.js: intervalo aleatório, horário, limites, duplicidade, "digitando…").
+const MIN_DELAY_MS = antiban.FLOOR_SEG * 1000;
+
+const isGroupJid = (input) => String(input || '').includes('@g.us');
 
 const sanitizeNumber = (input) => {
   if (!input) return '';
+  if (isGroupJid(input)) return String(input).trim();
   const digits = String(input).replace(/\D/g, '');
   if (digits.startsWith('55')) return digits;
   return `55${digits}`;
 };
 
+// Modo teste: números em MOCK_ALLOWED_NUMBERS recebem de verdade; o resto vai para o mock.
+const mockAllowed = () => (process.env.MOCK_ALLOWED_NUMBERS || '')
+  .split(/[,;\s]+/).map(sanitizeNumber).filter(Boolean);
+
 const resolveRecipient = (input) => {
   const mock = process.env.MOCK_WHATSAPP_NUMBER;
   const forceMock = process.env.FORCE_MOCK_RECIPIENT === 'true';
+  if (forceMock && mock && mockAllowed().includes(sanitizeNumber(input))) return sanitizeNumber(input);
+  // Grupos no modo teste: só com MOCK_ALLOW_GROUPS=true (use um grupo de teste)
+  if (forceMock && mock && isGroupJid(input) && process.env.MOCK_ALLOW_GROUPS === 'true') return sanitizeNumber(input);
   if (forceMock && mock) {
     console.warn(`[WHATSAPP] ⚠️  MODO MOCK ATIVO — redirecionando ${input} → ${mock}`);
     return sanitizeNumber(mock);
@@ -20,8 +36,167 @@ const resolveRecipient = (input) => {
   return sanitizeNumber(input);
 };
 
+// ── Provider por tenant ──────────────────────────────────────────────
+const providerCache = new Map(); // tenantId -> { key, provider }
+
+const buildProvider = (tenant) => {
+  const wa = tenant?.whatsapp || {};
+  const allowSelfSigned = process.env.EVOLUTION_ALLOW_SELF_SIGNED === 'true';
+
+  if (wa.provider === 'cloud') {
+    return createCloudProvider({
+      phoneNumberId: wa.cloud?.phoneNumberId,
+      accessToken: decrypt(wa.cloud?.accessTokenEnc),
+      templates: wa.cloud?.templates || {},
+    });
+  }
+  if (wa.provider === 'evolution' && wa.evolution?.apiKeyEnc) {
+    return createEvolutionProvider({
+      url: wa.evolution.url,
+      instance: wa.evolution.instance,
+      apiKey: decrypt(wa.evolution.apiKeyEnc),
+      allowSelfSigned,
+    });
+  }
+  // Tenant fundador (IBBI) ou ambiente sem tenant: variáveis EVOLUTION_* do .env.
+  if (!tenant || wa.useEnvFallback) {
+    return createEvolutionProvider({
+      url: process.env.EVOLUTION_API_URL,
+      instance: process.env.EVOLUTION_INSTANCE,
+      apiKey: process.env.EVOLUTION_API_KEY,
+      allowSelfSigned,
+    });
+  }
+  throw new Error('WhatsApp não configurado para esta igreja');
+};
+
+const getProvider = (tenant = getTenant()) => {
+  const id = tenant ? String(tenant._id) : 'env';
+  const key = JSON.stringify(tenant?.whatsapp || {});
+  const hit = providerCache.get(id);
+  if (hit && hit.key === key) return hit.provider;
+  const provider = buildProvider(tenant);
+  providerCache.set(id, { key, provider });
+  return provider;
+};
+
+const isConfigured = (tenant = getTenant()) => {
+  try {
+    getProvider(tenant);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// Todo envio passa por aqui: limite do plano + medição de consumo.
+const metered = async (fn) => {
+  await usage.assertWithinLimit('whatsappMensagensMes');
+  try {
+    const result = await fn(getProvider());
+    await usage.increment({ whatsappEnviadas: 1 });
+    return result;
+  } catch (err) {
+    await usage.increment({ whatsappErros: 1 });
+    throw err;
+  }
+};
+
+/**
+ * Texto. `bulk: true` = envio iniciado pela igreja (lote/automação): respeita o ritmo anti-ban
+ * (intervalo aleatório, horário, limites) e não repete o mesmo texto ao mesmo número em 24h.
+ * Sem `bulk` (respostas a quem escreveu) não espera, mas conta nos limites.
+ */
+// Eco do próprio bot: no modo "conversa consigo mesmo" as respostas voltam pelo webhook
+// como mensagens fromMe. Guardamos texto e id do que enviamos para ignorá-las.
+const ECHO_TTL = 5 * 60e3;
+const echoes = new Map(); // chave → expira em
+const echoKey = (to, text) => `${sanitizeNumber(to)}|${String(text || '').trim().slice(0, 500)}`;
+const rememberEcho = (key) => {
+  const now = Date.now();
+  for (const [k, exp] of echoes) if (exp < now) echoes.delete(k);
+  echoes.set(key, now + ECHO_TTL);
+};
+const isOwnEcho = ({ to, text, id }) => {
+  const now = Date.now();
+  return [id && `id|${id}`, echoKey(to, text)].some((k) => k && echoes.get(k) > now);
+};
+
+const sendText = async (number, text, { bulk = false } = {}) => {
+  const to = resolveRecipient(number);
+  if (bulk) {
+    if (antiban.isDuplicate(to, text)) {
+      console.warn(`[ANTIBAN] Mensagem repetida para ${to} nas últimas 24h — não reenviada.`);
+      return { skipped: true, motivo: 'duplicada' };
+    }
+    await antiban.paceBulk();
+  }
+  rememberEcho(echoKey(to, text));
+  const result = await metered((p) => p.sendText(to, text, { typingMs: antiban.typingMs(text) }));
+  if (result?.key?.id) rememberEcho(`id|${result.key.id}`);
+  antiban.record(to, text);
+  return result;
+};
+// Imagens também ecoam no chat consigo mesmo: marca o envio por alguns segundos e guarda o id.
+const IMAGE_ECHO_MS = 20e3;
+const sendImage = async (number, media, caption = '') => {
+  const to = resolveRecipient(number);
+  echoes.set(`img|${sanitizeNumber(to)}`, Date.now() + IMAGE_ECHO_MS);
+  if (caption) rememberEcho(echoKey(to, caption));
+  const result = await metered((p) => p.sendImage(to, media, caption));
+  if (result?.key?.id) rememberEcho(`id|${result.key.id}`);
+  return result;
+};
+const isOwnImageEcho = (to) => echoes.get(`img|${sanitizeNumber(to)}`) > Date.now();
+const sendAudio = (number, media) => metered((p) => p.sendAudio(resolveRecipient(number), media));
+const sendButtons = (number, text, buttons) => metered((p) => p.sendButtons(resolveRecipient(number), text, buttons));
+
+const sendContact = (number, contato) => metered((p) => (p.sendContact ? p.sendContact(resolveRecipient(number), contato) : null));
+
+// Assinatura legada: sendMedia(numero, legenda, url|base64)
+const sendMedia = (number, caption, media) => sendImage(number, media, caption);
+
+/**
+ * Mensagem iniciada pela igreja (aniversário, ausência, aviso).
+ * Na API oficial, fora da janela de 24h, usa o template aprovado configurado em
+ * whatsapp.cloud.templates[templateKey] com `templateParams` como variáveis do corpo.
+ */
+const sendProactive = async ({ number, text, templateKey, templateParams = [], lastInboundAt }) => {
+  const provider = getProvider();
+  const inWindow = lastInboundAt && Date.now() - new Date(lastInboundAt).getTime() < 23 * 60 * 60 * 1000;
+  const templateName = provider.templates?.[templateKey];
+  if (provider.requiresTemplates && !inWindow && templateName) {
+    await antiban.paceBulk();
+    return metered((p) => p.sendTemplate(resolveRecipient(number), templateName, templateParams));
+  }
+  return sendText(number, text, { bulk: true });
+};
+
+// Para laços de envio fora da fila (aniversários, ausências): aguarda a vez anti-ban.
+const paceBulk = () => antiban.paceBulk();
+const antibanStats = () => antiban.stats();
+
+const getMediaBase64 = (ref) => getProvider().getMediaBase64(ref);
+
+const supportsGroups = (tenant = getTenant()) => {
+  try { return Boolean(getProvider(tenant).supportsGroups); } catch { return false; }
+};
+const listGroups = () => {
+  const p = getProvider();
+  if (!p.listGroups) throw new Error('Grupos só estão disponíveis com a Evolution API (WhatsApp não oficial).');
+  return p.listGroups();
+};
+const createGroup = (nome, numeros, descricao) => {
+  const p = getProvider();
+  if (!p.createGroup) throw new Error('Grupos só estão disponíveis com a Evolution API (WhatsApp não oficial).');
+  return p.createGroup(nome, [...new Set(numeros.map(sanitizeNumber))], descricao);
+};
+const connectionState = (tenant = getTenant()) => getProvider(tenant).connectionState();
+
+// ── Fila FIFO por tenant (cada igreja tem seu próprio número/ritmo) ──────
 class WhatsAppQueue {
-  constructor() {
+  constructor(tenant) {
+    this.tenant = tenant;
     this.queue = [];
     this.isProcessing = false;
     this.canceled = false;
@@ -47,29 +222,16 @@ class WhatsAppQueue {
     this.isProcessing = false;
   }
 
-  async processNext() {
-    if (this.isProcessing) return;
-    if (this.queue.length === 0) return;
-
-    this.isProcessing = true;
-    this.canceled = false;
-
-    while (this.queue.length > 0) {
-      if (this.canceled) {
-        this.isProcessing = false;
-        return;
-      }
-
-      const job = this.queue.shift();
-      if (this.lastSentAt) {
-        const elapsed = Date.now() - this.lastSentAt;
-        if (elapsed < MIN_DELAY_MS) {
-          await new Promise((resolve) => setTimeout(resolve, MIN_DELAY_MS - elapsed));
-        }
-      }
+  async runJob(job) {
+    const exec = async () => {
       try {
         if (job.onStart) await job.onStart();
-        await sendText(job.number, job.text);
+        if (job.send) {
+          await antiban.paceBulk();
+          await job.send();
+        } else {
+          await sendText(job.number, job.text, { bulk: true });
+        }
         this.sent += 1;
         this.lastSentAt = Date.now();
         if (job.onSuccess) await job.onSuccess();
@@ -78,129 +240,42 @@ class WhatsAppQueue {
         this.lastSentAt = Date.now();
         if (job.onError) await job.onError(err);
       }
-    }
+    };
+    return this.tenant ? runWithTenant(this.tenant, exec) : exec();
+  }
 
+  async processNext() {
+    if (this.isProcessing || this.queue.length === 0) return;
+    this.isProcessing = true;
+    this.canceled = false;
+
+    while (this.queue.length > 0) {
+      if (this.canceled) {
+        this.isProcessing = false;
+        return;
+      }
+      const job = this.queue.shift();
+      // O ritmo (intervalo aleatório, horário, limites) é aplicado em runJob pelo antiban.
+      await this.runJob(job);
+    }
     this.isProcessing = false;
   }
 
   enqueueBatch(jobs) {
     this.total += jobs.length;
-    if (!this.isProcessing && this.queue.length === 0 && jobs.length > 0) {
-      const [first, ...rest] = jobs;
-      this.queue.push(...rest);
-      this.isProcessing = true;
-      this.canceled = false;
-      const runFirst = async () => {
-        if (first.onStart) await first.onStart();
-        await sendText(first.number, first.text);
-        this.sent += 1;
-        this.lastSentAt = Date.now();
-        if (first.onSuccess) await first.onSuccess();
-      };
-
-      runFirst().catch(async (err) => {
-        this.errors += 1;
-        this.lastSentAt = Date.now();
-        if (first.onError) await first.onError(err);
-      }).finally(() => {
-        this.isProcessing = false;
-        this.processNext();
-      });
-      return;
-    }
     this.queue.push(...jobs);
-    this.processNext();
-  }
-
-  enqueueSingle(job) {
-    this.total += 1;
-    this.queue.push(job);
-    this.processNext();
+    this.processNext().catch((err) => console.error('[WHATSAPP] Erro na fila:', err));
   }
 }
 
-const queue = new WhatsAppQueue();
-
-const sendText = async (number, text) => {
-  const baseUrl = process.env.EVOLUTION_API_URL;
-  const instance = process.env.EVOLUTION_INSTANCE;
-  const apiKey = process.env.EVOLUTION_API_KEY;
-
-  if (!baseUrl || !instance || !apiKey) {
-    throw new Error('Configuração Evolution API incompleta');
-  }
-
-  const url = `${baseUrl}/message/sendText/${instance}`;
-  const payload = { number: resolveRecipient(number), text };
-
-  const allowSelfSigned = process.env.EVOLUTION_ALLOW_SELF_SIGNED === 'true';
-  const httpsAgent = allowSelfSigned ? new https.Agent({ rejectUnauthorized: false }) : undefined;
-
-  try {
-    const response = await axios.post(url, payload, {
-      headers: {
-        apikey: apiKey,
-        'Content-Type': 'application/json',
-      },
-      timeout: 15000,
-      httpsAgent,
-    });
-    return response.data;
-  } catch (err) {
-    const status = err?.response?.status;
-    const data = err?.response?.data;
-    console.error('Evolution API erro:', status, data || err.message);
-    throw new Error(data?.message || err.message || 'Falha ao enviar WhatsApp');
-  }
-};
-
-const sendMedia = async (number, caption, mediaUrl) => {
-  const baseUrl = process.env.EVOLUTION_API_URL;
-  const instance = process.env.EVOLUTION_INSTANCE;
-  const apiKey = process.env.EVOLUTION_API_KEY;
-
-  if (!baseUrl || !instance || !apiKey) {
-    throw new Error('Configuração Evolution API incompleta');
-  }
-
-  const url = `${baseUrl}/message/sendMedia/${instance}`;
-  
-  let base64Media = '';
-  if (mediaUrl.startsWith('http')) {
-    try {
-      const response = await axios.get(mediaUrl, { responseType: 'arraybuffer' });
-      base64Media = Buffer.from(response.data, 'binary').toString('base64');
-    } catch (e) {
-      throw new Error('Falha ao obter mídia');
-    }
-  } else {
-    // Caso seja enviado a string direta base64 do front-end
-    base64Media = mediaUrl.replace(/^data:image\/[a-z]+;base64,/, "");
-  }
-
-  const payload = { 
-    number: resolveRecipient(number),
-    mediatype: 'image',
-    media: base64Media,
-    caption
-  };
-
-  const allowSelfSigned = process.env.EVOLUTION_ALLOW_SELF_SIGNED === 'true';
-  const httpsAgent = allowSelfSigned ? new https.Agent({ rejectUnauthorized: false }) : undefined;
-
-  try {
-    const response = await axios.post(url, payload, {
-      headers: {
-        apikey: apiKey,
-        'Content-Type': 'application/json',
-      },
-      timeout: 25000,
-      httpsAgent,
-    });
-    return response.data;
-  } catch (err) {
-    throw new Error(err?.response?.data?.message || err.message || 'Falha ao enviar WhatsAppMedia');
-  }
+const queues = new Map();
+const getQueue = () => {
+  const tenant = getTenant();
+  const id = tenant ? String(tenant._id) : 'env';
+  if (!queues.has(id)) queues.set(id, new WhatsAppQueue(tenant));
+  const q = queues.get(id);
+  if (tenant) q.tenant = tenant; // mantém config atualizada
+  return q;
 };
 
 const sendSingle = async (celular, mensagem) => {
@@ -226,16 +301,40 @@ const sendBatch = async (destinatarios, mensagem, handlers = {}) => {
     },
   }));
 
-  queue.enqueueBatch(jobs);
+  getQueue().enqueueBatch(jobs);
 };
 
-const cancelQueue = () => queue.cancel();
-const getQueueStatus = () => queue.getStatus();
+// Enfileira jobs genéricos ({ send, onSuccess, onError }) respeitando o delay anti-banimento.
+const enqueue = (jobs) => getQueue().enqueueBatch(jobs);
+
+const cancelQueue = () => getQueue().cancel();
+const getQueueStatus = () => getQueue().getStatus();
 
 module.exports = {
+  MIN_DELAY_MS,
+  sanitizeNumber,
+  isGroupJid,
+  getProvider,
+  isConfigured,
   sendSingle,
+  sendText,
   sendBatch,
+  sendImage,
+  sendAudio,
+  sendButtons,
+  sendMedia,
+  sendProactive,
+  sendContact,
+  isOwnEcho,
+  isOwnImageEcho,
+  paceBulk,
+  antibanStats,
+  getMediaBase64,
+  connectionState,
+  supportsGroups,
+  listGroups,
+  createGroup,
+  enqueue,
   cancelQueue,
   getQueueStatus,
-  sendMedia,
 };

@@ -2,17 +2,18 @@ const { validationResult } = require('express-validator');
 const User = require('../models/User.model');
 const Person = require('../models/Person.model');
 const { buildUniqueLogin } = require('../utils/login');
-const { getUserCongregacao } = require('../utils/access');
+const { getUserCongregacoes, canAccessCongregacao } = require('../utils/access');
+const { getTenant } = require('../tenancy/context');
 const { DEFAULT_USER_PASSWORD } = require('../config/defaults');
 
 const list = async (req, res) => {
   const { page = 1, limit = 10, search = '' } = req.query;
   const users = await User.find().populate('personId', 'congregacao').sort({ createdAt: -1 });
-  const userCongregacao = req.user.role === 'admin' ? await getUserCongregacao(req.user) : null;
-  
-  let visibleUsers = req.user.role === 'master'
+  const permitidas = await getUserCongregacoes(req.user);
+
+  let visibleUsers = !permitidas
     ? users
-    : users.filter((user) => user.personId?.congregacao === userCongregacao);
+    : users.filter((user) => permitidas.includes(user.personId?.congregacao));
 
   if (search) {
     const s = search.toLowerCase();
@@ -29,6 +30,7 @@ const list = async (req, res) => {
       return {
         ...json,
         congregacao: user.personId?.congregacao || '',
+        congregacoesAcesso: user.congregacoesAcesso || [],
       };
     }),
     total,
@@ -49,8 +51,7 @@ const createUser = async (req, res) => {
   const person = await Person.findById(personId);
   if (!person) return res.status(404).json({ message: 'Membro não encontrado' });
   if (req.user.role === 'admin') {
-    const userCongregacao = await getUserCongregacao(req.user);
-    if (person.congregacao !== userCongregacao) {
+    if (!(await canAccessCongregacao(req.user, person.congregacao))) {
       return res.status(403).json({ message: 'Você só pode criar usuários da sua congregação' });
     }
   }
@@ -87,8 +88,7 @@ const updateRole = async (req, res) => {
     if (target.role === 'master') {
       return res.status(403).json({ message: 'Apenas master pode alterar outro master' });
     }
-    const userCongregacao = await getUserCongregacao(req.user);
-    if (target.personId?.congregacao !== userCongregacao) {
+    if (!(await canAccessCongregacao(req.user, target.personId?.congregacao))) {
       return res.status(403).json({ message: 'Você só pode alterar usuários da sua congregação' });
     }
   }
@@ -109,8 +109,7 @@ const updateStatus = async (req, res) => {
     if (target.role === 'master') {
       return res.status(403).json({ message: 'Apenas master pode alterar outro master' });
     }
-    const userCongregacao = await getUserCongregacao(req.user);
-    if (target.personId?.congregacao !== userCongregacao) {
+    if (!(await canAccessCongregacao(req.user, target.personId?.congregacao))) {
       return res.status(403).json({ message: 'Você só pode alterar usuários da sua congregação' });
     }
   }
@@ -127,8 +126,7 @@ const remove = async (req, res) => {
     if (target.role === 'master') {
       return res.status(403).json({ message: 'Apenas master pode excluir outro master' });
     }
-    const userCongregacao = await getUserCongregacao(req.user);
-    if (target.personId?.congregacao !== userCongregacao) {
+    if (!(await canAccessCongregacao(req.user, target.personId?.congregacao))) {
       return res.status(403).json({ message: 'Você só pode excluir usuários da sua congregação' });
     }
   }
@@ -173,8 +171,7 @@ const resetPassword = async (req, res) => {
     if (target.role === 'master') {
       return res.status(403).json({ message: 'Apenas master pode resetar senha de outro master' });
     }
-    const userCongregacao = await getUserCongregacao(req.user);
-    if (target.personId?.congregacao !== userCongregacao) {
+    if (!(await canAccessCongregacao(req.user, target.personId?.congregacao))) {
       return res.status(403).json({ message: 'Você só pode resetar senha de usuários da sua congregação' });
     }
   }
@@ -186,4 +183,24 @@ const resetPassword = async (req, res) => {
   return res.json({ message: 'Senha resetada para o padrão com sucesso' });
 };
 
-module.exports = { list, createUser, updateRole, updateStatus, remove, updateMyPassword, resetPassword };
+// Gestão de acesso (somente master): papel + congregações que o administrador gere.
+// congregacoesAcesso vazio = só a congregação do próprio cadastro.
+const updateAccess = async (req, res) => {
+  if (req.user.role !== 'master') return res.status(403).json({ message: 'Apenas o master gerencia acessos' });
+  const { role, congregacoesAcesso = [] } = req.body || {};
+  if (role && !['master', 'admin', 'user'].includes(role)) return res.status(400).json({ message: 'Papel inválido' });
+  const validas = getTenant()?.congregacoes || [];
+  const lista = [...new Set((Array.isArray(congregacoesAcesso) ? congregacoesAcesso : []).filter((c) => validas.includes(c)))];
+  if (String(req.params.id) === String(req.user._id) && role && role !== 'master') {
+    return res.status(400).json({ message: 'Você não pode remover o seu próprio acesso master' });
+  }
+  const user = await User.findByIdAndUpdate(
+    req.params.id,
+    { ...(role ? { role } : {}), congregacoesAcesso: role === 'admin' || (!role) ? lista : [] },
+    { new: true },
+  );
+  if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
+  return res.json(user.toJSON());
+};
+
+module.exports = { list, createUser, updateRole, updateStatus, remove, updateMyPassword, resetPassword, updateAccess };

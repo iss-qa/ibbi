@@ -18,6 +18,7 @@ router.use(requirePasswordChanged, requireRole('master', 'admin'));
 router.get('/', controller.list);
 router.post('/', body('personId').notEmpty(), controller.createUser);
 router.put('/:id/role', body('role').isIn(['master', 'admin', 'user']), controller.updateRole);
+router.put('/:id/access', controller.updateAccess);
 router.put('/:id/status', body('ativo').isBoolean(), controller.updateStatus);
 router.delete('/:id', controller.remove);
 router.put('/:id/reset-password', controller.resetPassword);

@@ -12,12 +12,14 @@ export function AuthProvider({ children }) {
     return localStorage.getItem('ibbi_mustChangePassword') === 'true';
   });
 
-  const login = async (loginInput, senha, recaptchaToken) => {
+  const login = async (loginInput, senha, recaptchaToken, igreja) => {
     const payload = { login: loginInput, senha };
+    if (igreja) payload.igreja = igreja;
     if (recaptchaToken) payload.recaptchaToken = recaptchaToken;
     const { data } = await api.post('/auth/login', payload);
     localStorage.setItem('ibbi_token', data.token);
     localStorage.setItem('ibbi_user', JSON.stringify(data.user));
+    if (data.user?.tenant?.slug) localStorage.setItem('ibbi_tenant', data.user.tenant.slug);
     setUser(data.user);
     if (data.mustChangePassword) {
       localStorage.setItem('ibbi_mustChangePassword', 'true');

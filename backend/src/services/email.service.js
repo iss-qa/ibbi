@@ -26,9 +26,26 @@ const getTransporter = () => {
   return transporter;
 };
 
-const sendEmail = async ({ to, subject, text, html, attachments, from }) => {
+// Modo teste (FORCE_MOCK_RECIPIENT=true): emails vão para MOCK_EMAIL — ou não saem, se vazio —
+// exceto os endereços em MOCK_ALLOWED_EMAILS.
+const resolveEmailRecipients = (to) => {
+  if (process.env.FORCE_MOCK_RECIPIENT !== 'true') return { to, subjectPrefix: '' };
+  const allowed = (process.env.MOCK_ALLOWED_EMAILS || '').split(/[,;\s]+/).map((e) => e.trim().toLowerCase()).filter(Boolean);
+  const lista = String(to || '').split(/[,;]/).map((e) => e.trim()).filter(Boolean);
+  const liberados = lista.filter((e) => allowed.includes(e.toLowerCase()));
+  const redirecionados = lista.filter((e) => !allowed.includes(e.toLowerCase()));
+  const mock = process.env.MOCK_EMAIL;
+  const destino = [...liberados, ...(redirecionados.length && mock ? [mock] : [])];
+  if (redirecionados.length) console.warn(`[EMAIL] ⚠️  MODO MOCK — ${redirecionados.join(', ')} → ${mock || '(não enviado)'}`);
+  return { to: [...new Set(destino)].join(', '), subjectPrefix: redirecionados.length ? `[TESTE → ${redirecionados.join(', ')}] ` : '' };
+};
+
+const sendEmail = async ({ to: originalTo, subject: originalSubject, text, html, attachments, from }) => {
   const t = getTransporter();
   if (!t) throw new Error('Transporter SMTP não configurado');
+  const { to, subjectPrefix } = resolveEmailRecipients(originalTo);
+  if (!to) return { messageId: null, mock: true };
+  const subject = `${subjectPrefix}${originalSubject || ''}`;
 
   const fromAddress = from || process.env.SMTP_FROM || process.env.SMTP_USER;
 

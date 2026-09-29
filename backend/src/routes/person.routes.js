@@ -7,11 +7,12 @@ const requireRole = require('../middlewares/role.middleware');
 const controller = require('../controllers/person.controller');
 
 const router = express.Router();
-const upload = multer();
+const upload = multer({ limits: { fileSize: 5 * 1024 * 1024, files: 1 } });
 
 router.use(auth, requirePasswordChanged);
 
 router.get('/', requireRole('admin', 'master'), controller.list);
+router.get('/import-template', requireRole('master'), controller.importTemplate); // antes de /:id
 router.get('/:id', requireRole('user', 'admin', 'master'), controller.getById);
 
 router.post(

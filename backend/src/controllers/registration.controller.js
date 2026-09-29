@@ -1,7 +1,7 @@
 const RegistrationRequest = require('../models/RegistrationRequest.model');
 const Person = require('../models/Person.model');
 const { onboardMember } = require('../services/member.service');
-const { getUserCongregacao } = require('../utils/access');
+const { getUserCongregacao, getUserCongregacoes, resolveWritableCongregacao } = require('../utils/access');
 const { escapeRegex } = require('../utils/sanitize');
 const { applyPersonBusinessRules } = require('../utils/person-rules');
 
@@ -15,9 +15,9 @@ const applyRegistrationScope = async (user, filter = {}) => {
     return { filter: scopedFilter, congregacao: null };
   }
 
-  const congregacao = await getUserCongregacao(user);
-  scopedFilter.congregacao = congregacao;
-  return { filter: scopedFilter, congregacao };
+  const lista = await getUserCongregacoes(user);
+  scopedFilter.congregacao = { $in: lista };
+  return { filter: scopedFilter, congregacao: lista[0] };
 };
 
 const findScopedRequestById = async (user, id) => {
@@ -81,7 +81,7 @@ const approve = async (req, res) => {
       ...data,
       nome: data.nome || request.nome,
       celular: data.celular || request.celular,
-      congregacao: req.user.role === 'master' ? (data.congregacao || request.congregacao) : congregacao,
+      congregacao: req.user.role === 'master' ? (data.congregacao || request.congregacao) : await resolveWritableCongregacao(req.user, data.congregacao || request.congregacao),
       fotoUrl: data.fotoUrl || request.fotoUrl,
       status: 'ativo',
     };

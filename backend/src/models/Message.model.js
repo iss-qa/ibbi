@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const tenantPlugin = require('../tenancy/plugin');
 
 const DestinatarioSchema = new mongoose.Schema({
   nome: { type: String },
@@ -12,7 +13,7 @@ const DestinatarioSchema = new mongoose.Schema({
 const MessageSchema = new mongoose.Schema({
   tipo: {
     type: String,
-    enum: ['aniversario', 'aviso', 'reunião', 'ata', 'documento', 'convite', 'oracao', 'personalizada', 'aviso - novo membro', 'novo cadastro', 'projeto_amigo', 'novo_decidido', 'visitante'],
+    enum: ['aniversario', 'aviso', 'reunião', 'ata', 'documento', 'convite', 'oracao', 'personalizada', 'aviso - novo membro', 'novo cadastro', 'projeto_amigo', 'novo_decidido', 'visitante', 'ausencia', 'lideranca', 'relatorio', 'agente', 'chamada', 'resumo_encontro'],
     required: true,
   },
   destinatarios: [DestinatarioSchema],
@@ -25,5 +26,8 @@ const MessageSchema = new mongoose.Schema({
   concluidoEm: { type: Date },
   erros: [{ celular: String, motivo: String }],
 });
+
+MessageSchema.index({ tenantId: 1, criadoEm: -1 });
+MessageSchema.plugin(tenantPlugin);
 
 module.exports = mongoose.models.Message || mongoose.model('Message', MessageSchema);

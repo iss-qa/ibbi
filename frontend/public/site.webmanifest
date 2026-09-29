@@ -1,0 +1,14 @@
+{
+  "name": "PastorIA",
+  "short_name": "PastorIA",
+  "description": "Quem falta, faz falta. IA pastoral no WhatsApp da sua igreja.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f3ea",
+  "theme_color": "#0a1f44",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}

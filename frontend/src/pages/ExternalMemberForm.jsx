@@ -1,13 +1,26 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../services/api';
 import MemberForm from './Members/MemberForm';
+import { setCongregacoes } from '../constants/congregacoes';
 
 export default function ExternalMemberForm() {
   const { token } = useParams();
   const [status, setStatus] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [submittedName, setSubmittedName] = useState('');
+  const [tenantReady, setTenantReady] = useState(false);
+
+  // O token do convite identifica a igreja: carrega as congregações dela antes do formulário.
+  useEffect(() => {
+    api.get(`/public/invitations/${token}/tenant`)
+      .then(({ data }) => {
+        setCongregacoes(data.congregacoes);
+        if (data.nome) document.title = `Cadastro — ${data.nomeCurto || data.nome}`;
+      })
+      .catch(() => {})
+      .finally(() => setTenantReady(true));
+  }, [token]);
 
   const handleSubmit = async (payload) => {
     setSubmitting(true);
@@ -25,6 +38,10 @@ export default function ExternalMemberForm() {
       setSubmitting(false);
     }
   };
+
+  if (!tenantReady) {
+    return <div className="min-h-screen bg-ibbiCream flex items-center justify-center text-slate-500">Carregando...</div>;
+  }
 
   if (status === 'ok') {
     return (

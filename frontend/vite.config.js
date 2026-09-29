@@ -5,6 +5,7 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 4173,
+    strictPort: true, // não pular para 4174/4175; o stop-dev libera a porta
     host: '0.0.0.0',
   },
 });

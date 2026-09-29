@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const tenantPlugin = require('../tenancy/plugin');
 
 const RegistrationRequestSchema = new mongoose.Schema({
   nome: { type: String, required: true, trim: true },
@@ -14,5 +15,7 @@ const RegistrationRequestSchema = new mongoose.Schema({
   approvedPersonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Person' },
   approvedUserId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
 });
+
+RegistrationRequestSchema.plugin(tenantPlugin);
 
 module.exports = mongoose.models.RegistrationRequest || mongoose.model('RegistrationRequest', RegistrationRequestSchema);

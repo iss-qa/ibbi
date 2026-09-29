@@ -16,7 +16,7 @@ const triggerEvolutionCheckOnFailure = () => {
 };
 const templates = require('../templates/messages.templates');
 const { generateBirthdayCard } = require('../services/image.service');
-const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
+const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao, getUserCongregacoes } = require('../utils/access');
 const { DEFAULT_USER_PASSWORD } = require('../config/defaults');
 
 const SUMMARY_TYPE_ORDER = [
@@ -318,7 +318,7 @@ const summary = async (req, res) => {
 const prayerLog = async (req, res) => {
   const filter = req.user.role === 'master'
     ? { tipo: 'oracao' }
-    : { tipo: 'oracao', origemCongregacao: await getUserCongregacao(req.user) };
+    : { tipo: 'oracao', origemCongregacao: { $in: await getUserCongregacoes(req.user) } };
   const items = await Message.find(filter).sort({ criadoEm: -1 }).limit(200).populate('enviadoPor', 'nome');
   const mapped = items.map((item) => ({
     _id: item._id,

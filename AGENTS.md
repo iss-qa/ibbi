@@ -1,4 +1,4 @@
-# AGENTS.md — Igreja Batista Bíblica Israel (IBBI)
+# AGENTS.md — PastorIA (ex-IBBI)
 > Arquivo de contexto para agentes de IA e IDEs inteligentes (Cursor, Windsurf, Copilot, etc.)
 > Mantenha este arquivo na raiz do monorepo.
 
@@ -6,9 +6,11 @@
 
 ## 🏛️ Visão Geral do Projeto
 
-**Nome:** Sistema de Gestão de Membros — Igreja Batista Bíblica Israel (IBBI)
-**Tipo:** Aplicação web fullstack — monorepo
-**Objetivo:** CRUD completo de membros da igreja com painel de comunicação automatizado via WhatsApp (Evolution API)
+**Nome do produto:** PastorIA — slogan: *"Quem falta, faz falta."*
+**Tipo:** Aplicação web fullstack SaaS multi-tenant — monorepo
+**Objetivo:** retenção e cuidado de membros para igrejas: IA pastoral no WhatsApp da liderança, chamada/frequência, reengajamento de ausentes, aniversários e gestão de pessoas. A IBBI é o tenant fundador (cliente), não mais o nome do sistema.
+
+**Marca (frontend):** tokens Tailwind `brandNavy/brandGold/brandBlue/brandCream` (mesma paleta dos antigos `ibbi*`, que seguem em uso nas telas internas). Wordmark em `components/landing/Logo.jsx`. Assistente padrão: "Ana".
 
 ---
 
@@ -331,7 +333,7 @@ personalizada(nome, texto)
 | Endereco + Complemento + Cidade + Estado + CEP | `endereco` | Concatenar com vírgulas |
 | Ministerio | `ministerio` | |
 
-> **Demais colunas do CSV devem ser ignoradas.**
+> **Demais colunas do CSV devem ser ignoradas.** Implementação atual: `services/person-import.service.js` (aceita também o modelo simplificado do PastorIA — ver seção *Importação de pessoas*).
 
 ---
 
@@ -432,7 +434,7 @@ npm run build
 ## ⚠️ Regras e Convenções para o Agente
 
 1. **A API Key da Evolution NUNCA deve aparecer no código do frontend** — sempre via variável de ambiente no backend
-2. **Delay de 30s entre mensagens em lote é OBRIGATÓRIO** — nunca remover ou reduzir
+2. **Anti-banimento é OBRIGATÓRIO** — todo envio iniciado pela igreja passa por `services/whatsapp/antiban.js` (`sendText(..., { bulk: true })`, fila ou `whatsapp.paceBulk()`): intervalo aleatório 45–90s (piso de 30s, nunca reduzir), janela 08h–21h, limites por hora/dia, pausa a cada 20, bloqueio de duplicadas e "digitando…". Nunca use `setTimeout` fixo para espaçar envios
 3. **Senhas sempre em hash bcrypt** — nunca retornar `senha` em nenhum response da API
 4. **Virtual `idade`** — nunca persistir no banco, sempre calcular em runtime
 5. **Hook pre-save no Person:** se `batizado = true` → `tipo = 'membro'`
@@ -442,9 +444,77 @@ npm run build
 9. **Seed script** deve ser idempotente — não duplicar registros se executado mais de uma vez
 10. **Templates de mensagens** ficam APENAS em `messages.templates.js` — nunca hardcodar mensagens nos controllers
 11. **Aulas EBD** só podem ser criadas em datas domingo (dayOfWeek === 0)
-12. **Índice único composto** { data, classe } na collection ebd_aulas
+12. **Índice único composto** { tenantId, data, classe, congregacao } na collection ebdaulas
 13. **Presença pré-populada** com todos os ativos do grupo, presente = true por padrão
 14. **Chamada bloqueada** para edição após 7 dias — exceto master
+
+---
+
+## 🌐 Landing page e cadastro público
+
+- `/` → `frontend/src/pages/Landing/` (Nav, Hero com `ChatDemo`, Sections, Plans). Animações em CSS puro (`index.css`, bloco "Landing page") + `hooks/useReveal.js` / `components/landing/Reveal.jsx` (reveal por scroll, respeita `prefers-reduced-motion`). Sem lib de animação.
+- `/cadastro` → `pages/Signup.jsx`: cria a igreja via `POST /api/public/signup` e mostra login + senha temporária; `?plano=` pré-seleciona o plano.
+- Provisionamento (tenant + master) centralizado em `backend/src/tenancy/provision.service.js`, usado pelo painel da plataforma e pelo cadastro público. Email de boas-vindas em `templates/welcome-email.template.js`; aviso para `ALERT_EMAIL`/`PLATFORM_ADMIN_EMAIL`.
+- `VITE_CONTACT_WHATSAPP` (opcional): número para o botão "Falar com a equipe" do plano Rede.
+- **Marca:** SVGs e PNGs em `frontend/public/brand/` (marca 16→1024px, horizontal/vertical, claro/escuro), `favicon.svg`/`favicon.ico`/`apple-touch-icon.png`/`icon-192|512.png`, `og-image.png` e `site.webmanifest`. Regenerar PNGs: renderizar os SVGs com Playwright (ver `frontend/public/brand/*.svg`). Nas telas React use `components/landing/Logo.jsx`; a logo da IBBI (`assets/logo-ibbi.jpeg`) só como fallback do tenant fundador em `TenantLogo`, carteirinha e certificado.
+
+## 📥 Importação de pessoas (CSV)
+
+- `GET /api/persons/import-template` (master) baixa o modelo; `POST /api/persons/import-csv` (master, multipart `file`, máx. 5 MB / 5000 linhas). `?dryRun=1` só valida e devolve a prévia.
+- Lógica em `backend/src/services/person-import.service.js`: cabeçalhos casados sem acento/caixa via `HEADER_ALIASES` (modelo PastorIA **e** export do ChurchCRM: `Nome+Segundo Nome+Sobrenome`, `Gênero`, `Data de Aniversário`, `Classificação`, `MembershipDate`…); separador `,` ou `;` detectado; datas `dd/mm/aaaa` ou ISO; congregação validada contra `Tenant.congregacoes` (sem match → "Não atribuído" + aviso); enums tolerantes a gênero ("casada" → `casado(a)`); `applyPersonBusinessRules` (batizado ⇒ membro, grupo pela idade); duplicados ignorados pela mesma regra do cadastro manual (`buildDuplicateQuery`) e dentro do arquivo. Idempotente.
+- Tela: botão "Importar CSV" (master) em `Members/MemberList.jsx` → `components/ImportCsvModal.jsx` (arquivo → prévia → importar).
+
+## 🏢 Multi-tenant (SaaS)
+
+- **Modelo:** banco compartilhado, coluna `tenantId` em todas as collections da igreja. A IBBI é o tenant fundador (`slug: ibbi`, plano Multiplicar, isento).
+- **Contexto:** `backend/src/tenancy/context.js` (AsyncLocalStorage). `auth.middleware` e `tenant.middleware` executam a requisição dentro de `runWithTenant`.
+- **Isolamento automático:** `backend/src/tenancy/plugin.js` injeta `{ tenantId }` em toda query/aggregate/save. **Falha fechado**: sem tenant no contexto a operação lança erro. Rotinas de plataforma usam `runAsPlatform`.
+- **Novo model de igreja?** Sempre `Schema.plugin(tenantPlugin)` e índices únicos compostos com `tenantId`.
+- **Jobs/crons/webhooks** (fora de requisição) precisam de `runWithTenant(tenant, fn)` explícito. `setImmediate`/promises herdam o contexto.
+- **Migração:** `tenancy/bootstrap.js` roda na subida (idempotente): cria o tenant fundador, carimba `tenantId` em docs legados e troca índices únicos globais.
+- **Login:** `POST /api/auth/login { login, senha, igreja }` — igreja = slug (ou header `X-Tenant`, subdomínio, `DEFAULT_TENANT_SLUG`). JWT carrega `tid`. Login é único **por igreja**.
+- **Textos da igreja:** nunca hardcodar "IBBI" — usar `tenancy/brand.js` (`churchName()`, `churchShort()`, `portalUrl()`).
+- **Congregações:** por igreja em `Tenant.congregacoes` (o enum saiu do Person). No front, `CONGREGACOES` é preenchido pelo `TenantContext`.
+
+## 💳 Planos e billing
+
+- Catálogo em `backend/src/config/plans.js` (Semente R$97 · Crescer R$197 · Multiplicar R$397 · Rede sob consulta; anual = 10x mensal). Congregações ilimitadas: 1 igreja = 1 cobrança.
+- Limites por plano: pessoas ativas, mensagens WhatsApp/mês, interações de IA/mês (`usage.service` + `UsageCounter`).
+- `billing.service.runBillingCycle` (cron 06:00 BRT): fim de trial → fatura → vencida → inadimplente (3 dias) → suspensa (15 dias). Igreja suspensa recebe 402 `TENANT_SUSPENDED` (exceto `/api/tenant/*`).
+- Gateway opcional **Asaas** (`ASAAS_API_KEY`), webhook `POST /api/webhooks/asaas`.
+- Painel da plataforma: `/platform` (front) e `/api/platform/*` (JWT `aud: platform`, model `PlatformUser`).
+
+## 🤖 IA e WhatsApp
+
+- **Provider por igreja** (`services/whatsapp.service.js`): `evolution` (não oficial, QR) ou `cloud` (API Oficial da Meta). Credenciais criptografadas (`utils/crypto.js`). Tenant com `whatsapp.useEnvFallback` usa `EVOLUTION_*` do `.env`.
+- **Fila FIFO por igreja**, delay de 30s mantido. Na API Oficial, mensagens proativas fora da janela de 24h usam templates aprovados (`whatsapp.cloud.templates`).
+- **Agente** (`services/ai/agent.service.js` + `tools.js`): Claude via `@anthropic-ai/sdk`, modelo em `AI_MODEL`. Papéis: `lider` (master/admin com celular, `Tenant.lideranca`, `Tenant.ebdLideres`), `membro`, `desconhecido` — cada um com ferramentas próprias.
+- **Entrada:** webhooks `POST /api/webhooks/evolution/:slug?token=` e `GET|POST /api/webhooks/whatsapp` → `ai/inbound.service.js` (dedup por messageId, atalhos sem IA para "1 3 5" e "enviar", áudio → transcrição, imagem → visão).
+- **Reengajamento** (`services/engagement.service.js`): após cada chamada, calcula faltas consecutivas, abre `CareAlert`, gera mensagem com IA (fallback: template) e envia ou pede aprovação ao líder; ao atingir `semanasAlerta` avisa a liderança. Retorno do membro fecha o alerta.
+- **Automações** (`scheduler.service.js`, tick a cada 5 min por igreja no fuso dela): aniversários + aviso à liderança, convocação da chamada no domingo, varredura de ausências, relatório semanal.
+- Toda ferramenta que envia mensagem a membro exige aprovação explícita do líder (`confirmado: true`).
+- **Menu do líder guiado** (`services/ai/flows.js`, sem IA): 👥 1 Pesquisar (ficha + foto) · 2 Cadastrar · 3 Editar | 📋 4 Registrar presença (EBD: congregação → classe; Uniões: grupo → novo encontro/anteriores/resumir) · 5 Resumir encontro | 💛 6 Grupos (membros, frequência, ausentes 3+, números) · 7 Quem está faltando (ligar/visitar/orar com confirmação "foi feito?", mensagem, encaminhar a obreiro) · 8 Aviso (grupo → mensagem → prévia) · 9 Aniversariantes (semana/mês, com bodas e batismo) · 10 Relatório da semana (avaliação: ≥90% elogio, <50% preocupação em negrito) · 11 Pedidos de oração (fazer/ver). Opções 2 e 3 viram pedido ao agente. Criar/editar grupos e adicionar/remover membros: **só na web** (tools com `channels: ['web']`). `menu`/`MENU` a qualquer momento.
+- **Assistente por igreja:** `Tenant.ia.nomeAssistente` (padrão *Barnabé*), catálogo com apresentação bíblica em `config/assistentes.js` (`GET /api/public/assistentes`); nome fora do catálogo usa Lucas 15:4.
+- **Pedidos de oração:** model `PedidoOracao` (portal e WhatsApp, via `services/prayer.service.js`); repassados ao WhatsApp da igreja quando configurado. Liderança lista em `GET /api/prayer` e marca `PUT /api/prayer/:id/status` (novo/orado/arquivado); tela `/prayer` (admin/master: lista + modo leitura + novo pedido). Pedidos antigos (log `Message.tipo=oracao`) importados uma vez na subida.
+- **Bodas e batismo:** `Person.dataCasamento`; `scheduler.sendAnniversaryMessages` envia parabéns de casamento e de batismo no dia (junto dos aniversários, 1x/dia).
+- **Resumo de encontro:** relato por texto ou áudio (≤ 2 min, `media.seconds`) → IA organiza (`generateText`) → líder aprova → `Encontro.resumo` (`status: agendado`, `enviarEm` = +1h) → `scheduler.runResumosEncontro` envia aos membros com celular, em ordem aleatória, pela fila anti-ban; log `Message.tipo = resumo_encontro`.
+- **Cadastro pelo WhatsApp** exige confirmação (`cadastrar_pessoa` com `confirmado`), repetindo o número e alertando celular com 10 dígitos. Boas-vindas vão para o celular da pessoa (em `FORCE_MOCK_RECIPIENT=true`, para o número de teste). Foto: `editar_pessoa.usarUltimaFoto` ou foto enviada com a ficha aberta.
+- `criar_grupo_encontro`/`editar_grupo_encontro` só no canal `web` (Assistente da plataforma); no WhatsApp o agente orienta a usar a web.
+- Modo teste "conversa consigo mesmo" (`WHATSAPP_SELF_CHAT_TEST`) aceita texto, **áudio e foto**; imagens enviadas pelo bot são marcadas como eco (`isOwnImageEcho`).
+
+### Rotas novas
+
+```
+Tenant (auth)            GET /api/tenant · PUT /api/tenant/settings · GET /api/tenant/billing · PUT /api/tenant/billing/plan
+                         GET /api/tenant/whatsapp/status · POST /api/tenant/whatsapp/test · GET /api/tenant/webhook-info
+Cuidado (admin/master)   GET /api/care/overview · GET /api/care/alerts · PUT /api/care/alerts/:id
+                         POST /api/care/alerts/:id/generate · POST /api/care/alerts/:id/send · POST /api/care/process-aula/:id
+Assistente (admin/master) POST /api/assistant/chat · GET|DELETE /api/assistant/history
+Webhooks                 POST /api/webhooks/evolution/:slug · GET|POST /api/webhooks/whatsapp · POST /api/webhooks/asaas
+Plataforma               /api/platform/* (auth, metrics, tenants, invoices, billing/run, plans)
+Public                   GET /api/public/plans · GET /api/public/tenants/:slug · GET /api/public/invitations/:token/tenant
+                         GET /api/public/signup/slug/:slug · POST /api/public/signup (cadastro da LP → tenant em trial + master; rate limit 5/h/IP, honeypot `website`)
+```
 
 ---
 
