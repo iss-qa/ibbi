@@ -35,7 +35,7 @@ const PLANS = {
     limites: {
       pessoas: 500,
       whatsappMensagensMes: 5000,
-      iaInteracoesMes: 1500,
+      iaInteracoesMes: 3000,
       usuariosAdmin: 10,
     },
     features: {
