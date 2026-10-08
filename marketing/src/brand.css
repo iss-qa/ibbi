@@ -82,3 +82,6 @@ body { font-family: var(--body); background: #555; -webkit-font-smoothing: antia
   padding: 18px 26px; box-shadow: 0 20px 50px rgba(0,0,0,.3); display: flex; align-items: center; gap: 12px; font-size: 26px;
 }
 .badge .live { width: 14px; height: 14px; border-radius: 50%; background: #10b981; }
+
+/* Marca sobre fundo navy: anel dourado para o círculo não sumir */
+.bg-navy .logo img, .bg-navy img.mark { border-radius: 50%; box-shadow: 0 0 0 3px rgba(201,162,39,.6), 0 10px 30px rgba(0,0,0,.35); }
