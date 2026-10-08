@@ -2,6 +2,84 @@ import { useEffect, useState } from 'react';
 import Header from '../../components/Header';
 import api from '../../services/api';
 import useAuth from '../../hooks/useAuth';
+import { CONGREGACOES } from '../../constants/congregacoes';
+import { Button, Modal } from '../../components/ui';
+
+const ROLE_INFO = {
+  user: { label: 'Membro', desc: 'Vê e edita apenas os próprios dados, pedido de oração e carteirinha.' },
+  admin: { label: 'Administrador', desc: 'Gere pessoas, EBD, comunicação e cuidado apenas das congregações marcadas.' },
+  master: { label: 'Master', desc: 'Acesso total à igreja: todas as congregações, usuários, configurações e assinatura.' },
+};
+
+function AccessSummary({ user }) {
+  if (user.role === 'master') return <span className="text-xs font-medium text-ibbiNavy">Todas as congregações</span>;
+  if (user.role === 'user') return <span className="text-xs text-slate-400">Próprios dados</span>;
+  const lista = user.congregacoesAcesso?.length ? user.congregacoesAcesso : [user.congregacao].filter(Boolean);
+  return (
+    <div className="flex flex-wrap gap-1">
+      {lista.map((c) => <span key={c} className="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700">{c}</span>)}
+      {!user.congregacoesAcesso?.length && <span className="text-[11px] text-slate-400">(do cadastro)</span>}
+    </div>
+  );
+}
+
+function AccessModal({ target, onClose, onSaved }) {
+  const [role, setRole] = useState(target.role);
+  const [lista, setLista] = useState(target.congregacoesAcesso?.length ? target.congregacoesAcesso : [target.congregacao].filter(Boolean));
+  const [error, setError] = useState('');
+  const toggle = (c) => setLista((l) => (l.includes(c) ? l.filter((x) => x !== c) : [...l, c]));
+
+  const save = async () => {
+    setError('');
+    try {
+      await api.put(`/users/${target._id}/access`, { role, congregacoesAcesso: role === 'admin' ? lista : [] });
+      onSaved();
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Falha ao salvar');
+    }
+  };
+
+  return (
+    <Modal
+      title={`Acesso de ${target.nome}`}
+      onClose={onClose}
+      footer={<><Button variant="ghost" onClick={onClose}>Cancelar</Button><Button onClick={save} disabled={role === 'admin' && !lista.length}>Salvar</Button></>}
+    >
+      <div className="space-y-2 mb-4">
+        {Object.entries(ROLE_INFO).map(([k, info]) => (
+          <label key={k} className={`flex gap-3 p-3 rounded-lg border cursor-pointer ${role === k ? 'border-ibbiBlue bg-blue-50/50' : 'border-slate-200'}`}>
+            <input type="radio" name="role" checked={role === k} onChange={() => setRole(k)} className="mt-1" />
+            <span>
+              <span className="block text-sm font-medium text-slate-800">{info.label}</span>
+              <span className="block text-xs text-slate-500">{info.desc}</span>
+            </span>
+          </label>
+        ))}
+      </div>
+      {role === 'admin' && (
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-sm font-medium text-slate-700">Congregações que administra</p>
+            <div className="flex gap-2 text-xs">
+              <button type="button" className="text-ibbiBlue" onClick={() => setLista([...CONGREGACOES])}>marcar todas</button>
+              <button type="button" className="text-slate-500" onClick={() => setLista([])}>limpar</button>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5 max-h-64 overflow-y-auto">
+            {CONGREGACOES.map((c) => (
+              <label key={c} className="flex items-center gap-2 text-sm px-2 py-1.5 rounded hover:bg-slate-50 cursor-pointer">
+                <input type="checkbox" checked={lista.includes(c)} onChange={() => toggle(c)} />
+                {c}
+              </label>
+            ))}
+          </div>
+          <p className="text-[11px] text-slate-400 mt-2">Ex.: pastor regional com 3 congregações, ou líder local só da sua. Para acesso a tudo (usuários, configurações e assinatura) use Master.</p>
+        </div>
+      )}
+      {error && <p className="text-sm text-red-600 mt-3">{error}</p>}
+    </Modal>
+  );
+}
 
 export default function UserManagement() {
   const { user: currentUser } = useAuth();
@@ -14,6 +92,7 @@ export default function UserManagement() {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [total, setTotal] = useState(0);
+  const [accessTarget, setAccessTarget] = useState(null);
 
   const totalPages = Math.ceil(total / limit);
 
@@ -105,6 +184,7 @@ export default function UserManagement() {
                 <th className="px-4 py-3">Congregação</th>
                 <th className="px-4 py-3">Login</th>
                 <th className="px-4 py-3">Role</th>
+                <th className="px-4 py-3">Acesso</th>
                 <th className="px-4 py-3">Status</th>
                 <th className="px-4 py-3 text-right">Ações</th>
               </tr>
@@ -123,10 +203,16 @@ export default function UserManagement() {
                       onChange={(e) => updateRole(user._id, e.target.value)}
                       disabled={currentUser?.role !== 'master' && user.role === 'master'}
                     >
-                      <option value="user">user</option>
-                      <option value="admin">admin</option>
-                      <option value="master">master</option>
+                      <option value="user">Membro</option>
+                      <option value="admin">Administrador</option>
+                      <option value="master">Master</option>
                     </select>
+                  </td>
+                  <td className="px-4 py-3 max-w-[260px]">
+                    <AccessSummary user={user} />
+                    {currentUser?.role === 'master' && (
+                      <button type="button" className="text-xs text-ibbiBlue hover:underline mt-1" onClick={() => setAccessTarget(user)}>Gerenciar acesso</button>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <select
@@ -162,6 +248,10 @@ export default function UserManagement() {
                   <p className="text-sm font-semibold text-slate-800">{user.nome}</p>
                   <p className="text-xs text-slate-500">{user.login}</p>
                   <p className="text-xs text-slate-400 mt-1">{user.congregacao || '-'}</p>
+                  <div className="mt-1"><AccessSummary user={user} /></div>
+                  {currentUser?.role === 'master' && (
+                    <button type="button" className="text-xs text-ibbiBlue mt-1" onClick={() => setAccessTarget(user)}>Gerenciar acesso</button>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button className="text-orange-500 bg-orange-50 px-3 py-2 rounded-lg text-sm font-medium hover:bg-orange-100 transition" onClick={() => resetPassword(user._id)}>
@@ -181,9 +271,9 @@ export default function UserManagement() {
                     onChange={(e) => updateRole(user._id, e.target.value)}
                     disabled={currentUser?.role !== 'master' && user.role === 'master'}
                   >
-                    <option value="user">user</option>
-                    <option value="admin">admin</option>
-                    <option value="master">master</option>
+                    <option value="user">Membro</option>
+                    <option value="admin">Administrador</option>
+                    <option value="master">Master</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-1">
@@ -268,6 +358,7 @@ export default function UserManagement() {
           </div>
         </div>
       )}
+      {accessTarget && <AccessModal target={accessTarget} onClose={() => setAccessTarget(null)} onSaved={() => { setAccessTarget(null); load(); }} />}
     </div>
   );
 }

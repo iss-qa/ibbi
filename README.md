@@ -1,6 +1,8 @@
-# IBBI — Sistema de Gestão de Membros
+# PastorIA — Quem falta, faz falta.
 
-Sistema web fullstack para gestão de membros da Igreja Batista Bíblica Israel, com comunicação via WhatsApp, pedidos de oração, carteirinha, certificado, dashboard, EBD e fluxo de acompanhamento do Projeto Amigo.
+Plataforma SaaS multi-tenant de retenção e cuidado de membros para igrejas: IA pastoral no WhatsApp da liderança, chamada e frequência, reengajamento de ausentes, aniversários automáticos, pedidos de oração, carteirinha, certificado, dashboard, EBD e acompanhamento do Projeto Amigo. Nasceu como o sistema interno da Igreja Batista Bíblica Israel (IBBI), hoje o tenant fundador.
+
+Landing page em `/`, cadastro de igreja em `/cadastro`, planos em `/planos`.
 
 ## Visão Geral
 

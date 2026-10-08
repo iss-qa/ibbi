@@ -13,6 +13,7 @@ const mongoose = require('mongoose');
 const dotenv = require('dotenv');
 
 dotenv.config({ path: path.join(__dirname, '..', '..', '..', '.env') });
+const { runInTenant } = require('./tenant-script');
 
 const TriagemGrupo = require('../models/TriagemGrupo.model');
 
@@ -156,7 +157,7 @@ const main = async () => {
   await mongoose.disconnect();
 };
 
-main().catch((err) => {
+runInTenant(main).catch((err) => {
   console.error('Erro no seed:', err);
   mongoose.disconnect();
   process.exit(1);

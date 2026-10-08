@@ -1,4 +1,5 @@
 // Template de email de Feliz Aniversário — identidade visual da IBBI
+const { churchName, churchShort, portalUrl } = require('../tenancy/brand');
 // (azul marinho + dourado, igual ao cartão). A imagem do cartão é embutida
 // via CID (cid:cartao-aniversario), anexada pelo remetente.
 
@@ -17,7 +18,7 @@ const birthdayEmailHtml = (person) => {
         <!-- Cabeçalho -->
         <div style="padding:28px 32px 8px;text-align:center;">
           <div style="display:inline-block;padding:8px 22px;border:1px solid rgba(212,175,55,0.5);border-radius:999px;color:#d4af37;font-size:13px;letter-spacing:0.22em;text-transform:uppercase;font-weight:bold;">
-            IBBI
+            ${churchShort()}
           </div>
         </div>
 
@@ -49,12 +50,12 @@ const birthdayEmailHtml = (person) => {
         <!-- Rodapé -->
         <div style="padding:18px 24px 26px;text-align:center;border-top:1px solid rgba(255,255,255,0.08);">
           <p style="margin:0;color:#9fb0d4;font-size:13px;font-style:italic;">Com carinho,</p>
-          <p style="margin:4px 0 0;color:#ffffff;font-size:15px;font-weight:bold;">Igreja Batista Bíblica Israel</p>
+          <p style="margin:4px 0 0;color:#ffffff;font-size:15px;font-weight:bold;">${churchName()}</p>
         </div>
       </div>
 
       <p style="text-align:center;color:#94a3b8;font-size:11px;margin:18px 0 0;">
-        Mensagem enviada automaticamente pelo sistema IBBI.
+        Mensagem enviada automaticamente pelo sistema ${churchShort()}.
       </p>
     </div>
   </div>`;
@@ -66,7 +67,7 @@ const birthdayEmailText = (person) => {
     `Feliz Aniversário, ${primeiroNome}!\n\n` +
     `Que o Senhor continue guiando seus passos com graça, paz e alegria em cada novo dia.\n\n` +
     `"Este é o dia que o Senhor fez; nele nos alegraremos e exultaremos." (Salmos 118:24)\n\n` +
-    `Com carinho,\nIgreja Batista Bíblica Israel`
+    `Com carinho,\n${churchName()}`
   );
 };
 

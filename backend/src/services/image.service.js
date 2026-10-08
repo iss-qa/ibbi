@@ -1,7 +1,9 @@
+const { churchShort } = require('../tenancy/brand');
 // backend/src/services/image.service.js
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
+const { sanitizeFotoUrl } = require('../utils/sanitize');
 
 // Detecta se está rodando em ambiente serverless real (AWS Lambda, Vercel, etc.)
 // NODE_ENV=production sozinho não é suficiente — ambientes locais também podem usar production
@@ -28,33 +30,58 @@ try {
   }
 }
 
-async function tryFetchImageAsBase64(url) {
-  // ... (mesma função anterior)
+// Foto remota só via https para host público (sem localhost/IP/rede interna) e até 5 MB:
+// fotoUrl vem de cadastro e já foi usada para SSRF contra a rede interna.
+const MAX_REMOTE_PHOTO_BYTES = 5 * 1024 * 1024;
+const isPublicHttpsUrl = (value) => {
   try {
-    const resp = await axios.get(url, { responseType: 'arraybuffer' });
-    const mime = resp.headers['content-type'] || 'image/jpeg';
+    const u = new URL(value);
+    if (u.protocol !== 'https:') return false;
+    const host = u.hostname.toLowerCase();
+    if (host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal')) return false;
+    if (/^[\d.]+$/.test(host) || host.includes(':') || host.startsWith('[')) return false; // IP literal
+    return host.includes('.');
+  } catch {
+    return false;
+  }
+};
+
+async function tryFetchImageAsBase64(url) {
+  if (!isPublicHttpsUrl(url)) return null;
+  try {
+    const resp = await axios.get(url, {
+      responseType: 'arraybuffer', timeout: 8000, maxRedirects: 0, maxContentLength: MAX_REMOTE_PHOTO_BYTES,
+    });
+    const mime = String(resp.headers['content-type'] || '').split(';')[0].trim();
+    if (!/^image\/(png|jpe?g|webp|gif)$/.test(mime)) return null;
     return `data:${mime};base64,${Buffer.from(resp.data).toString('base64')}`;
   } catch {
     return null;
   }
 }
 
-async function getBase64Image(urlOrPath, options = {}) {
+const UPLOAD_DIRS = [
+  path.resolve(__dirname, '../../../uploads'),
+  path.resolve(__dirname, '../../../../uploads'),
+];
+
+async function getBase64Image(urlOrPath) {
   if (!urlOrPath) return null;
-  const { origin } = options;
   const normalized = String(urlOrPath).trim();
-  if (normalized.startsWith('data:image/')) return normalized;
+  // Data URI só no formato estrito (entra cru no CSS da página renderizada)
+  if (normalized.startsWith('data:image/')) return sanitizeFotoUrl(normalized) || null;
   if (normalized.startsWith('http')) return tryFetchImageAsBase64(normalized);
   const cleanPath = normalized.replace(/^\/?(api\/)?uploads\//, '');
-  const candidates = [
-    path.resolve(__dirname, '../../../uploads', cleanPath),
-    path.resolve(__dirname, '../../../../uploads', cleanPath),
-  ];
-  const finalPath = candidates.find((candidate) => fs.existsSync(candidate));
+  // Sem path traversal: o arquivo tem de ficar dentro da pasta uploads
+  const candidates = UPLOAD_DIRS
+    .map((dir) => ({ dir, file: path.resolve(dir, cleanPath) }))
+    .filter(({ dir, file }) => file.startsWith(dir + path.sep));
+  const finalPath = candidates.map(({ file }) => file).find((candidate) => fs.existsSync(candidate));
   if (finalPath) {
-    const ext = path.extname(finalPath).substring(1) || 'jpeg';
+    const ext = path.extname(finalPath).substring(1).toLowerCase();
+    if (!['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) return null;
     const data = fs.readFileSync(finalPath);
-    return `data:image/${ext};base64,${data.toString('base64')}`;
+    return `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${data.toString('base64')}`;
   }
   return null;
 }
@@ -84,7 +111,7 @@ function renderHtml({ person, isPortrait, width, height, bgCss, b64Photo }) {
     ? `<div class="subtitle">Celebramos a vida de ${safeFullName} com gratidão ao Senhor por mais um ano de bênçãos.</div>`
     : `<div class="subtitle">Feliz aniversário! Que o Senhor continue guiando seus passos com graça, paz e alegria em cada novo dia.</div>`;
 
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8" /><style>@font-face { font-family: 'Great Vibes'; src: url('${getFontUrl('GreatVibes-Regular.ttf')}') format('truetype'); } @font-face { font-family: 'Inter'; src: url('${getFontUrl('Inter-Regular.ttf')}') format('truetype'); font-weight: 400; } @font-face { font-family: 'Inter'; src: url('${getFontUrl('Inter-Medium.ttf')}') format('truetype'); font-weight: 500; } @font-face { font-family: 'Inter'; src: url('${getFontUrl('Inter-Bold.ttf')}') format('truetype'); font-weight: 700; } * { box-sizing: border-box; } body { margin: 0; width: ${width}px; height: ${height}px; ${bgCss} position: relative; overflow: hidden; font-family: 'Inter', sans-serif; color: #10264d; } body::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(7, 23, 51, 0.14) 0%, rgba(7, 23, 51, 0.04) 22%, rgba(255, 255, 255, 0.12) 100%), radial-gradient(circle at top left, rgba(255,255,255,0.92), rgba(255,255,255,0.18) 42%, transparent 64%); } .shell { position: relative; z-index: 1; width: 100%; height: 100%; padding: ${isPortrait ? '84px' : '78px 94px'}; display: flex; flex-direction: column; } .brand { align-self: ${isPortrait ? 'center' : 'flex-start'}; padding: 16px 28px; border-radius: 999px; background: rgba(255, 255, 255, 0.84); border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 18px 38px rgba(8, 22, 49, 0.08); font-size: ${isPortrait ? '26px' : '24px'}; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700; color: #18386f; } .frame { flex: 1; margin-top: ${isPortrait ? '42px' : '34px'}; border-radius: ${isPortrait ? '48px' : '44px'}; background: rgba(255, 253, 249, 0.72); border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 28px 70px rgba(8, 22, 49, 0.12); backdrop-filter: blur(8px); position: relative; overflow: hidden; } .content { position: relative; z-index: 1; width: 100%; height: 100%; display: flex; flex-direction: ${isPortrait ? 'column' : 'row'}; align-items: center; justify-content: center; gap: ${isPortrait ? '46px' : '72px'}; padding: ${isPortrait ? '72px 62px 54px' : '64px 72px'}; } .photo-card { width: 560px; height: ${isPortrait ? '720px' : '690px'}; border-radius: 38px; padding: 18px; background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,255,0.92)); box-shadow: 0 22px 54px rgba(8, 22, 49, 0.14); flex-shrink: 0; } .photo { width: 100%; height: 100%; border-radius: 28px; background: linear-gradient(180deg, rgba(15, 46, 94, 0.06), rgba(15, 46, 94, 0.18)), ${b64Photo ? `url("${b64Photo}") center/cover no-repeat` : 'linear-gradient(135deg, #e8eef9, #d8e3f6)'}; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; } .text-panel { display: flex; flex-direction: column; justify-content: center; align-items: ${isPortrait ? 'center' : 'flex-start'}; text-align: ${isPortrait ? 'center' : 'left'}; width: 100%; max-width: ${isPortrait ? '100%' : '980px'}; } .title-row { display: flex; align-items: baseline; justify-content: ${isPortrait ? 'center' : 'flex-start'}; gap: 20px; flex-wrap: nowrap; width: 100%; white-space: nowrap; color: #10356e; } .title-prefix { font-size: ${titleSize}px; line-height: 1; font-weight: 700; letter-spacing: -0.04em; } .title-name { font-family: 'Great Vibes', cursive; font-size: ${nameSize}px; line-height: 0.95; color: #0b4dbf; text-shadow: 0 8px 26px rgba(11, 77, 191, 0.12); } .subtitle { margin-top: 24px; font-size: ${isPortrait ? '34px' : '32px'}; line-height: 1.45; max-width: ${isPortrait ? '760px' : '920px'}; color: #29446f; font-weight: 500; } .verse-card { margin-top: 34px; width: ${isPortrait ? '100%' : '880px'}; max-width: 100%; padding: ${isPortrait ? '28px 30px' : '30px 34px'}; border-radius: 30px; background: rgba(255, 255, 255, 0.74); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 16px 38px rgba(8, 22, 49, 0.08); } .verse-label { font-size: 18px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #7b8cab; margin-bottom: 14px; } .verse { font-size: 34px; line-height: 1.62; color: #1f3761; font-style: italic; } .footer-chip { margin-top: ${isPortrait ? '32px' : '28px'}; align-self: ${isPortrait ? 'center' : 'flex-start'}; padding: 20px 34px; border-radius: 999px; background: linear-gradient(135deg, #0a2a58, #114d9e); color: #fff; font-size: 40px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; box-shadow: 0 18px 40px rgba(11, 77, 191, 0.22); }</style></head><body><div class="shell"><div class="brand">IBBI</div><div class="frame"><div class="content"><div class="photo-card"><div class="photo">${placeholderHtml}</div></div><div class="text-panel"><div class="title-row"><div class="title-prefix">Parabéns,</div><div class="title-name">${safeFirstName}</div></div>${subtitleHtml}<div class="verse-card"><div class="verse-label">Versículo Bíblico</div><div class="verse">"Este é o dia que o Senhor fez; nele nos alegraremos e exultaremos."<br/>Salmos 118:24</div></div><div class="footer-chip">Feliz Aniversário</div></div></div></div></div></body></html>`;
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8" /><style>@font-face { font-family: 'Great Vibes'; src: url('${getFontUrl('GreatVibes-Regular.ttf')}') format('truetype'); } @font-face { font-family: 'Inter'; src: url('${getFontUrl('Inter-Regular.ttf')}') format('truetype'); font-weight: 400; } @font-face { font-family: 'Inter'; src: url('${getFontUrl('Inter-Medium.ttf')}') format('truetype'); font-weight: 500; } @font-face { font-family: 'Inter'; src: url('${getFontUrl('Inter-Bold.ttf')}') format('truetype'); font-weight: 700; } * { box-sizing: border-box; } body { margin: 0; width: ${width}px; height: ${height}px; ${bgCss} position: relative; overflow: hidden; font-family: 'Inter', sans-serif; color: #10264d; } body::before { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(7, 23, 51, 0.14) 0%, rgba(7, 23, 51, 0.04) 22%, rgba(255, 255, 255, 0.12) 100%), radial-gradient(circle at top left, rgba(255,255,255,0.92), rgba(255,255,255,0.18) 42%, transparent 64%); } .shell { position: relative; z-index: 1; width: 100%; height: 100%; padding: ${isPortrait ? '84px' : '78px 94px'}; display: flex; flex-direction: column; } .brand { align-self: ${isPortrait ? 'center' : 'flex-start'}; padding: 16px 28px; border-radius: 999px; background: rgba(255, 255, 255, 0.84); border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 18px 38px rgba(8, 22, 49, 0.08); font-size: ${isPortrait ? '26px' : '24px'}; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 700; color: #18386f; } .frame { flex: 1; margin-top: ${isPortrait ? '42px' : '34px'}; border-radius: ${isPortrait ? '48px' : '44px'}; background: rgba(255, 253, 249, 0.72); border: 1px solid rgba(255, 255, 255, 0.85); box-shadow: 0 28px 70px rgba(8, 22, 49, 0.12); backdrop-filter: blur(8px); position: relative; overflow: hidden; } .content { position: relative; z-index: 1; width: 100%; height: 100%; display: flex; flex-direction: ${isPortrait ? 'column' : 'row'}; align-items: center; justify-content: center; gap: ${isPortrait ? '46px' : '72px'}; padding: ${isPortrait ? '72px 62px 54px' : '64px 72px'}; } .photo-card { width: 560px; height: ${isPortrait ? '720px' : '690px'}; border-radius: 38px; padding: 18px; background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(248,250,255,0.92)); box-shadow: 0 22px 54px rgba(8, 22, 49, 0.14); flex-shrink: 0; } .photo { width: 100%; height: 100%; border-radius: 28px; background: linear-gradient(180deg, rgba(15, 46, 94, 0.06), rgba(15, 46, 94, 0.18)), ${b64Photo ? `url("${b64Photo}") center/cover no-repeat` : 'linear-gradient(135deg, #e8eef9, #d8e3f6)'}; position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; } .text-panel { display: flex; flex-direction: column; justify-content: center; align-items: ${isPortrait ? 'center' : 'flex-start'}; text-align: ${isPortrait ? 'center' : 'left'}; width: 100%; max-width: ${isPortrait ? '100%' : '980px'}; } .title-row { display: flex; align-items: baseline; justify-content: ${isPortrait ? 'center' : 'flex-start'}; gap: 20px; flex-wrap: nowrap; width: 100%; white-space: nowrap; color: #10356e; } .title-prefix { font-size: ${titleSize}px; line-height: 1; font-weight: 700; letter-spacing: -0.04em; } .title-name { font-family: 'Great Vibes', cursive; font-size: ${nameSize}px; line-height: 0.95; color: #0b4dbf; text-shadow: 0 8px 26px rgba(11, 77, 191, 0.12); } .subtitle { margin-top: 24px; font-size: ${isPortrait ? '34px' : '32px'}; line-height: 1.45; max-width: ${isPortrait ? '760px' : '920px'}; color: #29446f; font-weight: 500; } .verse-card { margin-top: 34px; width: ${isPortrait ? '100%' : '880px'}; max-width: 100%; padding: ${isPortrait ? '28px 30px' : '30px 34px'}; border-radius: 30px; background: rgba(255, 255, 255, 0.74); border: 1px solid rgba(255,255,255,0.9); box-shadow: 0 16px 38px rgba(8, 22, 49, 0.08); } .verse-label { font-size: 18px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; color: #7b8cab; margin-bottom: 14px; } .verse { font-size: 34px; line-height: 1.62; color: #1f3761; font-style: italic; } .footer-chip { margin-top: ${isPortrait ? '32px' : '28px'}; align-self: ${isPortrait ? 'center' : 'flex-start'}; padding: 20px 34px; border-radius: 999px; background: linear-gradient(135deg, #0a2a58, #114d9e); color: #fff; font-size: 40px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; box-shadow: 0 18px 40px rgba(11, 77, 191, 0.22); }</style></head><body><div class="shell"><div class="brand">${churchShort()}</div><div class="frame"><div class="content"><div class="photo-card"><div class="photo">${placeholderHtml}</div></div><div class="text-panel"><div class="title-row"><div class="title-prefix">Parabéns,</div><div class="title-name">${safeFirstName}</div></div>${subtitleHtml}<div class="verse-card"><div class="verse-label">Versículo Bíblico</div><div class="verse">"Este é o dia que o Senhor fez; nele nos alegraremos e exultaremos."<br/>Salmos 118:24</div></div><div class="footer-chip">Feliz Aniversário</div></div></div></div></div></body></html>`;
 }
 
 const generateBirthdayCard = async (person, format = 'portrait', options = {}) => {
@@ -93,7 +120,7 @@ const generateBirthdayCard = async (person, format = 'portrait', options = {}) =
   const height = isPortrait ? 1920 : 1080;
   const templatePath = path.join(__dirname, '../assets/templates', isPortrait ? 'portrait.png' : 'landscape.png');
   const bgCss = buildTemplateBackground(templatePath);
-  const b64Photo = (await getBase64Image(person.fotoUrl, options)) || getDefaultPhotoBase64();
+  const b64Photo = (await getBase64Image(person.fotoUrl)) || getDefaultPhotoBase64();
 
   let browser;
   try {
@@ -118,12 +145,17 @@ const generateBirthdayCard = async (person, format = 'portrait', options = {}) =
     }
 
     const page = await browser.newPage();
+    // HTML só com dados locais: sem JS e sem rede (fontes via file://, imagens via data:)
+    await page.setJavaScriptEnabled(false);
+    await page.setRequestInterception(true);
+    page.on('request', (r) => (/^(data|file|about):/.test(r.url()) ? r.continue() : r.abort()));
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
     await page.setContent(
       renderHtml({ person, isPortrait, width, height, bgCss, b64Photo }),
       { waitUntil: 'networkidle0' }
     );
-    return await page.screenshot({ type: 'png' });
+    // Puppeteer 22+ devolve Uint8Array; Buffer garante toString('base64') correto.
+    return Buffer.from(await page.screenshot({ type: 'png' }));
   } catch (error) {
     console.error('[GENERATE CARD ERROR]', error);
     throw error;

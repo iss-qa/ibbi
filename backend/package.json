@@ -8,6 +8,7 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.129.0",
     "@napi-rs/canvas": "^0.1.97",
     "@napi-rs/image": "^1.12.0",
     "axios": "^1.7.9",

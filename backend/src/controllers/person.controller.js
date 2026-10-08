@@ -5,48 +5,14 @@ const User = require('../models/User.model');
 const Message = require('../models/Message.model');
 const { onboardMember } = require('../services/member.service');
 const whatsapp = require('../services/whatsapp.service');
-const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
-const { escapeRegex } = require('../utils/sanitize');
+const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao, resolveWritableCongregacao } = require('../utils/access');
+const { escapeRegex, pageParams, sanitizeFotoUrl } = require('../utils/sanitize');
 const { applyPersonBusinessRules, normalizeName } = require('../utils/person-rules');
+const { importPeople, buildTemplate } = require('../services/person-import.service');
+const { toLocal } = require('../utils/phone');
 
-const normalizePhone = (value) => (value ? String(value).replace(/\D/g, '') : '');
-
-const buildFullName = (row) => {
-  const nome = row['Nome'] || '';
-  const segundo = row['Segundo Nome'] || '';
-  const sobrenome = row['Sobrenome'] || '';
-  return [nome, segundo, sobrenome].filter(Boolean).join(' ').trim();
-};
-
-const buildEndereco = (row) => {
-  const parts = [
-    row['Endereço'],
-    row['Complemento'],
-    row['Cidade'],
-    row['Estado'],
-    row['CEP'],
-  ].filter(Boolean);
-  return parts.join(', ');
-};
-
-const mapSexo = (value) => {
-  if (!value) return undefined;
-  const v = String(value).toLowerCase();
-  if (v.startsWith('m')) return 'Masculino';
-  if (v.startsWith('f')) return 'Feminino';
-  return undefined;
-};
-
-const mapTipo = (value) => {
-  if (!value) return undefined;
-  const v = String(value).toLowerCase();
-  if (v.includes('membro')) return 'membro';
-  if (v.includes('congreg')) return 'congregado';
-  if (v.includes('visit')) return 'visitante';
-  if (v.includes('novo')) return 'novo decidido';
-  if (v.includes('crian')) return 'criança';
-  return undefined;
-};
+// Padrão do sistema: só dígitos com DDD, sem o 55 (ver utils/phone)
+const normalizePhone = (value) => (value ? toLocal(value) : '');
 
 const cleanEmptyEnums = (payload) => {
   const enumFields = ['sexo', 'tipo', 'grupo', 'estadoCivil', 'congregacao', 'status', 'motivoInativacao'];
@@ -63,6 +29,7 @@ const clearFieldsByTipo = (payload) => {
     delete payload.ministerio;
     delete payload.batizado;
     delete payload.dataBatismo;
+    delete payload.dataCasamento;
     delete payload.status;
     delete payload.motivoInativacao;
   }
@@ -82,9 +49,9 @@ const clearFieldsByTipo = (payload) => {
 };
 
 // Allowlists de campos por role para prevenir mass assignment
-const ALLOWED_FIELDS_USER = ['nome', 'celular', 'email', 'sexo', 'dataNascimento', 'estadoCivil', 'endereco', 'fotoUrl'];
+const ALLOWED_FIELDS_USER = ['nome', 'celular', 'email', 'sexo', 'dataNascimento', 'estadoCivil', 'dataCasamento', 'endereco', 'fotoUrl'];
 const ALLOWED_FIELDS_ADMIN = [
-  'nome', 'celular', 'email', 'sexo', 'dataNascimento', 'estadoCivil', 'endereco', 'fotoUrl',
+  'nome', 'celular', 'email', 'sexo', 'dataNascimento', 'estadoCivil', 'dataCasamento', 'endereco', 'fotoUrl',
   'tipo', 'grupo', 'batizado', 'dataBatismo', 'status', 'motivoInativacao', 'ministerio',
   'dataVisita', 'dataDecisao', 'acompanhadoPersonId',
 ];
@@ -96,51 +63,6 @@ const filterByAllowlist = (payload, allowlist) => {
     if (payload[key] !== undefined) filtered[key] = payload[key];
   }
   return filtered;
-};
-
-const sanitizeFotoUrl = (url) => {
-  if (!url) return url;
-  // Aceitar apenas data: URIs (uploads controlados) ou paths relativos do /uploads/
-  if (url.startsWith('data:image/') || url.startsWith('/uploads/')) return url;
-  return undefined; // Rejeitar URLs externas (previne SSRF)
-};
-
-const mapEstadoCivil = (value) => {
-  if (!value) return undefined;
-  const v = String(value).toLowerCase().replace(/\s+/g, ' ').trim();
-  const map = {
-    'solteiro (a)': 'solteiro(a)',
-    'casado (a)': 'casado(a)',
-    'divorciado (a)': 'divorciado(a)',
-    'viúvo (a)': 'viúvo(a)',
-    'separado (a)': 'separado(a)',
-    'união estável': 'união estável',
-    'uniao estavel': 'união estável',
-  };
-  return map[v] || value;
-};
-
-const mapCongregacao = (value) => {
-  if (!value) return undefined;
-  const v = String(value).trim().toUpperCase();
-  const map = {
-    'SEDE': 'Sede',
-    'SÃO CRISTOVÃO': 'São Cristóvão',
-    'SÃO CRISTÓVÃO': 'São Cristóvão',
-    'VIDA NOVA': 'Vida Nova',
-    'PQ SÃO PAULO 1': 'PQ São Paulo 1',
-    'PQ SÃO PAULO 2': 'PQ São Paulo 2',
-    'CAPELÃO': 'Capelão',
-    'BAIRRO DA PAZ': 'Bairro da Paz',
-    'DONA LINDU': 'Dona Lindu',
-    'PORTÃO': 'Portão',
-    'OLINDINA-BA': 'Olindina-BA',
-    'CRISÓPOLIS-BA': 'Crisópolis-BA',
-    'SÃO FELIPE-BA': 'São Felipe-BA',
-    'SÃO SEBASTIÃO DO PASSÉ - BA': 'São Sebastião do Passé - BA',
-    'NÃO ATRIBUÍDO': 'Não atribuído',
-  };
-  return map[v] || value;
 };
 
 const buildDuplicateQuery = (payload) => {
@@ -194,7 +116,8 @@ const buildDuplicateQuery = (payload) => {
 };
 
 const list = async (req, res) => {
-  const { page = 1, limit = 20, search, tipo, grupo, congregacao, status, batizado } = req.query;
+  const { search, tipo, grupo, congregacao, status, batizado } = req.query;
+  const { page, limit, skip } = pageParams(req.query, 20);
   let filter = {};
 
   if (tipo) filter.tipo = tipo;
@@ -215,9 +138,8 @@ const list = async (req, res) => {
 
   filter = await applyScopedCongregacaoFilter(req.user, filter, congregacao);
 
-  const skip = (Number(page) - 1) * Number(limit);
   const [items, total, ativos, inativos] = await Promise.all([
-    Person.find(filter).sort({ nome: 1 }).skip(skip).limit(Number(limit)),
+    Person.find(filter).sort({ nome: 1 }).skip(skip).limit(limit),
     Person.countDocuments(filter),
     Person.countDocuments({ ...filter, status: 'ativo' }),
     Person.countDocuments({ ...filter, status: 'inativo' }),
@@ -228,8 +150,8 @@ const list = async (req, res) => {
     total,
     ativos,
     inativos,
-    page: Number(page),
-    limit: Number(limit),
+    page,
+    limit,
   });
 };
 
@@ -264,7 +186,7 @@ const create = async (req, res) => {
   applyPersonBusinessRules(payload);
   if (payload.fotoUrl !== undefined) payload.fotoUrl = sanitizeFotoUrl(payload.fotoUrl);
   if (req.user.role === 'admin') {
-    payload.congregacao = await getUserCongregacao(req.user);
+    payload.congregacao = await resolveWritableCongregacao(req.user, payload.congregacao);
   }
 
   // Nova Validação de duplicidade forte
@@ -330,8 +252,19 @@ const update = async (req, res) => {
   applyPersonBusinessRules(payload);
   if (payload.fotoUrl !== undefined) payload.fotoUrl = sanitizeFotoUrl(payload.fotoUrl);
   if (req.user.role === 'admin') {
-    payload.congregacao = await getUserCongregacao(req.user);
+    payload.congregacao = await resolveWritableCongregacao(req.user, payload.congregacao || existing.congregacao);
   }
+
+  // Regras sobre o estado final (payload + cadastro atual): o hook de update só enxerga o payload.
+  // Inativar exige motivo (regra 6), inclusive quando o motivo já estava salvo.
+  if (payload.status === 'inativo' && !(payload.motivoInativacao || existing.motivoInativacao)) {
+    return res.status(400).json({ message: 'motivoInativacao é obrigatório quando status = inativo' });
+  }
+  // Batizado ⇒ membro (regra 5): trocar só o tipo de alguém batizado não pode gerar batizado + visitante.
+  const batizadoFinal = payload.batizado === undefined
+    ? existing.batizado === true
+    : payload.batizado === true || payload.batizado === 'true';
+  if (batizadoFinal && (payload.tipo || existing.tipo) !== 'membro') payload.tipo = 'membro';
 
   const person = await Person.findByIdAndUpdate(req.params.id, payload, {
     new: true,
@@ -346,68 +279,23 @@ const remove = async (req, res) => {
   return res.json({ message: 'Pessoa removida' });
 };
 
+// Importação por CSV (modelo do PastorIA ou export do ChurchCRM). ?dryRun=1 só valida e devolve a prévia.
 const importCsv = async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'Arquivo CSV não enviado' });
-
-  const raw = req.file.buffer.toString('utf-8');
-  const records = parse(raw, {
-    columns: true,
-    skip_empty_lines: true,
-    relax_quotes: true,
-    relax_column_count: true,
-    trim: true,
-  });
-
-  const created = [];
-  const skipped = [];
-
-  for (const row of records) {
-    const nome = buildFullName(row);
-    const celular = normalizePhone(row['Celular']);
-
-    if (!nome) {
-      skipped.push({ row, motivo: 'Nome vazio' });
-      continue;
-    }
-
-    const payloadCheck = {
-      nome,
-      celular,
-      dataNascimento: row['Data de Aniversário'] ? new Date(row['Data de Aniversário']) : undefined,
-      email: row['E-mail'] || undefined,
-      congregacao: mapCongregacao(row['Congregação'])
-    };
-
-    const duplicateQuery = buildDuplicateQuery(payloadCheck);
-    if (duplicateQuery) {
-      const exists = await Person.findOne(duplicateQuery);
-      if (exists) {
-        skipped.push({ row, motivo: 'Duplicidade detectada (Nome/Celular/Nascimento/Email)' });
-        continue;
-      }
-    }
-
-    const pessoa = await Person.create({
-      nome,
-      sexo: mapSexo(row['Gênero']),
-      dataNascimento: row['Data de Aniversário'] ? new Date(row['Data de Aniversário']) : undefined,
-      email: row['E-mail'] || undefined,
-      celular,
-      tipo: mapTipo(row['Classificação']) || 'congregado',
-      grupo: row['Grupo'] || undefined,
-      estadoCivil: mapEstadoCivil(row['Estado Civil']),
-      batizado: Boolean(row['MembershipDate']),
-      dataBatismo: row['MembershipDate'] ? new Date(row['MembershipDate']) : undefined,
-      congregacao: mapCongregacao(row['Congregação']),
-      status: 'ativo',
-      endereco: buildEndereco(row),
-      ministerio: row['Ministério'] || undefined,
-    });
-
-    created.push(pessoa);
+  const dryRun = ['1', 'true'].includes(String(req.query.dryRun || ''));
+  try {
+    const result = await importPeople(req.file.buffer, { dryRun, buildDuplicateQuery });
+    return res.json(result);
+  } catch (err) {
+    if (err.status) return res.status(err.status).json({ message: err.message, colunas: err.headers });
+    throw err;
   }
+};
 
-  return res.json({ created: created.length, skipped: skipped.length, skippedDetails: skipped });
+const importTemplate = (req, res) => {
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="modelo-importacao-pessoas.csv"');
+  return res.send(buildTemplate());
 };
 
 const updateHealth = async (req, res) => {
@@ -455,5 +343,7 @@ module.exports = {
   update,
   remove,
   importCsv,
+  importTemplate,
   updateHealth,
+  buildDuplicateQuery,
 };

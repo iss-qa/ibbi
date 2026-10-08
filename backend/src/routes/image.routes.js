@@ -1,8 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const auth = require('../middlewares/auth.middleware');
+const requirePasswordChanged = require('../middlewares/passwordChanged.middleware');
 const { renderBirthdayCard } = require('../controllers/image.controller');
 
-router.get('/aniversariante/:id', auth, renderBirthdayCard);
+router.get('/aniversariante/:id', auth, requirePasswordChanged, renderBirthdayCard);
 
 module.exports = router;

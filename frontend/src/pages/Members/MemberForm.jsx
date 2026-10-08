@@ -1,11 +1,11 @@
 import { useRef, useState, useEffect } from 'react';
-import { CONGREGACOES } from '../../constants/congregacoes';
 import { formatPhoneBR } from '../../utils/phoneMask';
 import api from '../../services/api';
 import doveDefault from '../../assets/logo-ibbi.jpeg';
 import CustomSelect from '../../components/CustomSelect';
 import CustomDatePicker from '../../components/CustomDatePicker';
 import { PERSON_TYPE_OPTIONS, calculateAge, determineGroup } from '../../utils/person';
+import useCongregacaoScope from '../../hooks/useCongregacaoScope';
 
 const initialState = {
   nome: '',
@@ -18,6 +18,7 @@ const initialState = {
   estadoCivil: '',
   batizado: false,
   dataBatismo: '',
+  dataCasamento: '',
   congregacao: 'Sede',
   status: 'ativo',
   motivoInativacao: '',
@@ -27,6 +28,9 @@ const initialState = {
   dataVisita: '',
   dataDecisao: '',
 };
+
+// Estado civil com data de casamento (bodas recebem parabéns automáticos).
+const CASADOS = ['casado(a)', 'união estável'];
 
 const MINISTERIOS = {
   'Ministério Pastoral': ['Pastor', 'Pastor Auxiliar', 'Evangelista', 'Missionário'],
@@ -177,6 +181,7 @@ async function optimizeImage(file) {
 }
 
 export default function MemberForm({ initialData, onSubmit, onCancel, lockedCongregacao, readOnly, isSelfEdit, isExternal, highlightPhoto = false }) {
+  const { options: congregacaoOptions } = useCongregacaoScope();
   const syncFormRules = (draft) => {
     const next = { ...draft };
     const autoGroup = determineGroup(calculateAge(next.dataNascimento));
@@ -356,6 +361,16 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
       return;
     }
     setPhotoError(false);
+
+    // Celular é o WhatsApp de todos os envios: DDD + número (11 dígitos; 10 = sem o 9, confirmar)
+    const celularDigits = String(form.celular || '').replace(/\D/g, '');
+    if (celularDigits && (celularDigits.length < 10 || celularDigits.length > 11)) {
+      window.alert('Celular inválido: informe DDD + número, ex.: (71) 99999-8888.');
+      return;
+    }
+    if (celularDigits.length === 10 && !window.confirm('O celular tem 10 dígitos (sem o 9). Confirma que está correto?')) {
+      return;
+    }
 
     setSubmitting(true);
     try {
@@ -573,7 +588,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
                   value={lockedCongregacao || form.congregacao}
                   onChange={(v) => handleChange('congregacao', v)}
                   disabled={Boolean(lockedCongregacao)}
-                  options={CONGREGACOES.map((c) => ({ value: c, label: c }))}
+                  options={congregacaoOptions.map((c) => ({ value: c, label: c }))}
                 />
               </Field>
             )}
@@ -605,7 +620,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
               <OptionChips
                 value={form.congregacao}
                 onChange={(v) => handleChange('congregacao', v)}
-                options={CONGREGACOES.map((c) => ({ value: c, label: c }))}
+                options={congregacaoOptions.map((c) => ({ value: c, label: c }))}
               />
             </div>
           )}
@@ -740,6 +755,13 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
                     <OptionChips value={form.estadoCivil} onChange={(v) => handleChange('estadoCivil', v)} options={ESTADO_CIVIL_OPTIONS} />
                   </Field>
                 </div>
+                {CASADOS.includes(form.estadoCivil) && (
+                  <div className="mb-3 w-full">
+                    <Field label="Data de casamento">
+                      {renderDate(form.dataCasamento, (val) => handleChange('dataCasamento', val))}
+                    </Field>
+                  </div>
+                )}
                 <div className="mb-3 w-full">
                   <Field label={<>Grupo {form.grupo ? <span className="text-slate-400 font-normal ml-0.5 lowercase">({form.grupo})</span> : null}</>}>
                     <OptionChips value={form.grupo} onChange={(v) => handleChange('grupo', v)} options={GRUPO_OPTIONS} />
@@ -760,6 +782,11 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
                 <Field label="Grupo">
                   <CustomSelect value={form.grupo} onChange={(v) => handleChange('grupo', v)} options={GRUPO_OPTIONS} />
                 </Field>
+                {CASADOS.includes(form.estadoCivil) && (
+                  <Field label="Data de casamento">
+                    {renderDate(form.dataCasamento, (val) => handleChange('dataCasamento', val))}
+                  </Field>
+                )}
               </div>
             )}
 

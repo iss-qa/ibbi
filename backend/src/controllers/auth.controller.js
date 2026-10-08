@@ -1,8 +1,11 @@
-const jwt = require('jsonwebtoken');
+const { signUserToken } = require('../utils/token');
 const { validationResult } = require('express-validator');
 const User = require('../models/User.model');
 const Person = require('../models/Person.model');
 const TriagemGrupo = require('../models/TriagemGrupo.model');
+const { getTenant } = require('../tenancy/context');
+const { serializePublic } = require('../tenancy/tenant.service');
+const { getUserCongregacoes } = require('../utils/access');
 
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCK_TIME_MS = 15 * 60 * 1000; // 15 minutos
@@ -25,6 +28,11 @@ const serializeUser = async (user) => {
     tipo: person?.tipo || '',
     dataBatismo: person?.dataBatismo || null,
     inTriagemGrupo,
+    tenant: serializePublic(getTenant()),
+    // Congregações que o usuário gere (master: todas da igreja)
+    congregacoesPermitidas: user.role === 'user'
+      ? []
+      : (await getUserCongregacoes(user).catch(() => [])) || getTenant()?.congregacoes || [],
   };
 };
 
@@ -34,14 +42,15 @@ const login = async (req, res) => {
     return res.status(400).json({ errors: errors.array() });
   }
 
+  // Apenas strings: um objeto ({ "$ne": null }) viraria operador na query do Mongo.
   const { login: loginInput, senha } = req.body;
+  if (typeof loginInput !== 'string' || typeof senha !== 'string' || !loginInput.trim() || !senha) {
+    return res.status(400).json({ message: 'Login e senha são obrigatórios' });
+  }
   try {
     const user = await User.findOne({ login: loginInput }).select('+senha +failedLoginAttempts +lockedUntil');
     if (!user) {
       return res.status(401).json({ message: 'Credenciais inválidas' });
-    }
-    if (!user.ativo) {
-      return res.status(403).json({ message: 'Usuário inativo' });
     }
 
     // Verificar bloqueio temporário
@@ -65,14 +74,17 @@ const login = async (req, res) => {
       return res.status(401).json({ message: 'Credenciais inválidas' });
     }
 
+    // Só revela "inativo" para quem acertou a senha (não enumera contas)
+    if (!user.ativo) {
+      return res.status(403).json({ message: 'Usuário inativo' });
+    }
+
     // Login bem-sucedido: resetar tentativas
     if (user.failedLoginAttempts > 0 || user.lockedUntil) {
       await User.updateOne({ _id: user._id }, { failedLoginAttempts: 0, lockedUntil: null });
     }
 
-    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-    });
+    const token = signUserToken(user);
 
     const serialized = await serializeUser(user);
     return res.json({
@@ -82,7 +94,7 @@ const login = async (req, res) => {
     });
   } catch (error) {
     console.error('[AUTH ERROR]', error.message);
-    return res.status(500).json({ message: error.message || 'Erro interno no login' });
+    return res.status(500).json({ message: 'Erro interno no login' });
   }
 };
 

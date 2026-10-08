@@ -1,6 +1,7 @@
+const { churchName } = require('../tenancy/brand');
 const TriagemGrupo = require('../models/TriagemGrupo.model');
 const Person = require('../models/Person.model');
-const { applyScopedCongregacaoFilter, getUserCongregacao } = require('../utils/access');
+const { applyScopedCongregacaoFilter, getUserCongregacao, resolveWritableCongregacao } = require('../utils/access');
 
 const normalizeTipo = (value) =>
   String(value || '')
@@ -86,7 +87,7 @@ const create = async (req, res) => {
 
     // Admin: force congregation from user profile
     if (req.user.role === 'admin') {
-      payload.congregacao = await getUserCongregacao(req.user);
+      payload.congregacao = await resolveWritableCongregacao(req.user, payload.congregacao);
     }
 
     // Validate required fields
@@ -129,7 +130,7 @@ const update = async (req, res) => {
     };
 
     if (req.user.role === 'admin') {
-      payload.congregacao = await getUserCongregacao(req.user);
+      payload.congregacao = await resolveWritableCongregacao(req.user, payload.congregacao);
     }
 
     if (!payload.nome) {
@@ -419,7 +420,7 @@ const sendAtividadesWhatsApp = async (req, res) => {
 
     msg += `━━━━━━━━━━━━━━━━\n`;
     msg += `\n✅ Total: *${atividadesDoMembro.length} atividade(s) pendente(s)*\n`;
-    msg += `\nQue Deus abençoe seu serviço! 🙏\n_Igreja Batista Bíblica Israel_`;
+    msg += `\nQue Deus abençoe seu serviço! 🙏\n_${churchName()}_`;
 
     const whatsapp = require('../services/whatsapp.service');
     await whatsapp.sendSingle(membro.celular, msg);

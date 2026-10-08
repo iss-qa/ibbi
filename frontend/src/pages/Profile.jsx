@@ -80,7 +80,9 @@ export default function Profile() {
     }
 
     try {
-      await api.put('/users/me/password', { senhaAtual, senhaNova });
+      const { data } = await api.put('/users/me/password', { senhaAtual, senhaNova });
+      // Sessões anteriores à troca são invalidadas no backend: guarda o token novo
+      if (data?.token) localStorage.setItem('ibbi_token', data.token);
       showToast("Senha alterada com sucesso!");
       setChangingPassword(false);
       setSenhaAtual('');

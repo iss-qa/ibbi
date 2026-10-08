@@ -2,10 +2,10 @@ import { lazy, Suspense, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import api from '../services/api';
-import { CONGREGACOES } from '../constants/congregacoes';
 import useAuth from '../hooks/useAuth';
 import useStaleQuery from '../hooks/useStaleQuery';
 import AniversarianteModal from './AniversarianteModal';
+import useCongregacaoScope from '../hooks/useCongregacaoScope';
 
 const ChartsSection = lazy(() => import('../components/dashboard/ChartsSection'));
 
@@ -135,7 +135,7 @@ function KpiCard({ label, value, accent }) {
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
+  const { locked: lockedCongregacao, options: congregacaoOptions } = useCongregacaoScope();
   const [congregacao, setCongregacao] = useState(lockedCongregacao || 'Todos');
   const [selectedBirthdayPerson, setSelectedBirthdayPerson] = useState(null);
 
@@ -303,7 +303,7 @@ export default function Dashboard() {
             title={lockedCongregacao ? 'Você só visualiza sua congregação' : 'Filtrar por congregação'}
           >
             {!lockedCongregacao && <option value="Todos">Todos</option>}
-            {CONGREGACOES.map((c) => (
+            {congregacaoOptions.map((c) => (
               <option key={c} value={c}>{c}</option>
             ))}
           </select>

@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const { applyPersonBusinessRules, calculateAge } = require('../utils/person-rules');
+const tenantPlugin = require('../tenancy/plugin');
 
+// Lista histórica da IBBI (tenant fundador). Cada igreja define as suas em Tenant.congregacoes.
 const CONGREGACOES = [
   'Não atribuído',
   'Sede',
@@ -40,9 +42,10 @@ const PersonSchema = new mongoose.Schema(
     },
     batizado: { type: Boolean, default: false },
     dataBatismo: { type: Date },
+    dataCasamento: { type: Date }, // bodas: parabéns automáticos (scheduler)
     // Controle de idempotência: data do último email de aniversário enviado (1x/dia)
     aniversarioEmailEnviadoEm: { type: Date },
-    congregacao: { type: String, enum: CONGREGACOES, default: 'Não atribuído' },
+    congregacao: { type: String, trim: true, default: 'Não atribuído' },
     status: { type: String, enum: ['ativo', 'inativo'], default: 'ativo' },
     motivoInativacao: {
       type: String,
@@ -56,7 +59,7 @@ const PersonSchema = new mongoose.Schema(
     acompanhadoTipo: { type: String, enum: ['membro', 'manual'] },
     acompanhadoPersonId: { type: mongoose.Schema.Types.ObjectId, ref: 'Person' },
     acompanhadoNome: { type: String, trim: true },
-    matricula: { type: Number, unique: true, sparse: true },
+    matricula: { type: Number },
     tipoSanguineo: { type: String, enum: ['A', 'B', 'AB', 'O'] },
     fatorRh: { type: String, enum: ['+', '-'] },
     alergias: { type: String, trim: true },
@@ -71,6 +74,11 @@ PersonSchema.index({ status: 1, congregacao: 1 });
 PersonSchema.index({ createdAt: -1 });
 PersonSchema.index({ status: 1, dataNascimento: 1 });
 PersonSchema.index({ nome: 1 });
+PersonSchema.index(
+  { tenantId: 1, matricula: 1 },
+  { unique: true, partialFilterExpression: { matricula: { $type: 'number' } } },
+);
+PersonSchema.plugin(tenantPlugin);
 
 PersonSchema.virtual('idade').get(function idade() {
   return calculateAge(this.dataNascimento);
@@ -79,7 +87,9 @@ PersonSchema.virtual('idade').get(function idade() {
 PersonSchema.pre('save', async function enforceBusinessRules(next) {
   applyPersonBusinessRules(this);
   if (this.status === 'inativo' && !this.motivoInativacao) {
-    return next(new Error('motivoInativacao é obrigatório quando status = inativo'));
+    const err = new Error('motivoInativacao é obrigatório quando status = inativo');
+    err.status = 400;
+    return next(err);
   }
   // Auto-generate matricula if missing
   if (!this.matricula) {

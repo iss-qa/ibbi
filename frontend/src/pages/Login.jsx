@@ -1,7 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import logo from '../assets/logo-ibbi.jpeg';
 import useAuth from '../hooks/useAuth';
+import api from '../services/api';
+import TenantLogo from '../components/TenantLogo';
+import DevQuickLogin from '../components/DevQuickLogin';
+import Logo from '../components/landing/Logo';
+
+const DEFAULT_TENANT = import.meta.env.VITE_DEFAULT_TENANT || 'ibbi';
 
 const RECAPTCHA_SITE_KEY = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
 
@@ -15,6 +20,21 @@ export default function Login() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [recaptchaReady, setRecaptchaReady] = useState(!RECAPTCHA_SITE_KEY);
+  const [igreja, setIgreja] = useState(() => new URLSearchParams(location.search).get('igreja')
+    || localStorage.getItem('ibbi_tenant') || DEFAULT_TENANT);
+  const [editIgreja, setEditIgreja] = useState(false);
+  const [tenantInfo, setTenantInfo] = useState(null);
+  const [tenantError, setTenantError] = useState('');
+
+  // Identidade visual da igreja (nome/logo) antes do login
+  useEffect(() => {
+    if (!igreja || editIgreja) return undefined;
+    let active = true;
+    api.get(`/public/tenants/${encodeURIComponent(igreja.trim().toLowerCase())}`)
+      .then(({ data }) => { if (active) { setTenantInfo(data); setTenantError(''); } })
+      .catch(() => { if (active) { setTenantInfo(null); setTenantError('Igreja não encontrada. Confira o código.'); } });
+    return () => { active = false; };
+  }, [igreja, editIgreja]);
 
   useEffect(() => {
     if (!RECAPTCHA_SITE_KEY) return;
@@ -44,13 +64,26 @@ export default function Login() {
     });
   }, []);
 
+  // Atalhos locais: membro/admin preenchem este formulário; o master vai para o painel da plataforma.
+  const handleDevPick = (key, cred) => {
+    if (key === 'plataforma') {
+      navigate('/platform/login', { state: { email: cred.email, senha: cred.senha } });
+      return;
+    }
+    setForm({ login: cred.login || '', senha: cred.senha || '' });
+    if (cred.igreja) {
+      setIgreja(cred.igreja);
+      setEditIgreja(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
       const recaptchaToken = await getRecaptchaToken();
-      const data = await login(form.login, form.senha, recaptchaToken);
+      const data = await login(form.login, form.senha, recaptchaToken, igreja.trim().toLowerCase());
       if (data.mustChangePassword) {
         navigate('/force-change-password', { replace: true });
       } else {
@@ -66,10 +99,34 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-ibbiNavy via-ibbiBlue to-ibbiNavy flex items-center justify-center px-6">
       <div className="bg-white shadow-soft rounded-2xl max-w-md w-full p-8">
-        <div className="flex flex-col items-center gap-3 mb-6">
-          <img src={logo} alt="IBBI" className="w-16 h-16 rounded-full object-cover border-2 border-ibbiGold" />
-          <h1 className="font-display text-2xl text-ibbiNavy">Bem-vindo à IBBI</h1>
-          <p className="text-sm text-slate-500">Acesse o sistema de gestão de pessoas</p>
+        <div className="flex flex-col items-center gap-2 mb-6">
+          <a href="/" aria-label="PastorIA — início"><Logo size="lg" /></a>
+          <p className="font-display text-ibbiGold text-sm">Quem falta, faz falta.</p>
+          <h1 className="font-display text-xl text-ibbiNavy text-center mt-2">Bem-vindo à {tenantInfo?.nomeCurto || 'sua igreja'}</h1>
+        </div>
+
+        <div className="mb-4 rounded-lg bg-slate-50 border border-slate-200 px-3 py-2 text-sm">
+          {editIgreja ? (
+            <div className="flex gap-2 items-center">
+              <input
+                autoFocus
+                className="flex-1 border border-slate-200 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ibbiBlue"
+                value={igreja}
+                onChange={(e) => setIgreja(e.target.value)}
+                placeholder="código da igreja (ex.: ibbi)"
+              />
+              <button type="button" className="text-ibbiBlue font-medium" onClick={() => setEditIgreja(false)}>OK</button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-slate-600 truncate">
+                {tenantInfo && <TenantLogo tenant={tenantInfo} className="w-7 h-7" />}
+                <span className="truncate">Igreja: <strong className="text-slate-800">{tenantInfo?.nome || igreja}</strong></span>
+              </span>
+              <button type="button" className="text-ibbiBlue font-medium shrink-0" onClick={() => setEditIgreja(true)}>trocar</button>
+            </div>
+          )}
+          {tenantError && !editIgreja && <p className="text-xs text-red-600 mt-1">{tenantError}</p>}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -125,6 +182,12 @@ export default function Login() {
             {loading ? 'Entrando...' : 'Entrar'}
           </button>
         </form>
+
+        <p className="text-center text-xs text-slate-500 mt-5">
+          Sua igreja ainda não usa o PastorIA? <a href="/cadastro" className="text-ibbiBlue font-medium">Cadastre grátis</a>
+        </p>
+
+        <DevQuickLogin onPick={handleDevPick} />
       </div>
     </div>
   );

@@ -1,0 +1,87 @@
+/* Tokens da marca PastorIA — mesmos valores do tailwind.config.js do frontend */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap');
+
+:root {
+  --navy: #0a1f44;
+  --navy-2: #0f2a5c;
+  --blue: #0b4dbf;
+  --gold: #c9a227;
+  --gold-light: #f5dd8a;
+  --cream: #f7f3ea;
+  --whats: #dcf8c6;
+  --display: 'Playfair Display', Georgia, serif;
+  --body: 'Inter', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--body); background: #555; -webkit-font-smoothing: antialiased; }
+
+.gold { color: var(--gold); }
+.shimmer {
+  background: linear-gradient(90deg, #c9a227 0%, #f5dd8a 40%, #c9a227 70%, #e6c65b 100%);
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.display { font-family: var(--display); font-weight: 700; letter-spacing: -0.01em; }
+
+/* Fundo navy com grade + brilhos, igual ao hero da landing */
+.bg-navy { background: var(--navy); color: #fff; position: relative; overflow: hidden; }
+.bg-navy::before {
+  content: ''; position: absolute; inset: 0; opacity: .6;
+  background-image:
+    linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+.glow { position: absolute; border-radius: 50%; filter: blur(90px); pointer-events: none; }
+.glow.blue { background: var(--blue); opacity: .75; }
+.glow.gold { background: rgba(201,162,39,.45); }
+
+.bg-cream { background: var(--cream); color: var(--navy); position: relative; overflow: hidden; }
+
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 14px;
+  font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--gold);
+  border: 2px solid rgba(201,162,39,.35); background: rgba(255,255,255,.05);
+  border-radius: 999px; padding: 12px 26px;
+}
+.eyebrow .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 0 6px rgba(201,162,39,.2); }
+
+.logo { display: inline-flex; align-items: center; gap: 18px; }
+.logo img { display: block; }
+.logo .word { font-family: var(--display); font-weight: 700; color: #fff; }
+.logo .word span { color: var(--gold); }
+.on-cream .logo .word { color: var(--navy); }
+
+.cta {
+  display: inline-flex; align-items: center; gap: 14px;
+  background: var(--gold); color: var(--navy); font-weight: 800;
+  border-radius: 999px; padding: 26px 48px; box-shadow: 0 18px 40px rgba(201,162,39,.3);
+}
+
+/* Celular com conversa de WhatsApp */
+.phone {
+  width: 600px; border-radius: 64px; background: #0b0f19; padding: 18px;
+  box-shadow: 0 40px 90px rgba(0,0,0,.45), 0 0 0 2px rgba(255,255,255,.08);
+}
+.phone .screen { border-radius: 48px; overflow: hidden; background: #efe7dc; }
+.phone .head { background: #075e54; color: #fff; display: flex; align-items: center; gap: 18px; padding: 26px 28px; }
+.phone .avatar { width: 64px; height: 64px; border-radius: 50%; background: var(--gold); color: var(--navy); display: grid; place-items: center; font-weight: 800; font-size: 30px; }
+.phone .name { font-weight: 700; font-size: 26px; }
+.phone .status { font-size: 20px; opacity: .8; }
+.phone .chat { display: flex; flex-direction: column; gap: 14px; padding: 26px 22px 30px; color: #1e293b; font-size: 24px; line-height: 1.38; }
+.bubble { max-width: 86%; border-radius: 22px; padding: 14px 20px 10px; white-space: pre-line; box-shadow: 0 1px 2px rgba(0,0,0,.12); position: relative; }
+.bubble.bot { align-self: flex-start; background: #fff; border-top-left-radius: 6px; }
+.bubble.me { align-self: flex-end; background: var(--whats); border-top-right-radius: 6px; }
+.bubble.hl { box-shadow: 0 0 0 4px var(--gold); }
+.bubble time { display: block; text-align: right; font-size: 16px; color: #64748b; margin-top: 4px; }
+.typing { align-self: flex-start; background: #fff; border-radius: 22px; padding: 18px 22px; display: flex; gap: 8px; }
+.typing i { width: 12px; height: 12px; border-radius: 50%; background: #94a3b8; display: block; }
+
+.badge {
+  position: absolute; background: #fff; color: var(--navy); font-weight: 700; border-radius: 22px;
+  padding: 18px 26px; box-shadow: 0 20px 50px rgba(0,0,0,.3); display: flex; align-items: center; gap: 12px; font-size: 26px;
+}
+.badge .live { width: 14px; height: 14px; border-radius: 50%; background: #10b981; }
+
+/* Marca sobre fundo navy: anel dourado para o círculo não sumir */
+.bg-navy .logo img, .bg-navy img.mark { border-radius: 50%; box-shadow: 0 0 0 3px rgba(201,162,39,.6), 0 10px 30px rgba(0,0,0,.35); }

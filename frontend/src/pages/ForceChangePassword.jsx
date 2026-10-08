@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import api from '../services/api';
-import logo from '../assets/logo-ibbi.jpeg';
+import Logo from '../components/landing/Logo';
 
 export default function ForceChangePassword() {
   const { user, logout, completePasswordChange } = useAuth();
@@ -28,7 +28,9 @@ export default function ForceChangePassword() {
 
     setLoading(true);
     try {
-      await api.put('/users/me/password', { senhaNova });
+      const { data } = await api.put('/users/me/password', { senhaNova });
+      // Sessões anteriores à troca são invalidadas no backend: guarda o token novo
+      if (data?.token) localStorage.setItem('ibbi_token', data.token);
       completePasswordChange();
       navigate(user?.role === 'user' ? '/profile' : '/dashboard', { replace: true });
     } catch (err) {
@@ -42,7 +44,7 @@ export default function ForceChangePassword() {
     <div className="min-h-screen bg-gradient-to-br from-ibbiNavy via-ibbiBlue to-ibbiNavy flex items-center justify-center px-6">
       <div className="bg-white shadow-soft rounded-2xl max-w-md w-full p-8">
         <div className="flex flex-col items-center gap-3 mb-6">
-          <img src={logo} alt="IBBI" className="w-16 h-16 rounded-full object-cover border-2 border-ibbiGold" />
+          <Logo size="lg" />
           <h1 className="font-display text-2xl text-ibbiNavy">Troca de Senha</h1>
           <p className="text-sm text-slate-500 text-center">
             Para sua segurança, é necessário criar uma nova senha antes de continuar.

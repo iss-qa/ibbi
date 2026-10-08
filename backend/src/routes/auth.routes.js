@@ -2,6 +2,7 @@ const express = require('express');
 const { body } = require('express-validator');
 const auth = require('../middlewares/auth.middleware');
 const verifyRecaptcha = require('../middlewares/recaptcha.middleware');
+const { resolveTenant } = require('../middlewares/tenant.middleware');
 const controller = require('../controllers/auth.controller');
 
 const router = express.Router();
@@ -11,6 +12,7 @@ router.post(
   body('login').notEmpty().withMessage('login é obrigatório'),
   body('senha').notEmpty().withMessage('senha é obrigatória'),
   verifyRecaptcha,
+  resolveTenant,
   controller.login
 );
 

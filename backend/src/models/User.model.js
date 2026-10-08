@@ -1,13 +1,16 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const tenantPlugin = require('../tenancy/plugin');
 
 const UserSchema = new mongoose.Schema(
   {
     nome: { type: String, required: true, trim: true },
-    login: { type: String, required: true, unique: true, trim: true },
+    login: { type: String, required: true, trim: true },
     senha: { type: String, required: true },
     role: { type: String, enum: ['master', 'admin', 'user'], default: 'user' },
     personId: { type: mongoose.Schema.Types.ObjectId, ref: 'Person' },
+    // Congregações que um admin gere (definido pelo master). Vazio = a do próprio cadastro.
+    congregacoesAcesso: { type: [String], default: [] },
     ativo: { type: Boolean, default: true },
     mustChangePassword: { type: Boolean, default: false },
     passwordChangedAt: { type: Date },
@@ -16,6 +19,9 @@ const UserSchema = new mongoose.Schema(
   },
   { timestamps: { createdAt: 'createdAt', updatedAt: false } }
 );
+
+UserSchema.index({ tenantId: 1, login: 1 }, { unique: true });
+UserSchema.plugin(tenantPlugin);
 
 UserSchema.pre('save', async function hashPassword(next) {
   if (!this.isModified('senha')) return next();

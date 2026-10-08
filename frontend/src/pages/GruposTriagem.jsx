@@ -4,7 +4,7 @@ import Header from '../components/Header';
 import CustomSelect from '../components/CustomSelect';
 import useAuth from '../hooks/useAuth';
 import api from '../services/api';
-import { CONGREGACOES } from '../constants/congregacoes';
+import useCongregacaoScope from '../hooks/useCongregacaoScope';
 
 const ETAPA_OPTIONS = [
   { value: 'triagem', label: 'Triagem' },
@@ -102,7 +102,7 @@ export default function GruposTriagem() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const lockedCongregacao = user?.role === 'admin' ? user?.congregacao : '';
+  const { locked: lockedCongregacao, options: congregacaoOptions } = useCongregacaoScope();
   const [filterCongregacao, setFilterCongregacao] = useState('Todos');
   const [filterEtapa, setFilterEtapa] = useState(searchParams.get('etapa') || '');
   const [grupos, setGrupos] = useState([]);
@@ -320,7 +320,7 @@ export default function GruposTriagem() {
                 disabled={Boolean(lockedCongregacao)}
               >
                 {!lockedCongregacao && <option value="Todos">Todos</option>}
-                {CONGREGACOES.map((c) => (
+                {congregacaoOptions.map((c) => (
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
@@ -551,7 +551,7 @@ export default function GruposTriagem() {
                     value={form.congregacao}
                     onChange={(value) => setForm((f) => ({ ...f, congregacao: value }))}
                     placeholder="Selecione..."
-                    options={CONGREGACOES.map((c) => ({ value: c, label: c }))}
+                    options={congregacaoOptions.map((c) => ({ value: c, label: c }))}
                   />
                 ) : (
                   <input

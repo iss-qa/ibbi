@@ -1,7 +1,12 @@
 const EbdAula = require('../models/EbdAula.model');
 const Person = require('../models/Person.model');
-const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao } = require('../utils/access');
+const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao, resolveWritableCongregacao } = require('../utils/access');
 const { escapeRegex } = require('../utils/sanitize');
+const { dayRangeFromIso } = require('../utils/time');
+
+// Aulas ficam gravadas ao meio-dia (ensureSunday): busca por data é pelo dia inteiro, não igualdade.
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const dayFilter = (value) => (ISO_DATE_RE.test(String(value).slice(0, 10)) ? dayRangeFromIso(String(value).slice(0, 10)) : null);
 
 const ensureSunday = (date) => {
   const d = new Date(`${date}T12:00:00`);
@@ -21,7 +26,11 @@ const canEditAula = (aula, user) => {
 const list = async (req, res) => {
   const { data, classe, congregacao, search, month, year } = req.query;
   let filter = {};
-  if (data) filter.data = new Date(data);
+  if (data) {
+    const range = dayFilter(data);
+    if (!range) return res.status(400).json({ message: 'Data inválida (use AAAA-MM-DD)' });
+    filter.data = range;
+  }
   if (classe) filter.classe = classe;
   if (search) {
     const safe = escapeRegex(search);
@@ -51,11 +60,12 @@ const create = async (req, res) => {
   try {
     const data = ensureSunday(req.body.data);
     const { tema, descricao, professor, classe } = req.body;
-    const congregacao = req.user.role === 'master'
-      ? req.body.congregacao
-      : await getUserCongregacao(req.user);
+    const congregacao = await resolveWritableCongregacao(req.user, req.body.congregacao);
 
     const existing = await EbdAula.findOne({ data, classe, congregacao });
+    if (congregacao && req.tenant?.congregacoes?.length && !req.tenant.congregacoes.includes(congregacao)) {
+      return res.status(400).json({ message: 'Congregação inválida' });
+    }
     if (existing) return res.status(409).json({ message: 'Aula já registrada para essa classe' });
 
     const pessoas = await Person.find({
@@ -97,7 +107,7 @@ const update = async (req, res) => {
     }
   }
   if (req.user.role !== 'master') {
-    updates.congregacao = await getUserCongregacao(req.user);
+    updates.congregacao = await resolveWritableCongregacao(req.user, updates.congregacao || aula.congregacao);
   }
 
   const updated = await EbdAula.findByIdAndUpdate(req.params.id, updates, { new: true });
@@ -111,6 +121,7 @@ const updatePresencas = async (req, res) => {
   if (!canEditAula(aula, req.user)) return res.status(403).json({ message: 'Edição bloqueada' });
 
   aula.presencas = req.body.presencas || [];
+  aula.ausenciasProcessadasEm = undefined; // reprocessa ausências (idempotente por pessoa)
   await aula.save();
   res.json(aula);
 };
@@ -122,7 +133,8 @@ const remove = async (req, res) => {
 };
 
 const getBySunday = async (req, res) => {
-  const data = new Date(req.params.date);
+  const data = dayFilter(req.params.date);
+  if (!data) return res.status(400).json({ message: 'Data inválida (use AAAA-MM-DD)' });
   const filter = await applyScopedCongregacaoFilter(req.user, { data });
   const aulas = await EbdAula.find(filter);
   res.json(aulas);

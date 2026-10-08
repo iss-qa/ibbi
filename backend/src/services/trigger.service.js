@@ -85,7 +85,8 @@ const triggerNovoDecididoWhatsApp = (person, userId) => {
         const membrosAtivos = grupo.membros.filter((m) => m.ativo && m.whatsapp);
         for (const membro of membrosAtivos) {
           try {
-            await whatsapp.sendSingle(membro.whatsapp, msgGrupo);
+            // Vários membros do grupo em sequência: ritmo anti-ban
+            await whatsapp.sendText(membro.whatsapp, msgGrupo, { bulk: true });
             await registrarComunicacao({
               tipo: 'novo_decidido',
               destinatarios: [{ nome: membro.nome, celular: membro.whatsapp }],
@@ -180,7 +181,8 @@ const triggerVisitanteWhatsApp = (person, userId) => {
         const membrosAtivos = grupo.membros.filter((m) => m.ativo && m.whatsapp);
         for (const membro of membrosAtivos) {
           try {
-            await whatsapp.sendSingle(membro.whatsapp, msgGrupo);
+            // Vários membros do grupo em sequência: ritmo anti-ban
+            await whatsapp.sendText(membro.whatsapp, msgGrupo, { bulk: true });
             await registrarComunicacao({
               tipo: 'visitante',
               destinatarios: [{ nome: membro.nome, celular: membro.whatsapp }],
