@@ -7,6 +7,8 @@ const { runAsPlatform, runWithTenant } = require('../tenancy/context');
 const { getTenantById, serializePublic } = require('../tenancy/tenant.service');
 const { portalUrl } = require('../tenancy/brand');
 const { randomToken } = require('../utils/crypto');
+const { sanitizeFotoUrl, PUBLIC_PERSON_FIELDS, pickFields } = require('../utils/sanitize');
+const { toLocal } = require('../utils/phone');
 
 // Link permanente de cadastro externo: um por igreja (o da IBBI é migrado com o token histórico).
 const createInvitation = async (req, res) => {
@@ -47,7 +49,7 @@ const findInviteTenant = async (token) => {
 };
 
 const withInviteTenant = (handler) => async (req, res) => {
-  const { invite, tenant } = await findInviteTenant(req.params.token);
+  const { invite, tenant } = await findInviteTenant(String(req.params.token || ''));
   if (!invite || !tenant) return res.status(404).json({ message: 'Convite inválido' });
   req.tenant = tenant;
   return runWithTenant(tenant, () => handler(req, res, invite));
@@ -60,9 +62,18 @@ const submitInvitation = withInviteTenant(async (req, res, invite) => {
     return res.status(400).json({ message: 'Convite expirado' });
   }
 
-  const payload = { ...req.body };
-  if (payload.nome) payload.nome = normalizeName(payload.nome);
-  if (payload.celular) payload.celular = String(payload.celular).replace(/\D/g, '');
+  // Só campos de cadastro (sem _id, matricula, status, acompanhado*…): isso vira Person na aprovação
+  const payload = pickFields(req.body || {}, PUBLIC_PERSON_FIELDS);
+  if (typeof payload.nome !== 'string' || !payload.nome.trim()) {
+    return res.status(400).json({ message: 'Nome é obrigatório' });
+  }
+  if (payload.dataNascimento && Number.isNaN(new Date(payload.dataNascimento).getTime())) {
+    return res.status(400).json({ message: 'Data de nascimento inválida' });
+  }
+  if (payload.congregacao !== undefined && typeof payload.congregacao !== 'string') delete payload.congregacao;
+  if (payload.fotoUrl !== undefined) payload.fotoUrl = sanitizeFotoUrl(payload.fotoUrl);
+  payload.nome = normalizeName(payload.nome);
+  if (payload.celular) payload.celular = toLocal(payload.celular);
 
   // Validação de duplicidade com cadastros existentes
   if (payload.nome) {

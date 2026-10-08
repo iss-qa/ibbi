@@ -6,11 +6,13 @@ const Message = require('../models/Message.model');
 const { onboardMember } = require('../services/member.service');
 const whatsapp = require('../services/whatsapp.service');
 const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao, resolveWritableCongregacao } = require('../utils/access');
-const { escapeRegex } = require('../utils/sanitize');
+const { escapeRegex, pageParams, sanitizeFotoUrl } = require('../utils/sanitize');
 const { applyPersonBusinessRules, normalizeName } = require('../utils/person-rules');
 const { importPeople, buildTemplate } = require('../services/person-import.service');
+const { toLocal } = require('../utils/phone');
 
-const normalizePhone = (value) => (value ? String(value).replace(/\D/g, '') : '');
+// Padrão do sistema: só dígitos com DDD, sem o 55 (ver utils/phone)
+const normalizePhone = (value) => (value ? toLocal(value) : '');
 
 const cleanEmptyEnums = (payload) => {
   const enumFields = ['sexo', 'tipo', 'grupo', 'estadoCivil', 'congregacao', 'status', 'motivoInativacao'];
@@ -61,13 +63,6 @@ const filterByAllowlist = (payload, allowlist) => {
     if (payload[key] !== undefined) filtered[key] = payload[key];
   }
   return filtered;
-};
-
-const sanitizeFotoUrl = (url) => {
-  if (!url) return url;
-  // Aceitar apenas data: URIs (uploads controlados) ou paths relativos do /uploads/
-  if (url.startsWith('data:image/') || url.startsWith('/uploads/')) return url;
-  return undefined; // Rejeitar URLs externas (previne SSRF)
 };
 
 const buildDuplicateQuery = (payload) => {
@@ -121,7 +116,8 @@ const buildDuplicateQuery = (payload) => {
 };
 
 const list = async (req, res) => {
-  const { page = 1, limit = 20, search, tipo, grupo, congregacao, status, batizado } = req.query;
+  const { search, tipo, grupo, congregacao, status, batizado } = req.query;
+  const { page, limit, skip } = pageParams(req.query, 20);
   let filter = {};
 
   if (tipo) filter.tipo = tipo;
@@ -142,9 +138,8 @@ const list = async (req, res) => {
 
   filter = await applyScopedCongregacaoFilter(req.user, filter, congregacao);
 
-  const skip = (Number(page) - 1) * Number(limit);
   const [items, total, ativos, inativos] = await Promise.all([
-    Person.find(filter).sort({ nome: 1 }).skip(skip).limit(Number(limit)),
+    Person.find(filter).sort({ nome: 1 }).skip(skip).limit(limit),
     Person.countDocuments(filter),
     Person.countDocuments({ ...filter, status: 'ativo' }),
     Person.countDocuments({ ...filter, status: 'inativo' }),
@@ -155,8 +150,8 @@ const list = async (req, res) => {
     total,
     ativos,
     inativos,
-    page: Number(page),
-    limit: Number(limit),
+    page,
+    limit,
   });
 };
 
@@ -259,6 +254,17 @@ const update = async (req, res) => {
   if (req.user.role === 'admin') {
     payload.congregacao = await resolveWritableCongregacao(req.user, payload.congregacao || existing.congregacao);
   }
+
+  // Regras sobre o estado final (payload + cadastro atual): o hook de update só enxerga o payload.
+  // Inativar exige motivo (regra 6), inclusive quando o motivo já estava salvo.
+  if (payload.status === 'inativo' && !(payload.motivoInativacao || existing.motivoInativacao)) {
+    return res.status(400).json({ message: 'motivoInativacao é obrigatório quando status = inativo' });
+  }
+  // Batizado ⇒ membro (regra 5): trocar só o tipo de alguém batizado não pode gerar batizado + visitante.
+  const batizadoFinal = payload.batizado === undefined
+    ? existing.batizado === true
+    : payload.batizado === true || payload.batizado === 'true';
+  if (batizadoFinal && (payload.tipo || existing.tipo) !== 'membro') payload.tipo = 'membro';
 
   const person = await Person.findByIdAndUpdate(req.params.id, payload, {
     new: true,

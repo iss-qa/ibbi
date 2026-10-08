@@ -41,6 +41,14 @@ const applyWhatsappConfig = (tenant, w = {}) => {
   return antes !== depois;
 };
 
+// O phoneNumberId roteia o webhook da Meta para a igreja: não pode ser de outra igreja.
+const assertCloudNumberFree = async (tenant, w = {}) => {
+  const id = w.cloud?.phoneNumberId ? String(w.cloud.phoneNumberId).trim() : '';
+  if (!id) return;
+  const taken = await Tenant.exists({ _id: { $ne: tenant._id }, 'whatsapp.cloud.phoneNumberId': id });
+  if (taken) throw Object.assign(new Error('Este Phone Number ID já está em uso por outra igreja.'), { status: 409 });
+};
+
 // Número novo e conectado → apresenta à liderança ("salve nosso contato"), em segundo plano.
 const apresentarSeConectado = async (tenantId) => {
   const tenant = await getTenantById(tenantId);
@@ -54,6 +62,7 @@ const apresentarSeConectado = async (tenantId) => {
 const saveWhatsappConfig = async (tenantId, w) => {
   const tenant = await Tenant.findById(tenantId);
   if (!tenant) throw Object.assign(new Error('Igreja não encontrada'), { status: 404 });
+  await assertCloudNumberFree(tenant, w);
   const mudou = applyWhatsappConfig(tenant, w);
   await tenant.save();
   invalidateTenant(tenant._id);
@@ -63,4 +72,6 @@ const saveWhatsappConfig = async (tenantId, w) => {
   return { tenant, mudou };
 };
 
-module.exports = { applyWhatsappConfig, apresentarSeConectado, saveWhatsappConfig, digits };
+module.exports = {
+  applyWhatsappConfig, assertCloudNumberFree, apresentarSeConectado, saveWhatsappConfig, digits,
+};

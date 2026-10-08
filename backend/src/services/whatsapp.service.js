@@ -15,7 +15,8 @@ const sanitizeNumber = (input) => {
   if (!input) return '';
   if (isGroupJid(input)) return String(input).trim();
   const digits = String(input).replace(/\D/g, '');
-  if (digits.startsWith('55')) return digits;
+  // Só considera o 55 como DDI com 12+ dígitos: "55991234567" é DDD 55 (RS), não DDI.
+  if (digits.startsWith('55') && digits.length >= 12) return digits;
   return `55${digits}`;
 };
 

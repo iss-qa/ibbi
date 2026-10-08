@@ -1,4 +1,5 @@
 const express = require('express');
+const { httpStatusFor } = require('./src/utils/async-errors');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const helmet = require('helmet');
@@ -42,7 +43,21 @@ if (missing.length > 0) {
   process.exit(1);
 }
 
+const IS_PROD = process.env.NODE_ENV === 'production';
+const WEAK_JWT_SECRETS = ['ibbi_secret_key_2026', 'troque-por-32-caracteres-aleatorios', 'change-me', 'secret'];
+if (IS_PROD && (process.env.JWT_SECRET.length < 32 || WEAK_JWT_SECRETS.includes(process.env.JWT_SECRET))) {
+  // Alerta (não derruba o boot para não tirar a produção do ar num deploy): troque o segredo.
+  console.error('[STARTUP][SEGURANÇA] JWT_SECRET fraco: use ao menos 32 caracteres aleatórios em produção.');
+}
+
+// Rede de segurança: promise sem await (disparos em background) não derruba a plataforma.
+process.on('unhandledRejection', (reason) => {
+  console.error('[UNHANDLED REJECTION]', reason?.stack || reason);
+});
+
 const app = express();
+// Atrás do proxy (EasyPanel): IP real do cliente para o rate limit.
+app.set('trust proxy', Number(process.env.TRUST_PROXY_HOPS || 1));
 const PORT = process.env.PORT || 3001;
 
 app.use(helmet({
@@ -58,16 +73,16 @@ app.use(cors({
     // Lista de origens permitidas
     const allowedOrigins = [
       /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/,
-      /\.vercel\.app$/,
-      /wastezero\.com\.br$/,
-      /issqa\.com\.br$/,
-      ...(process.env.APP_BASE_DOMAIN ? [new RegExp(`${process.env.APP_BASE_DOMAIN.replace(/\./g, '\\.')}$`)] : []),
+      // Ancorado: /wastezero\.com\.br$/ aceitava evilwastezero.com.br
+      /^https:\/\/([a-z0-9-]+\.)*wastezero\.com\.br$/,
+      /^https:\/\/([a-z0-9-]+\.)*issqa\.com\.br$/,
+      ...(process.env.APP_BASE_DOMAIN ? [new RegExp(`^https:\\/\\/([a-z0-9-]+\\.)*${process.env.APP_BASE_DOMAIN.replace(/\./g, '\\.')}$`)] : []),
       ...(process.env.CORS_ORIGINS || '').split(',').map((o) => o.trim()).filter(Boolean),
     ];
 
     const isAllowed = allowedOrigins.some((rule) => (typeof rule === 'string' ? rule === origin : rule.test(origin)));
     
-    if (isAllowed || process.env.NODE_ENV === 'development') {
+    if (isAllowed || !IS_PROD) {
       return callback(null, true);
     }
     
@@ -82,6 +97,8 @@ app.use(express.json({
     if (req.originalUrl.startsWith('/api/webhooks/')) req.rawBody = buf;
   },
 }));
+
+app.use(require('./src/utils/sanitize').sanitizeQuery);
 
 // A igreja vem sempre do contexto (JWT/slug), nunca do corpo: evita mass assignment de tenantId.
 app.use((req, res, next) => {
@@ -111,7 +128,8 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/ebd', ebdRoutes);
-app.use('/api/test', testRoutes);
+// Envio de teste avulso: só fora de produção (não passa pela fila anti-ban nem gera log)
+if (!IS_PROD) app.use('/api/test', testRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/tenant', tenantRoutes);
@@ -139,15 +157,18 @@ app.get('*', (req, res, next) => {
 });
 
 app.use((err, req, res, next) => {
+  const status = httpStatusFor(err);
   console.error('[SERVER ERROR]', {
     message: err.message,
-    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+    stack: status >= 500 ? err.stack : undefined,
     path: req.path,
     method: req.method,
   });
-  res.status(err.status || 500).json({
-    message: err.message || 'Erro interno no servidor',
-    error: process.env.NODE_ENV === 'development' ? err : undefined
+  if (res.headersSent) return next(err);
+  // 5xx: mensagem genérica (não expõe detalhes internos do Mongo/stack ao cliente)
+  return res.status(status).json({
+    message: status >= 500 ? 'Erro interno no servidor' : (err.message || 'Requisição inválida'),
+    ...(err.code && typeof err.code === 'string' ? { code: err.code } : {}),
   });
 });
 

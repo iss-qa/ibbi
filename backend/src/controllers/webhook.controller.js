@@ -22,6 +22,8 @@ const inboundAllowed = (from) => {
 
 const processLater = (tenant, msg) => {
   if (!inboundAllowed(msg.from)) return;
+  // Igreja suspensa/cancelada não usa a IA (custo da plataforma), igual ao 402 da API
+  if (['suspensa', 'cancelada'].includes(tenant?.status)) return;
   setImmediate(() => runWithTenant(tenant, () => handleInbound(msg))
     .catch((err) => console.error('[WEBHOOK] Erro ao processar:', err)));
 };
@@ -97,21 +99,31 @@ const cloudVerify = (req, res) => {
   return ok ? res.status(200).send(req.query['hub.challenge']) : res.sendStatus(403);
 };
 
+// Cache só de acertos e com TTL: ids aleatórios não crescem a memória, e troca de número
+// na configuração da igreja passa a valer em poucos minutos.
+const CLOUD_CACHE_TTL_MS = 5 * 60 * 1000;
 const cloudTenantCache = new Map();
 const tenantByPhoneNumberId = async (phoneNumberId) => {
-  if (!cloudTenantCache.has(phoneNumberId)) {
-    const t = await runAsPlatform(() => Tenant.findOne({ 'whatsapp.cloud.phoneNumberId': phoneNumberId }).select('_id').lean());
-    cloudTenantCache.set(phoneNumberId, t?._id || null);
+  const key = String(phoneNumberId || '');
+  if (!key) return null;
+  const hit = cloudTenantCache.get(key);
+  if (hit && hit.expires > Date.now()) return getTenantById(hit.tenantId);
+  const t = await runAsPlatform(() => Tenant.findOne({ 'whatsapp.cloud.phoneNumberId': key }).select('_id').lean());
+  if (!t) {
+    cloudTenantCache.delete(key);
+    return null;
   }
-  return getTenantById(cloudTenantCache.get(phoneNumberId));
+  cloudTenantCache.set(key, { tenantId: t._id, expires: Date.now() + CLOUD_CACHE_TTL_MS });
+  return getTenantById(t._id);
 };
 
 const cloudReceive = async (req, res) => {
+  // Falha fechado: sem o App Secret não há como provar que o POST veio da Meta
+  // (qualquer um poderia se passar por um líder pelo número de telefone).
   const secret = process.env.WHATSAPP_APP_SECRET;
-  if (secret) {
-    const expected = `sha256=${crypto.createHmac('sha256', secret).update(req.rawBody || '').digest('hex')}`;
-    if (!safeEqual(req.headers['x-hub-signature-256'], expected)) return res.sendStatus(401);
-  }
+  if (!secret) return res.sendStatus(503);
+  const expected = `sha256=${crypto.createHmac('sha256', secret).update(req.rawBody || '').digest('hex')}`;
+  if (!safeEqual(req.headers['x-hub-signature-256'], expected)) return res.sendStatus(401);
   res.sendStatus(200);
 
   for (const entry of req.body?.entry || []) {

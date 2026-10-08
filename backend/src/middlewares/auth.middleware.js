@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken');
 const User = require('../models/User.model');
 const { runWithTenant, runAsPlatform } = require('../tenancy/context');
 const { getTenantById } = require('../tenancy/tenant.service');
+const { issuedBeforePasswordChange } = require('../utils/token');
 
 // Rotas que continuam acessíveis com a igreja suspensa (para regularizar a assinatura).
 const SUSPENDED_ALLOWED = ['/api/tenant', '/api/auth/me'];
@@ -39,6 +40,9 @@ const authMiddleware = async (req, res, next) => {
     const user = await User.findById(payload.id);
     if (!user || !user.ativo) {
       return res.status(401).json({ message: 'Usuário inválido ou inativo' });
+    }
+    if (issuedBeforePasswordChange(payload, user)) {
+      return res.status(401).json({ message: 'Sessão expirada: a senha foi alterada. Entre novamente.' });
     }
     if (['suspensa', 'cancelada'].includes(tenant.status)
       && !SUSPENDED_ALLOWED.some((p) => req.originalUrl.startsWith(p))) {

@@ -35,46 +35,34 @@ module.exports = function tenantPlugin(schema) {
     tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true, index: true },
   });
 
-  // Hooks no estilo next(err): um throw síncrono aqui escapa da promise do
-  // Mongoose e derruba o processo inteiro (uncaughtException).
-  schema.pre(QUERY_OPS, { document: false, query: true }, function scopeQuery(next) {
-    try {
-      if (isBypass()) return next();
-      const tenantId = requireTenantId();
-      this.where({ tenantId });
-      if (typeof this.getUpdate === 'function') stripTenantFromUpdate(this.getUpdate());
-      return next();
-    } catch (err) {
-      return next(err);
-    }
+  // Hooks síncronos (sem `next`): no estilo callback o Mongoose executa o hook fora do
+  // AsyncLocalStorage de quem montou a query e o contexto da igreja se perde. Erros lançados
+  // aqui rejeitam a promise da query e caem no error handler (utils/async-errors).
+  schema.pre(QUERY_OPS, { document: false, query: true }, function scopeQuery() {
+    if (isBypass()) return;
+    const tenantId = requireTenantId();
+    this.where({ tenantId });
+    if (typeof this.getUpdate === 'function') stripTenantFromUpdate(this.getUpdate());
   });
 
-  schema.pre('aggregate', function scopeAggregate(next) {
-    try {
-      if (isBypass()) return next();
-      const tenantId = requireTenantId();
-      this.pipeline().unshift({ $match: { tenantId: new mongoose.Types.ObjectId(tenantId) } });
-      return next();
-    } catch (err) {
-      return next(err);
-    }
+  schema.pre('aggregate', function scopeAggregate() {
+    if (isBypass()) return;
+    const tenantId = requireTenantId();
+    this.pipeline().unshift({ $match: { tenantId: new mongoose.Types.ObjectId(tenantId) } });
   });
 
-  schema.pre('validate', function assignTenant(next) {
+  schema.pre('validate', function assignTenant() {
     const tenantId = getTenantId();
     if (!this.tenantId) {
-      if (!tenantId && !isBypass()) {
-        try { requireTenantId(); } catch (err) { return next(err); }
-      }
+      if (!tenantId && !isBypass()) requireTenantId();
       if (tenantId) this.tenantId = tenantId;
-      return next();
+      return;
     }
     if (tenantId && String(this.tenantId) !== String(tenantId)) {
       const err = new Error('Documento pertence a outra igreja (tenant)');
       err.status = 403;
-      return next(err);
+      throw err;
     }
-    return next();
   });
 
   schema.pre('insertMany', function assignTenantMany(next, docs) {
@@ -83,6 +71,10 @@ module.exports = function tenantPlugin(schema) {
     (Array.isArray(docs) ? docs : [docs]).forEach((doc) => {
       if (doc && !doc.tenantId && tenantId) doc.tenantId = tenantId;
     });
+    // Com { lean: true } o validate não roda: barra aqui documento de outra igreja
+    const foreign = tenantId && (Array.isArray(docs) ? docs : [docs])
+      .some((doc) => doc?.tenantId && String(doc.tenantId) !== String(tenantId));
+    if (foreign) return next(new Error('Documento pertence a outra igreja (tenant)'));
     return next();
   });
 };

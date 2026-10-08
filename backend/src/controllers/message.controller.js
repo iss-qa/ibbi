@@ -64,7 +64,8 @@ const buildDestinatarioLog = (destinatarios = [], initialStatus = 'pendente') =>
   ordem: index,
 }));
 
-const logAndSendBatch = async ({ tipo, destinatarios, mensagem, enviadoPor }) => {
+// getText opcional: texto próprio por destinatário (ex.: login de cada um)
+const logAndSendBatch = async ({ tipo, destinatarios, mensagem, enviadoPor, getText }) => {
   const queuedDestinatarios = destinatarios.map((dest, index) => ({
     ...dest,
     ordem: index,
@@ -122,7 +123,7 @@ const logAndSendBatch = async ({ tipo, destinatarios, mensagem, enviadoPor }) =>
     );
   };
 
-  await whatsapp.sendBatch(queuedDestinatarios, (dest) => applyVariables(mensagem, dest), {
+  await whatsapp.sendBatch(queuedDestinatarios, getText || ((dest) => applyVariables(mensagem, dest)), {
     onStart: async (dest) => {
       await updateDestinatario(dest.ordem, {
         status: 'enviando',
@@ -470,38 +471,42 @@ const resendMessage = async (req, res) => {
 
   // Birthday messages: re-send text + image via sendBirthdayImage logic
   if (msg.tipo === 'aniversario') {
-    const erros = [];
-    for (const dest of msg.destinatarios) {
-      try {
-        const person = await Person.findOne({ celular: dest.celular });
-        if (!person) { erros.push({ celular: dest.celular, motivo: 'Pessoa não encontrada' }); continue; }
+    // Em segundo plano: com o ritmo anti-ban (45–90s por envio) a requisição expiraria
+    res.status(202).json({ message: 'Reenvio de aniversário iniciado em segundo plano' });
+    (async () => {
+      const erros = [];
+      for (const dest of msg.destinatarios) {
+        try {
+          const person = await Person.findOne({ celular: dest.celular });
+          if (!person) { erros.push({ celular: dest.celular, motivo: 'Pessoa não encontrada' }); continue; }
 
-        const textContent = templates.aniversario(person.nome);
-        await whatsapp.sendSingle(person.celular, textContent);
+          const textContent = templates.aniversario(person.nome);
+          // Reenvio em lote: respeita o ritmo anti-ban (sendSingle não espera)
+          await whatsapp.sendText(person.celular, textContent, { bulk: true });
 
-        const imageBuffer = await generateBirthdayCard(person, 'portrait');
-        const base64Image = imageBuffer.toString('base64');
-        await whatsapp.sendMedia(person.celular, '', base64Image);
-      } catch (err) {
-        erros.push({ celular: dest.celular, motivo: err.message });
+          const imageBuffer = await generateBirthdayCard(person, 'portrait');
+          const base64Image = imageBuffer.toString('base64');
+          await whatsapp.sendMedia(person.celular, '', base64Image);
+        } catch (err) {
+          erros.push({ celular: dest.celular, motivo: err.message });
+        }
       }
-    }
 
-    const newLog = await Message.create({
-      tipo: 'aniversario',
-      destinatarios: buildDestinatarioLog(msg.destinatarios, erros.length > 0 ? 'erro' : 'concluido').map((dest) => ({
-        ...dest,
-        processadoEm: new Date(),
-        ...(erros.find((err) => err.celular === dest.celular) ? { erro: erros.find((err) => err.celular === dest.celular).motivo } : {}),
-      })),
-      conteudo: `Reenvio de aniversário (texto + imagem) para ${msg.destinatarios.map(d => d.nome).join(', ')}`,
-      status: erros.length > 0 ? 'erro' : 'concluido',
-      enviadoPor: req.user._id,
-      concluidoEm: new Date(),
-      erros,
-    });
-
-    return res.json({ message: 'Reenvio de aniversário realizado', log: newLog });
+      const newLog = await Message.create({
+        tipo: 'aniversario',
+        destinatarios: buildDestinatarioLog(msg.destinatarios, erros.length > 0 ? 'erro' : 'concluido').map((dest) => ({
+          ...dest,
+          processadoEm: new Date(),
+          ...(erros.find((err) => err.celular === dest.celular) ? { erro: erros.find((err) => err.celular === dest.celular).motivo } : {}),
+        })),
+        conteudo: `Reenvio de aniversário (texto + imagem) para ${msg.destinatarios.map(d => d.nome).join(', ')}`,
+        status: erros.length > 0 ? 'erro' : 'concluido',
+        enviadoPor: req.user._id,
+        concluidoEm: new Date(),
+        erros,
+      });
+    })().catch((err) => console.error('[RESEND] Reenvio de aniversário:', err.message));
+    return undefined;
   }
 
   // Other message types: re-send as batch text
@@ -538,6 +543,9 @@ const pendingPhotosCount = async (req, res) => {
 
 const sendPendingPhotos = async (req, res) => {
   const { mensagem } = req.body;
+  if (typeof mensagem !== 'string' || !mensagem.trim()) {
+    return res.status(400).json({ message: 'Mensagem é obrigatória' });
+  }
   res.json({ message: 'Envio de pendências de fotos iniciado em segundo plano.' });
 
   // Executa em background para não travar a request
@@ -560,32 +568,23 @@ const sendPendingPhotos = async (req, res) => {
         const user = await User.findOne({ personId: person._id });
         if (!user) continue;
 
-        let msgToSend = mensagem.replace(/\{nome\}/gi, person.nome)
-                                .replace(/\{login\}/gi, user.login)
-                                .replace(/\{senha\}/gi, DEFAULT_USER_PASSWORD);
+        // Senha padrão só para quem ainda não trocou (os demais já têm senha própria)
+        const senha = user.mustChangePassword ? DEFAULT_USER_PASSWORD : '(sua senha atual)';
+        const msgToSend = mensagem.replace(/\{nome\}/gi, person.nome)
+          .replace(/\{login\}/gi, user.login)
+          .replace(/\{senha\}/gi, senha);
         tasks.push({ nome: person.nome, celular: person.celular, mensagem: msgToSend });
       }
+      if (!tasks.length) return;
 
-      const BATCH_SIZE = 10;
-      const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-      const randomBetween = (min, max) => Math.floor(Math.random() * (max - min + 1) + min);
-
-      for (let i = 0; i < tasks.length; i += BATCH_SIZE) {
-        const batch = tasks.slice(i, i + BATCH_SIZE);
-        for (let j = 0; j < batch.length; j++) {
-          const task = batch[j];
-          try {
-            await whatsapp.sendSingle(task.celular, task.mensagem);
-          } catch (e) {
-            console.error('Erro enviando pendência foto para', task.nome, e);
-          }
-          if (j < batch.length - 1) await sleep(10000); // 10 segundos
-        }
-        if (i + BATCH_SIZE < tasks.length) {
-          const msToWait = randomBetween(5, 10) * 60 * 1000; // 5 a 10 min
-          await sleep(msToWait);
-        }
-      }
+      // Fila anti-ban (45–90s, janela, limites) + log em messages — nada de sleep fixo
+      await logAndSendBatch({
+        tipo: 'personalizada',
+        destinatarios: tasks.map(({ nome, celular }) => ({ nome, celular })),
+        mensagem,
+        enviadoPor: req.user._id,
+        getText: (dest) => tasks[dest.ordem].mensagem,
+      });
     } catch (err) {
       console.error('Erro fatal no sendPendingPhotos background:', err);
     }

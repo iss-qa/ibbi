@@ -12,15 +12,22 @@ const toTenantInfo = (tenant) => {
   return { tenantId: String(tenant._id), tenant };
 };
 
+// `run(() => Model.findOne(...))` devolve uma Query que só executa no `await`, já fora do
+// storage.run — o hook do plugin ficaria sem igreja/bypass. Disparamos a Query aqui dentro.
+const execInside = (fn) => () => {
+  const ret = fn();
+  return ret && typeof ret.exec === 'function' && typeof ret.then === 'function' ? ret.exec() : ret;
+};
+
 const runWithTenant = (tenant, fn) => {
   const info = toTenantInfo(tenant);
   if (!info) throw new Error('runWithTenant: tenant obrigatório');
-  return storage.run({ ...info, bypass: false }, fn);
+  return storage.run({ ...info, bypass: false }, execInside(fn));
 };
 
 // Executa sem filtro de tenant — uso exclusivo de rotinas da plataforma
 // (painel administrativo, billing, bootstrap, resolução de webhooks).
-const runAsPlatform = (fn) => storage.run({ tenantId: null, tenant: null, bypass: true }, fn);
+const runAsPlatform = (fn) => storage.run({ tenantId: null, tenant: null, bypass: true }, execInside(fn));
 
 const getStore = () => storage.getStore() || null;
 const getTenantId = () => getStore()?.tenantId || null;

@@ -3,6 +3,7 @@ const { churchShort } = require('../tenancy/brand');
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
+const { sanitizeFotoUrl } = require('../utils/sanitize');
 
 // Detecta se está rodando em ambiente serverless real (AWS Lambda, Vercel, etc.)
 // NODE_ENV=production sozinho não é suficiente — ambientes locais também podem usar production
@@ -29,33 +30,58 @@ try {
   }
 }
 
-async function tryFetchImageAsBase64(url) {
-  // ... (mesma função anterior)
+// Foto remota só via https para host público (sem localhost/IP/rede interna) e até 5 MB:
+// fotoUrl vem de cadastro e já foi usada para SSRF contra a rede interna.
+const MAX_REMOTE_PHOTO_BYTES = 5 * 1024 * 1024;
+const isPublicHttpsUrl = (value) => {
   try {
-    const resp = await axios.get(url, { responseType: 'arraybuffer' });
-    const mime = resp.headers['content-type'] || 'image/jpeg';
+    const u = new URL(value);
+    if (u.protocol !== 'https:') return false;
+    const host = u.hostname.toLowerCase();
+    if (host === 'localhost' || host.endsWith('.local') || host.endsWith('.internal')) return false;
+    if (/^[\d.]+$/.test(host) || host.includes(':') || host.startsWith('[')) return false; // IP literal
+    return host.includes('.');
+  } catch {
+    return false;
+  }
+};
+
+async function tryFetchImageAsBase64(url) {
+  if (!isPublicHttpsUrl(url)) return null;
+  try {
+    const resp = await axios.get(url, {
+      responseType: 'arraybuffer', timeout: 8000, maxRedirects: 0, maxContentLength: MAX_REMOTE_PHOTO_BYTES,
+    });
+    const mime = String(resp.headers['content-type'] || '').split(';')[0].trim();
+    if (!/^image\/(png|jpe?g|webp|gif)$/.test(mime)) return null;
     return `data:${mime};base64,${Buffer.from(resp.data).toString('base64')}`;
   } catch {
     return null;
   }
 }
 
-async function getBase64Image(urlOrPath, options = {}) {
+const UPLOAD_DIRS = [
+  path.resolve(__dirname, '../../../uploads'),
+  path.resolve(__dirname, '../../../../uploads'),
+];
+
+async function getBase64Image(urlOrPath) {
   if (!urlOrPath) return null;
-  const { origin } = options;
   const normalized = String(urlOrPath).trim();
-  if (normalized.startsWith('data:image/')) return normalized;
+  // Data URI só no formato estrito (entra cru no CSS da página renderizada)
+  if (normalized.startsWith('data:image/')) return sanitizeFotoUrl(normalized) || null;
   if (normalized.startsWith('http')) return tryFetchImageAsBase64(normalized);
   const cleanPath = normalized.replace(/^\/?(api\/)?uploads\//, '');
-  const candidates = [
-    path.resolve(__dirname, '../../../uploads', cleanPath),
-    path.resolve(__dirname, '../../../../uploads', cleanPath),
-  ];
-  const finalPath = candidates.find((candidate) => fs.existsSync(candidate));
+  // Sem path traversal: o arquivo tem de ficar dentro da pasta uploads
+  const candidates = UPLOAD_DIRS
+    .map((dir) => ({ dir, file: path.resolve(dir, cleanPath) }))
+    .filter(({ dir, file }) => file.startsWith(dir + path.sep));
+  const finalPath = candidates.map(({ file }) => file).find((candidate) => fs.existsSync(candidate));
   if (finalPath) {
-    const ext = path.extname(finalPath).substring(1) || 'jpeg';
+    const ext = path.extname(finalPath).substring(1).toLowerCase();
+    if (!['png', 'jpg', 'jpeg', 'webp', 'gif'].includes(ext)) return null;
     const data = fs.readFileSync(finalPath);
-    return `data:image/${ext};base64,${data.toString('base64')}`;
+    return `data:image/${ext === 'jpg' ? 'jpeg' : ext};base64,${data.toString('base64')}`;
   }
   return null;
 }
@@ -94,7 +120,7 @@ const generateBirthdayCard = async (person, format = 'portrait', options = {}) =
   const height = isPortrait ? 1920 : 1080;
   const templatePath = path.join(__dirname, '../assets/templates', isPortrait ? 'portrait.png' : 'landscape.png');
   const bgCss = buildTemplateBackground(templatePath);
-  const b64Photo = (await getBase64Image(person.fotoUrl, options)) || getDefaultPhotoBase64();
+  const b64Photo = (await getBase64Image(person.fotoUrl)) || getDefaultPhotoBase64();
 
   let browser;
   try {
@@ -119,6 +145,10 @@ const generateBirthdayCard = async (person, format = 'portrait', options = {}) =
     }
 
     const page = await browser.newPage();
+    // HTML só com dados locais: sem JS e sem rede (fontes via file://, imagens via data:)
+    await page.setJavaScriptEnabled(false);
+    await page.setRequestInterception(true);
+    page.on('request', (r) => (/^(data|file|about):/.test(r.url()) ? r.continue() : r.abort()));
     await page.setViewport({ width, height, deviceScaleFactor: 1 });
     await page.setContent(
       renderHtml({ person, isPortrait, width, height, bgCss, b64Photo }),

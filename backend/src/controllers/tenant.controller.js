@@ -6,7 +6,7 @@ const usage = require('../services/usage.service');
 const { sendEmail } = require('../services/email.service');
 const { PLANS, hasFeature, getPlan } = require('../config/plans');
 const { randomToken } = require('../utils/crypto');
-const { applyWhatsappConfig, apresentarSeConectado } = require('../services/whatsapp-config.service');
+const { applyWhatsappConfig, assertCloudNumberFree, apresentarSeConectado } = require('../services/whatsapp-config.service');
 const { apresentarNumero } = require('../services/leadership.service');
 const { invalidateTenant, getTenantById, serializeForTenantAdmin } = require('../tenancy/tenant.service');
 const { runWithTenant } = require('../tenancy/context');
@@ -43,6 +43,7 @@ const updateSettings = async (req, res) => {
   if (body.whatsapp) {
     const w = body.whatsapp;
     try {
+      await assertCloudNumberFree(tenant, w);
       whatsappMudou = applyWhatsappConfig(tenant, w);
     } catch (err) {
       return res.status(err.status || 400).json({ message: err.message });
@@ -160,7 +161,12 @@ const changePlan = async (req, res) => {
   if (maxPessoas && await Person.countDocuments({ status: 'ativo' }) > maxPessoas) {
     return res.status(400).json({ message: `O plano ${PLANS[plano].nome} comporta até ${maxPessoas} pessoas ativas.` });
   }
-  await Tenant.updateOne({ _id: req.tenant._id }, { $set: { plano, ...(ciclo ? { 'billing.ciclo': ciclo } : {}) } });
+  // Valor negociado vale para o plano em que foi negociado: trocou de plano, volta ao preço de tabela
+  const trocouPlano = plano !== req.tenant.plano;
+  await Tenant.updateOne({ _id: req.tenant._id }, {
+    $set: { plano, ...(ciclo ? { 'billing.ciclo': ciclo } : {}) },
+    ...(trocouPlano ? { $unset: { 'billing.valorMensal': 1 } } : {}),
+  });
   invalidateTenant(req.tenant._id);
   if (process.env.ALERT_EMAIL) {
     sendEmail({ to: process.env.ALERT_EMAIL, subject: `Troca de plano: ${req.tenant.nome} → ${plano}`, text: `${req.user.nome} alterou o plano para ${plano} (${ciclo || 'ciclo mantido'}).` })

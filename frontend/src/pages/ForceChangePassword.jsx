@@ -28,7 +28,9 @@ export default function ForceChangePassword() {
 
     setLoading(true);
     try {
-      await api.put('/users/me/password', { senhaNova });
+      const { data } = await api.put('/users/me/password', { senhaNova });
+      // Sessões anteriores à troca são invalidadas no backend: guarda o token novo
+      if (data?.token) localStorage.setItem('ibbi_token', data.token);
       completePasswordChange();
       navigate(user?.role === 'user' ? '/profile' : '/dashboard', { replace: true });
     } catch (err) {

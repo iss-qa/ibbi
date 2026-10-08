@@ -362,6 +362,16 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
     }
     setPhotoError(false);
 
+    // Celular é o WhatsApp de todos os envios: DDD + número (11 dígitos; 10 = sem o 9, confirmar)
+    const celularDigits = String(form.celular || '').replace(/\D/g, '');
+    if (celularDigits && (celularDigits.length < 10 || celularDigits.length > 11)) {
+      window.alert('Celular inválido: informe DDD + número, ex.: (71) 99999-8888.');
+      return;
+    }
+    if (celularDigits.length === 10 && !window.confirm('O celular tem 10 dígitos (sem o 9). Confirma que está correto?')) {
+      return;
+    }
+
     setSubmitting(true);
     try {
       await onSubmit?.({ ...form, congregacao: lockedCongregacao || form.congregacao });

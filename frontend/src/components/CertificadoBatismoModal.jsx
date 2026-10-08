@@ -4,6 +4,10 @@ import { jsPDF } from 'jspdf';
 import api from '../services/api';
 import logoIbbi from '../assets/logo-ibbi.jpeg';
 
+// Nome vem do cadastro (inclusive formulário público): escapar antes de document.write
+const escapeHtml = (s) =>
+  String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 /* ═══════════════════════════════════════════
    DESIGN TOKENS
    ═══════════════════════════════════════════ */
@@ -410,7 +414,7 @@ export default function CertificadoBatismoModal({ person, onClose, hideWhatsApp 
       if (!f || !b) return;
       const w = window.open('', '_blank');
       if (!w) return;
-      w.document.write(`<!DOCTYPE html><html><head><title>Certificado - ${person.nome}</title>
+      w.document.write(`<!DOCTYPE html><html><head><title>Certificado - ${escapeHtml(person.nome)}</title>
         <style>body{margin:0;padding:0;background:#fff}img{width:297mm;height:210mm;display:block}
         @media print{img{page-break-after:always}img:last-child{page-break-after:auto}}</style>
         </head><body><img src="${f.toDataURL('image/png')}"/><img src="${b.toDataURL('image/png')}"/></body></html>`);

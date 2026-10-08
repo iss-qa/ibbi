@@ -1,4 +1,4 @@
-const jwt = require('jsonwebtoken');
+const { signUserToken } = require('../utils/token');
 const { validationResult } = require('express-validator');
 const User = require('../models/User.model');
 const Person = require('../models/Person.model');
@@ -84,9 +84,7 @@ const login = async (req, res) => {
       await User.updateOne({ _id: user._id }, { failedLoginAttempts: 0, lockedUntil: null });
     }
 
-    const token = jwt.sign({ id: user._id, tid: String(user.tenantId), role: user.role }, process.env.JWT_SECRET, {
-      expiresIn: process.env.JWT_EXPIRES_IN || '7d',
-    });
+    const token = signUserToken(user);
 
     const serialized = await serializeUser(user);
     return res.json({

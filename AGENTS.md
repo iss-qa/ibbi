@@ -124,13 +124,13 @@ ibbi-system/
 MONGO_URI=mongodb://localhost:27017/ibbi_local
 
 # JWT
-JWT_SECRET=ibbi_secret_key_2026
+JWT_SECRET=<gere 32+ caracteres aleatórios — ex.: openssl rand -hex 32>
 JWT_EXPIRES_IN=7d
 
 # Evolution API — WhatsApp
 EVOLUTION_API_URL=https://evo2.wastezero.com.br
 EVOLUTION_INSTANCE=Isaias
-EVOLUTION_API_KEY=26ACA0213352-4CD3-83CE-F3586D857FE9
+EVOLUTION_API_KEY=<chave da instância — nunca versionar>
 
 # WhatsApp da Igreja (recebe pedidos de oração e será substituído)
 CHURCH_WHATSAPP_NUMBER=5571996838735

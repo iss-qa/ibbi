@@ -2,7 +2,10 @@ const RegistrationRequest = require('../models/RegistrationRequest.model');
 const Person = require('../models/Person.model');
 const { onboardMember } = require('../services/member.service');
 const { getUserCongregacao, getUserCongregacoes, resolveWritableCongregacao } = require('../utils/access');
-const { escapeRegex } = require('../utils/sanitize');
+const {
+  escapeRegex, sanitizeFotoUrl, PUBLIC_PERSON_FIELDS, pickFields,
+} = require('../utils/sanitize');
+const { toLocal } = require('../utils/phone');
 const { applyPersonBusinessRules } = require('../utils/person-rules');
 
 const sendError = (res, error) => res.status(error.status || 500).json({
@@ -76,13 +79,14 @@ const approve = async (req, res) => {
     }
 
     const body = req.body || {};
-    const data = body.personData || request.submittedData || {};
+    // Campos de cadastro apenas: submittedData veio do formulário público
+    const data = pickFields(body.personData || request.submittedData || {}, PUBLIC_PERSON_FIELDS);
     const personPayload = {
       ...data,
       nome: data.nome || request.nome,
-      celular: data.celular || request.celular,
+      celular: toLocal(data.celular || request.celular) || undefined,
       congregacao: req.user.role === 'master' ? (data.congregacao || request.congregacao) : await resolveWritableCongregacao(req.user, data.congregacao || request.congregacao),
-      fotoUrl: data.fotoUrl || request.fotoUrl,
+      fotoUrl: sanitizeFotoUrl(data.fotoUrl || request.fotoUrl),
       status: 'ativo',
     };
 

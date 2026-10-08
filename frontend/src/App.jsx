@@ -88,7 +88,7 @@ export default function App() {
                     <p className="text-sm text-slate-500 pt-16 md:pt-0">Carregando...</p>
                   ) : (
                   <Routes>
-                    {user?.role !== 'user' && (
+                    {['admin', 'master'].includes(user?.role) && (
                       <>
                         <Route path="/dashboard" element={<Dashboard />} />
                         <Route path="/members" element={<MemberList />} />

@@ -5,6 +5,10 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import logoIbbi from '../assets/logo-ibbi.jpeg';
 
+// Nome vem do cadastro (inclusive formulário público): escapar antes de document.write
+const escapeHtml = (s) =>
+  String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
 // Church constants
 const CHURCH = {
   name: 'IGREJA BATISTA BÍBLICA ISRAEL',
@@ -639,7 +643,7 @@ export default function CarteirinhaModal({ person, onClose, hideWhatsApp = false
         <!DOCTYPE html>
         <html>
         <head>
-          <title>Carteirinha IBBI - ${personData.nome}</title>
+          <title>Carteirinha - ${escapeHtml(personData.nome)}</title>
           <style>
             body { margin: 0; padding: 20mm; display: flex; flex-direction: column; align-items: center; gap: 10mm; background: #fff; }
             img { width: 85.6mm; height: 53.98mm; border-radius: 4mm; box-shadow: 0 2px 8px rgba(0,0,0,0.15); }

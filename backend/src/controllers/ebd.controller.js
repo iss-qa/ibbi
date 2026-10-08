@@ -2,6 +2,11 @@ const EbdAula = require('../models/EbdAula.model');
 const Person = require('../models/Person.model');
 const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao, resolveWritableCongregacao } = require('../utils/access');
 const { escapeRegex } = require('../utils/sanitize');
+const { dayRangeFromIso } = require('../utils/time');
+
+// Aulas ficam gravadas ao meio-dia (ensureSunday): busca por data é pelo dia inteiro, não igualdade.
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const dayFilter = (value) => (ISO_DATE_RE.test(String(value).slice(0, 10)) ? dayRangeFromIso(String(value).slice(0, 10)) : null);
 
 const ensureSunday = (date) => {
   const d = new Date(`${date}T12:00:00`);
@@ -21,7 +26,11 @@ const canEditAula = (aula, user) => {
 const list = async (req, res) => {
   const { data, classe, congregacao, search, month, year } = req.query;
   let filter = {};
-  if (data) filter.data = new Date(data);
+  if (data) {
+    const range = dayFilter(data);
+    if (!range) return res.status(400).json({ message: 'Data inválida (use AAAA-MM-DD)' });
+    filter.data = range;
+  }
   if (classe) filter.classe = classe;
   if (search) {
     const safe = escapeRegex(search);
@@ -124,7 +133,8 @@ const remove = async (req, res) => {
 };
 
 const getBySunday = async (req, res) => {
-  const data = new Date(req.params.date);
+  const data = dayFilter(req.params.date);
+  if (!data) return res.status(400).json({ message: 'Data inválida (use AAAA-MM-DD)' });
   const filter = await applyScopedCongregacaoFilter(req.user, { data });
   const aulas = await EbdAula.find(filter);
   res.json(aulas);

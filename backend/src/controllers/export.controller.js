@@ -57,7 +57,12 @@ const exportCsv = async (req, res) => {
     p.ministerio || '',
   ]);
 
-  const escape = (value) => `"${String(value).replace(/"/g, '""')}"`;
+  // Célula iniciada por = + - @ vira fórmula no Excel (dados vêm do formulário público): prefixa com '
+  const escape = (value) => {
+    let text = String(value ?? '');
+    if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`;
+    return `"${text.replace(/"/g, '""')}"`;
+  };
   const csv = [header.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))].join('\n');
 
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');

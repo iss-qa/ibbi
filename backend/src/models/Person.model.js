@@ -87,7 +87,9 @@ PersonSchema.virtual('idade').get(function idade() {
 PersonSchema.pre('save', async function enforceBusinessRules(next) {
   applyPersonBusinessRules(this);
   if (this.status === 'inativo' && !this.motivoInativacao) {
-    return next(new Error('motivoInativacao é obrigatório quando status = inativo'));
+    const err = new Error('motivoInativacao é obrigatório quando status = inativo');
+    err.status = 400;
+    return next(err);
   }
   // Auto-generate matricula if missing
   if (!this.matricula) {

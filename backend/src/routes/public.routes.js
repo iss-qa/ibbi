@@ -30,7 +30,9 @@ router.get('/tenants/:slug', async (req, res) => {
 });
 
 router.get('/invitations/:token/tenant', controller.invitationTenant);
-router.post('/invitations/:token/submit', controller.submitInvitation);
+// Cada envio dispara WhatsApp de boas-vindas ao número informado: limite por IP contra spam/banimento
+const inviteSubmitLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false });
+router.post('/invitations/:token/submit', inviteSubmitLimiter, controller.submitInvitation);
 
 // Cadastro de igreja pela landing page — cria tenant em trial. Limite baixo por IP contra abuso.
 const signupLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false });
