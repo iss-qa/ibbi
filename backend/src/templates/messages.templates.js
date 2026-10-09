@@ -83,6 +83,41 @@ Qualquer dúvida, estamos aqui! 💙`,
 
   convocacaoChamadaEncontro: (lider, grupo, data, roster) => `Olá, ${firstName(lider)}! 🙌\nComo foi o encontro da *${grupo}* hoje (${data})? Vamos registrar a frequência?\n\n${roster.map((p, i) => `${i + 1}. ${p.nome}`).join('\n')}\n\nResponda com os *números* ou *nomes* de quem veio (ex.: "1 3 5"), ou mande um *áudio*. Se quiser, diga também a atividade (culto, ensaio…) e o tema.`,
 
+  // Relatório semanal automático da liderança: estrutura fixa (mesma ordem toda semana).
+  relatorioSemanalLideranca: (d, sugestao) => {
+    const pct = (p, t) => (t ? Math.round((p / t) * 100) : 0);
+    const variacao = d.percentualSemanaAnterior == null ? ''
+      : d.percentual > d.percentualSemanaAnterior ? ` ▲ ${d.percentual - d.percentualSemanaAnterior} pts vs. semana anterior`
+        : d.percentual < d.percentualSemanaAnterior ? ` ▼ ${d.percentualSemanaAnterior - d.percentual} pts vs. semana anterior`
+          : ' = estável vs. semana anterior';
+    const marca = (p) => (p >= 90 ? ' 🌟' : p < 50 ? ' ⚠️' : '');
+    const acao = (f) => (f >= 4 ? 'visita pastoral' : f >= 3 ? 'ligação' : 'mensagem');
+    const alertas = d.alertas || [];
+    const classes = [...(d.classes || [])].sort((a, b) => b.percentual - a.percentual);
+    return [
+      `📊 *Relatório semanal — ${churchShort()}*`,
+      `_${d.periodo}_`,
+      '',
+      '📖 *Escola Bíblica Dominical*',
+      d.total
+        ? `Presença geral: *${pct(d.presentes, d.total)}%* (${d.presentes} de ${d.total})${variacao}`
+        : '_Nenhuma chamada registrada nesta semana._',
+      ...classes.map((c) => `• ${c.classe}: ${c.presentes}/${c.total} (${c.percentual}%)${marca(c.percentual)}`),
+      '',
+      `⚠️ *Precisam de um contato* (${alertas.length})`,
+      alertas.length
+        ? lista(alertas.slice(0, 10).map((a) => `*${a.nome}*${a.classe ? ` · ${a.classe}${a.congregacao ? ` (${a.congregacao})` : ''}` : ''}: ${a.faltasConsecutivas} faltas seguidas → ${acao(a.faltasConsecutivas)}`))
+          + (alertas.length > 10 ? `\n_e mais ${alertas.length - 10} no painel_` : '')
+        : '_Ninguém com faltas seguidas. Glória a Deus!_',
+      d.esfriando?.length ? `\n📉 *Esfriando* (a frequência caiu): ${d.esfriando.slice(0, 6).join(', ')}${d.esfriando.length > 6 ? ` e mais ${d.esfriando.length - 6}` : ''}` : null,
+      d.retornos?.length ? `\n🎉 *Voltaram esta semana:* ${d.retornos.join(', ')}` : null,
+      `\n🎂 *Aniversariantes nos próximos 7 dias:* ${d.aniversariantes || 0}`,
+      sugestao ? `\n💡 *Sugestão da semana*\n${sugestao}` : null,
+      '',
+      `_Detalhes no painel: ${portalUrl()}_`,
+    ].filter((l) => l !== null).join('\n');
+  },
+
   relatorioSemanalPadrao: ({ periodo, presentes, total, percentual, alertas, aniversariantes }) => `📊 *Resumo semanal — ${churchShort()}*\n_${periodo}_\n\n• EBD: ${presentes}/${total} presenças (${percentual}%)\n• Membros em alerta: ${alertas.length}${alertas.length ? `\n${lista(alertas.slice(0, 10).map((a) => `${a.nome} — ${a.faltasConsecutivas} faltas`))}` : ''}\n• Aniversariantes da semana: ${aniversariantes}\n\nAcesse o painel para mais detalhes: ${portalUrl()}`,
 
   menuLider: (nome, assistente) => `${saudacaoAssistente({ nomeUsuario: nome, assistente, igreja: churchShort(), produto: PRODUTO })}\n\n*O que você quer fazer?*\n\n👥 *Pessoas*\n1️⃣ Pesquisar pessoa\n2️⃣ Cadastrar pessoa\n3️⃣ Editar dados de uma pessoa\n\n📋 *Encontros*\n4️⃣ Registrar presença (EBD ou uniões)\n5️⃣ Resumir um encontro (enviar aos membros)\n\n💛 *Cuidado*\n6️⃣ Grupos: frequência, ausentes e números\n7️⃣ Quem está faltando (ligar, visitar, orar)\n8️⃣ Enviar aviso para um grupo\n9️⃣ Aniversariantes\n🔟 Relatório da semana\n1️⃣1️⃣ Pedidos de oração\n1️⃣2️⃣ Visitantes e novos convertidos (jornada)\n\n🙋 *Serviço*\n1️⃣3️⃣ Escalas de voluntários\n\n📣 *Comunicação*\n1️⃣4️⃣ Resumo do sermão para a igreja\n1️⃣5️⃣ Eventos e inscrições\n1️⃣6️⃣ Impacto do mês\n\n_Criar ou editar grupos e adicionar ou remover membros: pela plataforma web._\n\nResponda com o *número* ou escreva do seu jeito.${temMidia() ? ' Também entendo *áudio* e *foto* de ficha.' : ''} Digite *menu* a qualquer momento.`,
@@ -298,9 +333,13 @@ Qualquer dúvida, estamos aqui! 💙`,
   rodapeSair: () => '\n\n_Para não receber mais mensagens, responda SAIR._',
 
   // ── Jornada do visitante / novo convertido (30 dias) ─────────────────
+  jornadaD1: (nome, tipo) => (tipo === 'novo decidido'
+    ? `Oi, ${firstName(nome)}! 🎉 Aqui é da *${churchShort()}*.\n\nQue alegria a sua decisão por Jesus! Toda a igreja se alegra com você: agora você faz parte da família de Deus.\n\n_"Mas, a todos quantos o receberam, deu-lhes o poder de serem feitos filhos de Deus."_ (Jo 1:12)\n\nSalve este número: vamos caminhar juntos nessa nova fase. 💛`
+    : `Oi, ${firstName(nome)}! 😊 Aqui é da *${churchShort()}*.\n\nPassando para agradecer a sua visita! Foi uma alegria ter você conosco.\n\n_"Alegrei-me quando me disseram: Vamos à casa do Senhor."_ (Sl 122:1)\n\nSalve este número: por aqui você fica por dentro da programação e pode falar com a gente quando quiser. 💛`),
+  jornadaD2: (nome) => `Oi, ${firstName(nome)}! 🙏\n\nHoje a nossa equipe separou um tempo para orar por você.\n\nTem algum *pedido de oração*? Pode mandar por aqui, com toda a liberdade: vamos levar ao Senhor com carinho.\n\n_"Lançando sobre ele toda a vossa ansiedade, porque ele tem cuidado de vós."_ (1Pe 5:7)`,
   jornadaD3: (nome, tipo) => (tipo === 'novo decidido'
-    ? `Oi, ${firstName(nome)}! 😊 Aqui é da *${churchShort()}*.\n\nComo está sendo esta primeira semana caminhando com Jesus? Ficou alguma dúvida sobre a fé, a Bíblia ou a igreja? Pode me perguntar por aqui.\n\nSe quiser, mande também um *pedido de oração*: vamos orar por você. 🙏`
-    : `Oi, ${firstName(nome)}! 😊 Aqui é da *${churchShort()}*.\n\nFoi muito bom ter você conosco! Como foi a sua visita? Ficou alguma dúvida ou tem algo em que possamos ajudar?\n\nSe quiser, mande um *pedido de oração* por aqui. Vamos orar por você. 🙏`),
+    ? `Oi, ${firstName(nome)}! 😊 Aqui é da *${churchShort()}*.\n\nComo está sendo esta primeira semana caminhando com Jesus? Ficou alguma dúvida sobre a fé, a Bíblia ou a igreja? Pode me perguntar por aqui.\n\nSe quiser conversar com alguém da liderança, é só responder. 🙌`
+    : `Oi, ${firstName(nome)}! 😊 Aqui é da *${churchShort()}*.\n\nComo foi a sua visita? Ficou alguma dúvida ou tem algo em que possamos ajudar?\n\nSe quiser conversar com o pastor ou com alguém da liderança, é só responder. 🙌`),
   jornadaD7: (nome, grupo) => (grupo
     ? `Oi, ${firstName(nome)}! 🙌\n\nNa ${churchShort()} ninguém caminha sozinho. Temos um grupo que é a sua cara: *${grupo.nome}*, ${grupo.dia}${grupo.horario ? ` às ${grupo.horario}` : ''}${grupo.local ? ` (${grupo.local})` : ''}.\n\nÉ um tempo de comunhão, Palavra e amizade. Quer participar? É só aparecer, vamos te receber com alegria! 💛\n\n_"Oh! quão bom e quão suave é que os irmãos vivam em união!"_ (Sl 133:1)`
     : `Oi, ${firstName(nome)}! 🙌\n\nNa ${churchShort()} ninguém caminha sozinho. Durante a semana temos encontros das uniões e grupos: um tempo de comunhão, Palavra e amizade. Quer que alguém te apresente ao grupo certo para você? Responda *sim*! 💛`),
@@ -353,7 +392,7 @@ Qualquer dúvida, estamos aqui! 💙`,
 
 // Mensagens que a igreja envia por iniciativa própria levam o aviso de como sair (SAIR).
 // Aniversário fica de fora (template protegido — ver AGENTS.md).
-['jornadaD3', 'jornadaD7', 'jornadaD14', 'jornadaD21', 'personalizada', 'resumoMembro', 'ausenciaMembro'].forEach((k) => {
+['jornadaD1', 'jornadaD2', 'jornadaD3', 'jornadaD7', 'jornadaD14', 'jornadaD21', 'personalizada', 'resumoMembro', 'ausenciaMembro'].forEach((k) => {
   const original = module.exports[k];
   module.exports[k] = (...args) => `${original(...args)}${module.exports.rodapeSair()}`;
 });

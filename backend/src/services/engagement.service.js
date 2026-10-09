@@ -438,6 +438,7 @@ const weeklyReportData = async ({ isoDate }) => {
       motivo: s.alerta?.motivoInformado || null,
     })),
     retornos: retornos.map((r) => r.nome),
+    esfriando: [...new Set((ov.esfriando || []).map((s) => s.nome))],
     aniversariantes: aniversariantes[0]?.n || 0,
   };
 };

@@ -21,6 +21,7 @@ router.get('/indicacao', controller.indicacao);
 router.put('/settings', controller.updateSettings);
 router.get('/whatsapp/status', controller.whatsappStatus);
 router.put('/whatsapp/ativo', controller.setWhatsappAtivo);
+router.get('/relatorio-semanal/previa', controller.relatorioSemanalPrevia);
 router.post('/whatsapp/test', controller.whatsappTest);
 router.get('/whatsapp/groups', controller.listGroups);
 router.post('/whatsapp/groups', controller.createGroup);

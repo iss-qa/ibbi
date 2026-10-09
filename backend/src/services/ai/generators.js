@@ -49,19 +49,53 @@ const resumoAula = async (aula) => {
 };
 
 // Relatório semanal para a liderança. `dados` já vem agregado pelo engagement.service.
-const relatorioSemanal = async (dados) => {
-  const texto = await generateText({
-    system: `${baseSystem()}\nAgora você escreve para a LIDERANÇA (pastores e líderes), não para membros.`,
-    prompt: [
-      'Escreva o resumo semanal de engajamento da igreja para ser enviado no WhatsApp da liderança.',
-      'Estrutura: título com 📊, frequência da EBD por classe (presentes/total e %), tendência vs semana anterior,',
-      'lista "⚠️ Quem precisa de um telefonema" (nome, faltas seguidas, sugestão: mensagem/ligação/visita pastoral),',
-      'retornos a celebrar 🎉, aniversariantes da semana e 1 recomendação prática. Máximo de 1500 caracteres.',
-      `Dados (JSON): ${JSON.stringify(dados)}`,
-    ].join('\n'),
-    maxTokens: 3000,
-  });
-  return texto || templates.relatorioSemanalPadrao(dados);
+// Sugestão sem IA (prévia nas configurações e reserva quando a IA falha).
+const sugestaoPadrao = (d) => {
+  if (d.alertas?.length) return `Divida os ${d.alertas.length} nomes de ⚠️ entre os líderes e façam os contatos até quarta-feira. Um telefonema faz toda a diferença.`;
+  if (d.total && d.percentual < 60) return 'A presença está baixa: anuncie o tema do próximo domingo no culto e peça aos líderes de classe que convidem pessoalmente.';
+  if (d.total) return 'Agradeça no próximo culto às classes com melhor presença: reconhecimento público anima a todos.';
+  return 'Combine com os líderes de classe o registro da chamada no domingo para o relatório ficar completo.';
 };
 
-module.exports = { mensagemAusente, resumoAula, relatorioSemanal };
+// Relatório semanal: estrutura fixa (template); a IA escreve só a sugestão da semana.
+const relatorioSemanal = async (dados, { ia = true } = {}) => {
+  let sugestao = null;
+  if (ia) {
+    sugestao = await generateText({
+      system: `${baseSystem()}\nAgora você escreve para a LIDERANÇA (pastores e líderes), não para membros.`,
+      prompt: [
+        'Com base nos dados de frequência abaixo, escreva UMA recomendação prática para a liderança agir nesta semana.',
+        'No máximo 2 frases (até 240 caracteres), sem saudação, sem título e sem listar os dados de novo.',
+        `Dados (JSON): ${JSON.stringify(dados)}`,
+      ].join('\n'),
+      maxTokens: 300,
+    }).catch(() => null);
+  }
+  const texto = String(sugestao || '').trim();
+  return templates.relatorioSemanalLideranca(dados, texto && texto.length <= 400 ? texto : sugestaoPadrao(dados));
+};
+
+// Dados fictícios para mostrar o formato quando a igreja ainda não tem chamadas.
+const EXEMPLO_RELATORIO = {
+  periodo: '02/10/2026 a 09/10/2026', presentes: 156, total: 200, percentual: 78, percentualSemanaAnterior: 73,
+  classes: [
+    { classe: 'Adultos 1 (Sede)', presentes: 37, total: 40, percentual: 93 },
+    { classe: 'Jovens (Sede)', presentes: 21, total: 28, percentual: 75 },
+    { classe: 'Adolescentes (Periperi)', presentes: 9, total: 20, percentual: 45 },
+  ],
+  alertas: [
+    { nome: 'Maria Souza', classe: 'Adultos 2', congregacao: 'Sede', faltasConsecutivas: 4 },
+    { nome: 'João Lima', classe: 'Jovens', congregacao: 'Sede', faltasConsecutivas: 3 },
+    { nome: 'Ana Costa', classe: 'Adolescentes', congregacao: 'Periperi', faltasConsecutivas: 2 },
+  ],
+  esfriando: ['Pedro Alves', 'Carla Dias'],
+  retornos: ['Lucas Rocha'],
+  aniversariantes: 5,
+};
+const relatorioSemanalPrevia = (dados) => {
+  const vazio = !dados || (!dados.total && !dados.alertas?.length);
+  const d = vazio ? EXEMPLO_RELATORIO : dados;
+  return { texto: templates.relatorioSemanalLideranca(d, sugestaoPadrao(d)), origem: vazio ? 'exemplo' : 'dados' };
+};
+
+module.exports = { mensagemAusente, resumoAula, relatorioSemanal, relatorioSemanalPrevia };

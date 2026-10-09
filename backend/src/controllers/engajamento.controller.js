@@ -142,7 +142,7 @@ const pixPreview = async (req, res) => {
   const e = await findEvento(req);
   if (!e) return res.status(404).json({ message: 'Evento não encontrado' });
   if (!e.valor) return res.json({ pix: null, motivo: 'Evento gratuito' });
-  if (!eventoSvc.pixPronto()) return res.json({ pix: null, motivo: 'Configure a chave Pix em Configurações → Igreja' });
+  if (!eventoSvc.pixPronto()) return res.json({ pix: null, motivo: 'Configure a chave Pix, o nome do recebedor e a cidade da igreja em Configurações → Igreja' });
   res.json({ pix: await eventoSvc.pixDaInscricao(e, { _id: e._id, txid: `${e.codigo}TESTE` }) });
 };
 

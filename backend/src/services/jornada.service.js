@@ -16,6 +16,8 @@ const { formatBr } = require('../utils/time');
 
 /**
  * Jornada de 30 dias do visitante / novo decidido (sem IA, só templates):
+ *   d1  obrigado pela visita / alegria pela decisão  ┐ "primeiros dias"
+ *   d2  estamos orando por você: pedido de oração    ┘ (automacoes.jornada.primeirosDias)
  *   d3  como foi a visita / a primeira semana
  *   d7  convite para a união/grupo certo (por sexo e idade)
  *   d14 convite à EBD (classe da idade) — para o novo decidido, como discipulado
@@ -24,6 +26,8 @@ const { formatBr } = require('../utils/time');
  * "Voltou" = presença na EBD, num encontro ou check-in de culto depois do dia da visita.
  */
 const ETAPAS = [
+  { chave: 'd1', dia: 1 },
+  { chave: 'd2', dia: 2 },
   { chave: 'd3', dia: 3 },
   { chave: 'd7', dia: 7 },
   { chave: 'd14', dia: 14 },
@@ -106,6 +110,8 @@ const marcarResposta = (personId) => (personId
   : null);
 
 const textoDaEtapa = async (chave, j, person) => {
+  if (chave === 'd1') return templates.jornadaD1(person.nome, j.tipo);
+  if (chave === 'd2') return templates.jornadaD2(person.nome);
   if (chave === 'd3') return templates.jornadaD3(person.nome, j.tipo);
   if (chave === 'd7') return templates.jornadaD7(person.nome, await grupoSugerido(person));
   if (chave === 'd14') return templates.jornadaD14(person.nome, j.tipo, classeEbd(person));
@@ -151,7 +157,8 @@ const runJornadas = async () => {
     const enviar = daPessoa[daPessoa.length - 1];
     daPessoa.slice(0, -1).forEach((e) => marcar(e.chave, { status: 'pulada' }));
     if (enviar) {
-      const pular = !person.celular || (enviar.chave === 'd21' && j.tipo === 'visitante' && retornou);
+      const pular = !person.celular || (enviar.chave === 'd21' && j.tipo === 'visitante' && retornou)
+        || (['d1', 'd2'].includes(enviar.chave) && getTenant()?.automacoes?.jornada?.primeirosDias === false);
       if (pular) marcar(enviar.chave, { status: 'pulada' });
       else envios.push({ jornadaId: j._id, chave: enviar.chave, nome: person.nome, celular: person.celular, texto: await textoDaEtapa(enviar.chave, j, person) });
     }

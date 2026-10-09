@@ -6,6 +6,8 @@ import { Card, KpiCard } from '../../components/ui';
 import { useTenant } from '../../context/TenantContext';
 
 const ETAPAS = [
+  ['d1', 'Dia 1', 'Obrigado pela visita'],
+  ['d2', 'Dia 2', 'Pedido de oração'],
   ['d3', 'Dia 3', 'Como foi a visita'],
   ['d7', 'Dia 7', 'Convite para a união/grupo'],
   ['d14', 'Dia 14', 'Convite à EBD'],

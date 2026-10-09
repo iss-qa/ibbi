@@ -59,12 +59,12 @@ test.describe.serial('Termos e onboarding', () => {
     expect((await adm.post('/tenant/termos/aceitar', { aceito: true })).status()).toBe(403);
   });
 
-  test('Pix nas configurações: nome/cidade limitados ao padrão do BR Code', async ({ request }) => {
+  test('Pix nas configurações: nome completo guardado; cidade vem dos Dados da igreja', async ({ request }) => {
     const a = await cliente(request);
     await a.put('/tenant/settings', { pix: { chave: 'pix@e2e.test', nome: 'Igreja Com Um Nome Muito Comprido Demais', cidade: 'Cidade Com Nome Grande Demais' } });
     const t = await (await a.get('/tenant')).json();
-    expect(t.pix.nome.length).toBeLessThanOrEqual(25);
-    expect(t.pix.cidade.length).toBeLessThanOrEqual(15);
+    expect(t.pix.nome).toBe('Igreja Com Um Nome Muito Comprido Demais'); // até 60; o BR Code corta em 25
+    expect(t.pix.cidade).toBeUndefined();
   });
 
   test('páginas públicas de termos e privacidade existem no front', async ({ request }) => {
