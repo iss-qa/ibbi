@@ -1,57 +1,167 @@
-const axios = require('axios');
 const Tenant = require('../models/Tenant.model');
 const Invoice = require('../models/Invoice.model');
 const { invoiceAmountFor, getPlan } = require('../config/plans');
 const { sendEmail } = require('./email.service');
+const woovi = require('./woovi.service');
 const { invalidateTenant } = require('../tenancy/tenant.service');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const GRACE_DAYS = () => Number(process.env.BILLING_GRACE_DAYS) || 3;
-const SUSPEND_AFTER_DAYS = () => Number(process.env.BILLING_SUSPEND_AFTER_DAYS) || 15;
+// Atraso (dias após o vencimento): a partir de GRACE a igreja fica "inadimplente" (só aviso);
+// a partir de SUSPEND o acesso é suspenso, exceto a tela de Assinatura.
+const GRACE_DAYS = () => Number(process.env.BILLING_GRACE_DAYS) || 1;
+const SUSPEND_AFTER_DAYS = () => Number(process.env.BILLING_SUSPEND_AFTER_DAYS) || 7;
+// Validade do Pix: vencimento + este prazo. Expirou sem pagamento → um novo Pix é gerado ao pagar.
+const CHARGE_TTL_DAYS = () => Number(process.env.WOOVI_CHARGE_TTL_DAYS) || 30;
 
+const OPEN = ['pendente', 'vencido'];
 const competenciaOf = (date = new Date()) => date.toISOString().slice(0, 7);
 const toIso = (d) => new Date(d).toISOString().slice(0, 10);
+const cents = (v) => Math.round(Number(v || 0) * 100);
+const brl = (v) => `R$ ${Number(v || 0).toFixed(2).replace('.', ',')}`;
+const appUrl = () => (process.env.APP_URL || 'https://pastoria.issqa.com.br').replace(/\/$/, '');
+const diasDeAtraso = (vencimento, now = new Date()) => Math.max(0, Math.floor((now - new Date(vencimento)) / DAY_MS));
 
-// ── Asaas (opcional) ────────────────────────────────────────────────────
-const asaasEnabled = () => Boolean(process.env.ASAAS_API_KEY);
-const asaas = () => axios.create({
-  baseURL: process.env.ASAAS_API_URL || 'https://api.asaas.com/v3',
-  headers: { access_token: process.env.ASAAS_API_KEY, 'Content-Type': 'application/json' },
-  timeout: 20000,
-});
+// pastoria-<id da fatura>-<tentativa>-<aleatório>
+const invoiceIdFrom = (correlationID) => /^pastoria-([a-f0-9]{24})-/.exec(correlationID || '')?.[1] || null;
 
-const ensureAsaasCustomer = async (tenant) => {
-  if (tenant.billing?.asaasCustomerId) return tenant.billing.asaasCustomerId;
-  const { data } = await asaas().post('/customers', {
-    name: tenant.nome,
-    cpfCnpj: tenant.documento ? String(tenant.documento).replace(/\D/g, '') : undefined,
-    email: tenant.email,
-    mobilePhone: tenant.telefone ? String(tenant.telefone).replace(/\D/g, '') : undefined,
-    externalReference: String(tenant._id),
-  });
-  await Tenant.updateOne({ _id: tenant._id }, { $set: { 'billing.asaasCustomerId': data.id } });
-  invalidateTenant(tenant._id);
-  return data.id;
+// Status da igreja pelo atraso da fatura vencida mais antiga. Só mexe em quem está
+// ativa/inadimplente/suspensa (trial e cancelada seguem outras regras).
+const recomputeStatus = async (tenantId, now = new Date()) => {
+  const tenant = await Tenant.findById(tenantId).select('status billing').lean();
+  if (!tenant || !['ativa', 'inadimplente', 'suspensa'].includes(tenant.status)) return tenant?.status;
+  let status = 'ativa';
+  if (!tenant.billing?.isento) {
+    const maisAntiga = await Invoice.findOne({ tenantId, status: 'vencido' }).sort({ vencimento: 1 }).select('vencimento').lean();
+    const dias = maisAntiga ? diasDeAtraso(maisAntiga.vencimento, now) : 0;
+    if (maisAntiga && dias >= SUSPEND_AFTER_DAYS()) status = 'suspensa';
+    else if (maisAntiga && dias >= GRACE_DAYS()) status = 'inadimplente';
+  }
+  if (status !== tenant.status) {
+    await Tenant.updateOne({ _id: tenantId, status: tenant.status }, { $set: { status } });
+    invalidateTenant(tenantId);
+  }
+  return status;
 };
 
-const createGatewayCharge = async (invoice, tenant) => {
-  if (!asaasEnabled() || invoice.valor <= 0 || invoice.gateway?.id) return invoice;
+// ── Baixa ───────────────────────────────────────────────────────────────
+// Atômica: webhooks repetidos (CHARGE_COMPLETED + TRANSACTION_RECEIVED) dão baixa uma vez só.
+const markPaid = async (invoice, { valorPago, metodo = 'pix', pagoEm = new Date(), observacao, gatewayStatus } = {}) => {
+  const updated = await Invoice.findOneAndUpdate(
+    { _id: invoice._id, status: { $ne: 'pago' } },
+    { $set: {
+      status: 'pago',
+      pagoEm,
+      valorPago: valorPago ?? invoice.valor,
+      metodo,
+      ...(observacao ? { observacao } : {}),
+      ...(gatewayStatus ? { 'gateway.status': gatewayStatus } : {}),
+    } },
+    { new: true },
+  );
+  if (!updated) return Invoice.findById(invoice._id);
+  // Baixa manual no painel: tira o Pix do ar para a igreja não pagar duas vezes.
+  if (!gatewayStatus && updated.gateway?.provider === 'woovi' && updated.gateway.status === 'ACTIVE') {
+    if (await woovi.deleteCharge(updated.gateway.id)) await Invoice.updateOne({ _id: updated._id }, { $set: { 'gateway.status': 'REMOVED' } });
+  }
+  await recomputeStatus(updated.tenantId);
+  // Indicação: 1ª fatura paga da igreja indicada → 1 mês grátis para quem indicou.
+  await require('./indicacao.service').onInvoicePaid(updated).catch((err) => console.error('[INDICAÇÃO]', err.message));
+  return updated;
+};
+
+const confirmPaid = (invoice, charge) => {
+  const valorPago = Number(charge.value || 0) / 100;
+  const pagoEm = charge.paidAt ? new Date(charge.paidAt) : new Date();
+  // Pix de uma cobrança anterior a um reajuste de plano: baixa, mas registra a diferença
+  const observacao = cents(valorPago) < cents(invoice.valor)
+    ? `Pix de ${brl(valorPago)} (cobrança anterior ao reajuste de ${brl(invoice.valor)})`
+    : undefined;
+  return markPaid(invoice, { valorPago, metodo: 'pix', pagoEm, observacao, gatewayStatus: 'COMPLETED' });
+};
+
+// ── Cobrança Pix (Woovi) ────────────────────────────────────────────────
+const chargeIsUsable = (invoice) => {
+  const g = invoice.gateway || {};
+  return g.provider === 'woovi' && g.id && g.brCode && g.status === 'ACTIVE'
+    && cents(g.valor) === cents(invoice.valor)
+    && (!g.expiraEm || new Date(g.expiraEm) > new Date(Date.now() + 60 * 60 * 1000));
+};
+
+// Confere a cobrança direto na Woovi (o webhook só avisa; a baixa vem daqui).
+const syncCharge = async (invoice, correlationID = invoice.gateway?.id) => {
+  if (!correlationID || !woovi.enabled() || invoice.status === 'pago') return invoice;
+  const charge = await woovi.getCharge(correlationID);
+  if (!charge) return invoice;
+  if (charge.status === 'COMPLETED') {
+    if (invoice.status === 'cancelado') {
+      console.warn(`[BILLING] Pix pago em fatura cancelada ${invoice._id} (${correlationID}) — conferir no painel.`);
+      return invoice;
+    }
+    return confirmPaid(invoice, charge);
+  }
+  const set = { 'gateway.verificadoEm': new Date() };
+  if (correlationID === invoice.gateway?.id && charge.status) set['gateway.status'] = charge.status;
+  return Invoice.findOneAndUpdate({ _id: invoice._id }, { $set: set }, { new: true });
+};
+
+// Garante um Pix válido para a fatura em aberto: reaproveita o atual ou gera outro quando
+// não existe, expirou ou o valor mudou (troca de plano). Antes de trocar, confere se o
+// anterior já foi pago.
+const createGatewayCharge = async (invoice, tenant, { throwOnError = false } = {}) => {
+  if (!woovi.enabled() || invoice.valor <= 0 || !OPEN.includes(invoice.status)) return invoice;
+  if (chargeIsUsable(invoice)) return invoice;
   try {
-    const customer = await ensureAsaasCustomer(tenant);
-    const { data } = await asaas().post('/payments', {
-      customer,
-      billingType: 'UNDEFINED', // cliente escolhe PIX, boleto ou cartão
-      value: invoice.valor,
-      dueDate: toIso(invoice.vencimento),
-      description: invoice.descricao,
-      externalReference: String(invoice._id),
+    const anterior = invoice.gateway?.provider === 'woovi' && invoice.gateway.id ? invoice.gateway.id : null;
+    if (anterior && invoice.gateway.status === 'ACTIVE') {
+      const atual = await woovi.getCharge(anterior);
+      if (atual?.status === 'COMPLETED') return confirmPaid(invoice, atual);
+      if (atual?.status === 'ACTIVE') await woovi.deleteCharge(anterior);
+    }
+    const tentativas = (invoice.gateway?.tentativas || 0) + 1;
+    const correlationID = `${woovi.CORRELATION_PREFIX}${invoice._id}-${tentativas}-${Math.random().toString(36).slice(2, 6)}`;
+    const base = Math.max(new Date(invoice.vencimento).getTime(), Date.now());
+    const expira = new Date(base + CHARGE_TTL_DAYS() * DAY_MS);
+    const charge = await woovi.createCharge({
+      correlationID,
+      valueCents: cents(invoice.valor),
+      comment: `PastorIA - ${invoice.descricao}`,
+      customer: woovi.customerFor(tenant),
+      expiresDate: expira,
+      additionalInfo: [
+        { key: 'Igreja', value: String(tenant.nome || tenant.slug).slice(0, 60) },
+        { key: 'Fatura', value: invoice.competencia },
+      ],
     });
-    invoice.gateway = { provider: 'asaas', id: data.id, invoiceUrl: data.invoiceUrl, status: data.status };
+    invoice.gateway = {
+      provider: 'woovi',
+      id: correlationID,
+      chargeId: charge?.globalID || charge?.identifier,
+      invoiceUrl: charge?.paymentLinkUrl,
+      brCode: charge?.brCode,
+      valor: invoice.valor,
+      expiraEm: charge?.expiresDate ? new Date(charge.expiresDate) : expira,
+      status: charge?.status || 'ACTIVE',
+      tentativas,
+      verificadoEm: new Date(),
+    };
     await invoice.save();
   } catch (err) {
-    console.error('[BILLING] Falha ao criar cobrança Asaas:', err?.response?.data || err.message);
+    console.error(`[BILLING] Falha ao criar Pix na Woovi (fatura ${invoice._id}):`, err.message);
+    if (throwOnError) throw err;
   }
   return invoice;
+};
+
+// Webhook Woovi → confere a cobrança na API e dá baixa / marca expirada.
+// Conta compartilhada: eventos de cobranças que não são do PastorIA são ignorados.
+const handleWooviEvent = async (body) => {
+  const correlationID = woovi.correlationIdOf(body);
+  const invoiceId = invoiceIdFrom(correlationID);
+  if (!invoiceId) return { ignorado: true };
+  const invoice = await Invoice.findById(invoiceId);
+  if (!invoice) return { ignorado: true };
+  const atualizado = await syncCharge(invoice, correlationID);
+  return { ignorado: false, status: atualizado?.status };
 };
 
 // ── Faturas ─────────────────────────────────────────────────────────────
@@ -63,12 +173,27 @@ const dueDateFor = (tenant, competencia) => {
   return due < minDue ? minDue : due;
 };
 
+const descricaoDe = (tenant, competencia) => {
+  const ciclo = tenant.billing?.ciclo || 'mensal';
+  return `Assinatura ${getPlan(tenant.plano).nome} (${ciclo}) — ${competencia}`;
+};
+
+const notifyNewInvoice = async (tenant, invoice) => {
+  if (!tenant.email) return;
+  await sendEmail({
+    to: tenant.email,
+    subject: `Fatura disponível — ${invoice.descricao}`,
+    text: `Olá! A fatura "${invoice.descricao}" de ${brl(invoice.valor)} vence em ${toIso(invoice.vencimento)}.`
+      + `\nPague com Pix em ${appUrl()}/assinatura${invoice.gateway?.invoiceUrl ? ` ou direto em ${invoice.gateway.invoiceUrl}` : ''}.`
+      + `\nA confirmação é automática.`,
+  }).catch((err) => console.error('[BILLING] Falha no email da fatura:', err.message));
+};
+
 const generateInvoice = async (tenant, competencia = competenciaOf()) => {
   const existing = await Invoice.findOne({ tenantId: tenant._id, competencia });
   if (existing) return { invoice: existing, criada: false };
   const valor = invoiceAmountFor(tenant);
   if (valor <= 0) return { invoice: null, criada: false };
-  const plan = getPlan(tenant.plano);
   const ciclo = tenant.billing?.ciclo || 'mensal';
   // Indicação: crédito de 1 mês → a fatura nasce paga (valor pago R$ 0), sem cobrança no gateway.
   // Só faturas mensais consomem crédito (no anual, o desconto já é de 2 meses).
@@ -81,7 +206,7 @@ const generateInvoice = async (tenant, competencia = competenciaOf()) => {
       plano: tenant.plano,
       ciclo,
       valor,
-      descricao: `Assinatura ${plan.nome} (${ciclo}) — ${competencia}`,
+      descricao: descricaoDe(tenant, competencia),
       vencimento: dueDateFor(tenant, competencia),
       ...(credito ? { status: 'pago', pagoEm: new Date(), valorPago: 0, metodo: 'credito', observacao: '1 mês grátis por indicação' } : {}),
     });
@@ -92,27 +217,45 @@ const generateInvoice = async (tenant, competencia = competenciaOf()) => {
     if (err.code === 11000) return { invoice: await Invoice.findOne({ tenantId: tenant._id, competencia }), criada: false };
     throw err;
   }
-  if (!credito) await createGatewayCharge(invoice, tenant);
+  if (!credito) {
+    invoice = await createGatewayCharge(invoice, tenant);
+    await notifyNewInvoice(tenant, invoice);
+  }
   return { invoice, criada: true };
 };
 
-const reactivateIfBlocked = async (tenantId) => {
-  const pendentes = await Invoice.countDocuments({ tenantId, status: 'vencido' });
-  if (pendentes) return;
-  await Tenant.updateOne({ _id: tenantId, status: { $in: ['inadimplente', 'suspensa'] } }, { $set: { status: 'ativa' } });
-  invalidateTenant(tenantId);
+// Troca de plano/ciclo: a fatura em aberto do mês passa a ter o novo valor (e um novo Pix).
+// Faturas de meses anteriores ficam como estão (refletem o plano usado naquele mês).
+const repriceOpenInvoices = async (tenant) => {
+  const valor = invoiceAmountFor(tenant);
+  if (valor <= 0) return [];
+  const ciclo = tenant.billing?.ciclo || 'mensal';
+  const abertas = await Invoice.find({ tenantId: tenant._id, status: { $in: OPEN }, competencia: competenciaOf() });
+  const reajustadas = [];
+  for (const inv of abertas) {
+    if (cents(inv.valor) === cents(valor) && inv.plano === tenant.plano && inv.ciclo === ciclo) continue;
+    const valorAnterior = inv.valor;
+    inv.valor = valor;
+    inv.plano = tenant.plano;
+    inv.ciclo = ciclo;
+    inv.descricao = descricaoDe(tenant, inv.competencia);
+    inv.observacao = `Reajustada de ${brl(valorAnterior)} para ${brl(valor)} pela troca de plano`;
+    await inv.save();
+    reajustadas.push(await createGatewayCharge(inv, tenant));
+  }
+  return reajustadas;
 };
 
-const markPaid = async (invoice, { valorPago, metodo = 'pix', pagoEm = new Date(), observacao } = {}) => {
-  invoice.status = 'pago';
-  invoice.pagoEm = pagoEm;
-  invoice.valorPago = valorPago ?? invoice.valor;
-  invoice.metodo = metodo;
+const cancelInvoice = async (invoice, observacao) => {
+  if (invoice.gateway?.provider === 'woovi' && invoice.gateway.status === 'ACTIVE') {
+    const atual = await woovi.getCharge(invoice.gateway.id).catch(() => null);
+    if (atual?.status === 'COMPLETED') return confirmPaid(invoice, atual); // pagou antes do cancelamento
+    if (await woovi.deleteCharge(invoice.gateway.id)) invoice.gateway.status = 'REMOVED';
+  }
+  invoice.status = 'cancelado';
   if (observacao) invoice.observacao = observacao;
   await invoice.save();
-  await reactivateIfBlocked(invoice.tenantId);
-  // Indicação: 1ª fatura paga da igreja indicada → 1 mês grátis para quem indicou.
-  await require('./indicacao.service').onInvoicePaid(invoice).catch((err) => console.error('[INDICAÇÃO]', err.message));
+  await recomputeStatus(invoice.tenantId);
   return invoice;
 };
 
@@ -126,16 +269,17 @@ const notifyOverdue = async (tenant, invoice) => {
   await sendEmail({
     to: tenant.email,
     subject: `Fatura vencida — ${invoice.descricao}`,
-    text: `Olá! A fatura "${invoice.descricao}" no valor de R$ ${invoice.valor.toFixed(2)} venceu em ${toIso(invoice.vencimento)}.`
-      + `${invoice.gateway?.invoiceUrl ? `\nPague em: ${invoice.gateway.invoiceUrl}` : ''}`
-      + `\nApós ${SUSPEND_AFTER_DAYS()} dias de atraso o acesso é suspenso automaticamente.`,
+    text: `Olá! A fatura "${invoice.descricao}" no valor de ${brl(invoice.valor)} venceu em ${toIso(invoice.vencimento)}.`
+      + `\nPague com Pix em ${appUrl()}/assinatura${invoice.gateway?.invoiceUrl ? ` ou em ${invoice.gateway.invoiceUrl}` : ''}.`
+      + `\nCom ${SUSPEND_AFTER_DAYS()} dias de atraso o acesso e as automações são suspensos até o pagamento (a liberação é automática).`,
   }).catch((err) => console.error('[BILLING] Falha no email de cobrança:', err.message));
 };
 
-// Ciclo diário: fim de trial, geração de faturas, vencimentos, inadimplência e suspensão.
+// Ciclo diário: fim de trial, geração de faturas, conferência dos Pix, vencimentos,
+// inadimplência e suspensão.
 const runBillingCycle = async () => {
   const now = new Date();
-  const resumo = { trialsEncerrados: 0, faturasGeradas: 0, vencidas: 0, inadimplentes: 0, suspensas: 0 };
+  const resumo = { trialsEncerrados: 0, faturasGeradas: 0, pixConferidos: 0, pagasNaConferencia: 0, vencidas: 0, inadimplentes: 0, suspensas: 0 };
 
   const trials = await Tenant.find({ status: 'trial', trialEndsAt: { $lte: now } });
   for (const t of trials) {
@@ -157,6 +301,26 @@ const runBillingCycle = async () => {
     }
   }
 
+  // Webhook perdido (servidor fora, Woovi sem conseguir entregar): confere direto na API
+  // e recria Pix que falharam na geração.
+  if (woovi.enabled()) {
+    const abertas = await Invoice.find({ status: { $in: OPEN }, valor: { $gt: 0 } });
+    const tenants = new Map(billables.map((t) => [String(t._id), t]));
+    for (const inv of abertas) {
+      try {
+        if (inv.gateway?.provider === 'woovi' && inv.gateway.id) {
+          const atual = await syncCharge(inv);
+          resumo.pixConferidos += 1;
+          if (atual?.status === 'pago') resumo.pagasNaConferencia += 1;
+        } else if (tenants.has(String(inv.tenantId))) {
+          await createGatewayCharge(inv, tenants.get(String(inv.tenantId)));
+        }
+      } catch (err) {
+        console.error(`[BILLING] Falha ao conferir Pix da fatura ${inv._id}:`, err.message);
+      }
+    }
+  }
+
   const vencendo = await Invoice.find({ status: 'pendente', vencimento: { $lt: now } });
   for (const inv of vencendo) {
     try {
@@ -164,61 +328,57 @@ const runBillingCycle = async () => {
       await inv.save();
       resumo.vencidas += 1;
       const tenant = await Tenant.findById(inv.tenantId).lean();
-      if (tenant) await notifyOverdue(tenant, inv);
+      if (tenant && !tenant.billing?.isento) await notifyOverdue(tenant, inv);
     } catch (err) {
       console.error(`[BILLING] Falha ao marcar fatura ${inv._id} como vencida:`, err.message);
     }
   }
 
-  // Igreja isenta (ex.: tenant fundador) nunca fica inadimplente/suspensa por fatura antiga
-  const isentas = new Set((await Tenant.find({ 'billing.isento': true }).select('_id').lean()).map((t) => String(t._id)));
-
-  const vencidas = await Invoice.aggregate([
-    { $match: { status: 'vencido' } },
-    { $group: { _id: '$tenantId', maisAntiga: { $min: '$vencimento' } } },
-  ]);
-  for (const row of vencidas) {
-    if (isentas.has(String(row._id))) continue;
-    const dias = Math.floor((now - row.maisAntiga) / DAY_MS);
-    let status = null;
-    if (dias >= SUSPEND_AFTER_DAYS()) status = 'suspensa';
-    else if (dias >= GRACE_DAYS()) status = 'inadimplente';
-    if (!status) continue;
-    const r = await Tenant.updateOne(
-      { _id: row._id, status: { $in: status === 'suspensa' ? ['ativa', 'inadimplente'] : ['ativa'] } },
-      { $set: { status } },
-    );
-    if (r.modifiedCount) {
-      invalidateTenant(row._id);
-      resumo[status === 'suspensa' ? 'suspensas' : 'inadimplentes'] += 1;
-    }
+  // Igreja isenta (ex.: tenant fundador) nunca fica inadimplente/suspensa: recomputeStatus cuida disso.
+  const comVencidas = await Invoice.distinct('tenantId', { status: 'vencido' });
+  for (const tenantId of comVencidas) {
+    const antes = (await Tenant.findById(tenantId).select('status').lean())?.status;
+    const depois = await recomputeStatus(tenantId, now);
+    if (depois !== antes && depois === 'suspensa') resumo.suspensas += 1;
+    if (depois !== antes && depois === 'inadimplente') resumo.inadimplentes += 1;
   }
 
   return resumo;
 };
 
-// Webhook Asaas → baixa/vencimento da fatura.
-const handleAsaasEvent = async ({ event, payment }) => {
-  if (!payment) return null;
-  const invoice = await Invoice.findOne({ $or: [{ 'gateway.id': payment.id }, ...(payment.externalReference?.match(/^[a-f0-9]{24}$/) ? [{ _id: payment.externalReference }] : [])] });
-  if (!invoice) return null;
-  invoice.gateway = { ...(invoice.gateway || {}), provider: 'asaas', id: payment.id, status: payment.status, invoiceUrl: payment.invoiceUrl || invoice.gateway?.invoiceUrl };
-  if (['PAYMENT_RECEIVED', 'PAYMENT_CONFIRMED'].includes(event) && invoice.status !== 'pago') {
-    const metodo = { PIX: 'pix', BOLETO: 'boleto', CREDIT_CARD: 'cartao' }[payment.billingType] || 'outro';
-    return markPaid(invoice, { valorPago: payment.value, metodo, pagoEm: payment.paymentDate ? new Date(payment.paymentDate) : new Date() });
-  }
-  if (event === 'PAYMENT_OVERDUE' && invoice.status === 'pendente') invoice.status = 'vencido';
-  if (['PAYMENT_DELETED', 'PAYMENT_REFUNDED'].includes(event)) invoice.status = 'cancelado';
-  await invoice.save();
-  return invoice;
+// Resumo da fatura em aberto mais antiga, para o aviso no painel da igreja.
+const openInvoiceSummary = async (tenantId) => {
+  const inv = await Invoice.findOne({ tenantId, status: { $in: OPEN } }).sort({ vencimento: 1 }).lean();
+  if (!inv) return null;
+  const atraso = inv.status === 'vencido' || new Date(inv.vencimento) < new Date() ? diasDeAtraso(inv.vencimento) : 0;
+  const abertas = await Invoice.countDocuments({ tenantId, status: { $in: OPEN } });
+  return {
+    _id: inv._id,
+    descricao: inv.descricao,
+    valor: inv.valor,
+    vencimento: inv.vencimento,
+    status: inv.status,
+    diasAtraso: atraso,
+    suspendeEm: new Date(new Date(inv.vencimento).getTime() + SUSPEND_AFTER_DAYS() * DAY_MS),
+    abertas,
+  };
 };
+
+const policy = () => ({ graceDays: GRACE_DAYS(), suspendAfterDays: SUSPEND_AFTER_DAYS(), gateway: woovi.enabled() ? 'woovi' : null });
 
 module.exports = {
   competenciaOf,
   generateInvoice,
   createGatewayCharge,
+  syncCharge,
   markPaid,
+  cancelInvoice,
+  repriceOpenInvoices,
+  recomputeStatus,
   runBillingCycle,
-  handleAsaasEvent,
-  asaasEnabled,
+  handleWooviEvent,
+  openInvoiceSummary,
+  invoiceIdFrom,
+  policy,
+  gatewayEnabled: woovi.enabled,
 };

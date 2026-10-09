@@ -10,6 +10,7 @@ const { applyWhatsappConfig, assertCloudNumberFree, apresentarSeConectado } = re
 const { apresentarNumero } = require('../services/leadership.service');
 const { invalidateTenant, getTenantById, serializeForTenantAdmin, serializeForMember } = require('../tenancy/tenant.service');
 const { runWithTenant } = require('../tenancy/context');
+const billingSvc = require('../services/billing.service');
 
 const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => obj?.[k] !== undefined).map((k) => [k, obj[k]]));
 
@@ -49,7 +50,9 @@ const get = async (req, res) => {
   const base = req.user.role === 'master'
     ? serializeForTenantAdmin(req.tenant)
     : serializeForMember(req.tenant, req.user.role);
-  res.json({ ...base, consumo, pessoasAtivas });
+  // Aviso de fatura em aberto (sino do painel) para quem pode pagar
+  const faturaAberta = ['master', 'admin'].includes(req.user.role) ? await billingSvc.openInvoiceSummary(req.tenant._id) : null;
+  res.json({ ...base, consumo, pessoasAtivas, faturaAberta });
 };
 
 // Gera um token novo para o webhook da Evolution (o antigo deixa de valer na hora).
@@ -240,6 +243,25 @@ const webhookInfo = (req, res) => {
   });
 };
 
+// Fatura como a igreja vê (sem ids internos do gateway).
+const serializeInvoice = (f) => ({
+  _id: f._id,
+  competencia: f.competencia,
+  descricao: f.descricao,
+  plano: f.plano,
+  ciclo: f.ciclo,
+  valor: f.valor,
+  vencimento: f.vencimento,
+  status: f.status,
+  pagoEm: f.pagoEm,
+  valorPago: f.valorPago,
+  metodo: f.metodo,
+  observacao: f.observacao,
+  pix: f.gateway?.provider === 'woovi' && f.gateway.status === 'ACTIVE'
+    ? { invoiceUrl: f.gateway.invoiceUrl, expiraEm: f.gateway.expiraEm }
+    : null,
+});
+
 const billing = async (req, res) => {
   const faturas = await Invoice.find({ tenantId: req.tenant._id }).sort({ competencia: -1 }).limit(24).lean();
   res.json({
@@ -247,12 +269,59 @@ const billing = async (req, res) => {
     status: req.tenant.status,
     trialEndsAt: req.tenant.trialEndsAt,
     billing: pick(req.tenant.billing || {}, ['ciclo', 'diaVencimento', 'isento']),
+    politica: billingSvc.policy(),
     planos: Object.values(PLANS),
-    faturas,
+    faturas: faturas.map(serializeInvoice),
   });
 };
 
-// Troca de plano self-service (vale a partir da próxima fatura).
+// Fatura da própria igreja (Invoice não tem tenantPlugin: o filtro por tenantId é obrigatório).
+const findOwnInvoice = (req) => (/^[a-f0-9]{24}$/i.test(req.params.id)
+  ? Invoice.findOne({ _id: req.params.id, tenantId: req.tenant._id })
+  : null);
+
+const tenantStatusOf = async (tenantId) => (await Tenant.findById(tenantId).select('status').lean())?.status;
+
+// Pix da fatura: reaproveita o QR válido ou gera outro (expirado / valor reajustado).
+const invoicePix = async (req, res) => {
+  const invoice = await findOwnInvoice(req);
+  if (!invoice) return res.status(404).json({ message: 'Fatura não encontrada' });
+  if (invoice.status === 'pago') return res.json({ pago: true, fatura: serializeInvoice(invoice), tenantStatus: await tenantStatusOf(req.tenant._id) });
+  if (!['pendente', 'vencido'].includes(invoice.status)) return res.status(400).json({ message: 'Esta fatura não está em aberto.' });
+  if (!billingSvc.gatewayEnabled()) {
+    return res.status(503).json({ message: 'O pagamento por Pix está indisponível no momento. Fale com o suporte do PastorIA.' });
+  }
+  let atual;
+  try {
+    atual = await billingSvc.createGatewayCharge(invoice, req.tenant, { throwOnError: true });
+  } catch (err) {
+    return res.status(502).json({ message: 'Não foi possível gerar o Pix agora. Tente de novo em instantes.' });
+  }
+  if (atual.status === 'pago') return res.json({ pago: true, fatura: serializeInvoice(atual), tenantStatus: await tenantStatusOf(req.tenant._id) });
+  const g = atual.gateway || {};
+  const qrCode = g.brCode ? await require('qrcode').toDataURL(g.brCode, { margin: 1, width: 320 }) : null;
+  return res.json({
+    pago: false,
+    fatura: serializeInvoice(atual),
+    pix: { brCode: g.brCode, qrCode, invoiceUrl: g.invoiceUrl, expiraEm: g.expiraEm, valor: g.valor },
+  });
+};
+
+// Situação da fatura (a tela consulta enquanto o QR está aberto). Se o webhook ainda não
+// chegou, confere direto na Woovi (no máximo a cada 10s por fatura).
+const invoiceStatus = async (req, res) => {
+  let invoice = await findOwnInvoice(req);
+  if (!invoice) return res.status(404).json({ message: 'Fatura não encontrada' });
+  const g = invoice.gateway || {};
+  const recente = g.verificadoEm && Date.now() - new Date(g.verificadoEm).getTime() < 10000;
+  if (['pendente', 'vencido'].includes(invoice.status) && g.provider === 'woovi' && g.id && !recente) {
+    invoice = await billingSvc.syncCharge(invoice).catch(() => invoice);
+  }
+  return res.json({ fatura: serializeInvoice(invoice), tenantStatus: await tenantStatusOf(req.tenant._id) });
+};
+
+// Troca de plano self-service. A fatura em aberto do mês é reajustada para o novo valor
+// (com um novo Pix); as próximas já saem no plano novo.
 const changePlan = async (req, res) => {
   const { plano, ciclo } = req.body || {};
   if (!PLANS[plano] || PLANS[plano].sobConsulta) return res.status(400).json({ message: 'Plano inválido' });
@@ -268,12 +337,19 @@ const changePlan = async (req, res) => {
     ...(trocouPlano ? { $unset: { 'billing.valorMensal': 1 } } : {}),
   });
   invalidateTenant(req.tenant._id);
+  const updated = await getTenantById(req.tenant._id);
+  const reajustadas = await billingSvc.repriceOpenInvoices(updated).catch((err) => {
+    console.error('[BILLING] Falha ao reajustar fatura na troca de plano:', err.message);
+    return [];
+  });
   if (process.env.ALERT_EMAIL) {
-    sendEmail({ to: process.env.ALERT_EMAIL, subject: `Troca de plano: ${req.tenant.nome} → ${plano}`, text: `${req.user.nome} alterou o plano para ${plano} (${ciclo || 'ciclo mantido'}).` })
+    sendEmail({ to: process.env.ALERT_EMAIL, subject: `Troca de plano: ${req.tenant.nome} → ${plano}`, text: `${req.user.nome} alterou o plano de ${req.tenant.plano} para ${plano} (${ciclo || 'ciclo mantido'}). Faturas reajustadas: ${reajustadas.length}.` })
       .catch(() => {});
   }
-  const updated = await getTenantById(req.tenant._id);
-  return runWithTenant(updated, () => res.json(serializeForTenantAdmin(updated)));
+  return runWithTenant(updated, () => res.json({
+    ...serializeForTenantAdmin(updated),
+    faturasReajustadas: reajustadas.map((f) => ({ _id: f._id, valor: f.valor, descricao: f.descricao })),
+  }));
 };
 
 // ── Primeiros passos (onboarding) e aceite dos termos ──────────────────
@@ -300,4 +376,4 @@ module.exports = {
   onboardingConfirmar,
   onboardingDispensar,
   aceitarTermos,
-  indicacao, rotateWebhookToken, get, updateSettings, whatsappStatus, setWhatsappAtivo, whatsappTest, relatorioSemanalPrevia, webhookInfo, billing, changePlan, listGroups, createGroup, apresentar };
+  indicacao, rotateWebhookToken, get, updateSettings, whatsappStatus, setWhatsappAtivo, whatsappTest, relatorioSemanalPrevia, webhookInfo, billing, invoicePix, invoiceStatus, changePlan, listGroups, createGroup, apresentar };

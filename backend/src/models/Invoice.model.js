@@ -20,11 +20,19 @@ const InvoiceSchema = new mongoose.Schema({
   valorPago: { type: Number },
   metodo: { type: String, enum: ['pix', 'boleto', 'cartao', 'transferencia', 'dinheiro', 'outro', 'credito'] }, // credito = mês grátis por indicação
   observacao: { type: String, trim: true },
+  // Cobrança Pix na Woovi (OpenPix). id = correlationID (pastoria-<fatura>-<n>); uma nova é
+  // gerada quando a anterior expira ou o valor muda (troca de plano).
   gateway: {
     provider: { type: String },
     id: { type: String, index: true, sparse: true },
-    invoiceUrl: { type: String },
-    status: { type: String },
+    chargeId: { type: String },
+    invoiceUrl: { type: String }, // página de pagamento (paymentLinkUrl)
+    brCode: { type: String }, // Pix copia e cola
+    valor: { type: Number }, // valor da cobrança no gateway (R$), para detectar reajuste
+    expiraEm: { type: Date },
+    status: { type: String }, // ACTIVE | COMPLETED | EXPIRED
+    tentativas: { type: Number, default: 0 },
+    verificadoEm: { type: Date }, // última conferência direta na Woovi
   },
   lembretesEnviados: { type: Number, default: 0 },
 }, { timestamps: true });

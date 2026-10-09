@@ -48,10 +48,12 @@ export function TenantProvider({ children }) {
   useEffect(() => { applyCorFundo(tenant?.branding?.corFundo); }, [tenant?.branding?.corFundo]);
 
   useEffect(() => {
-    const onSuspended = () => navigate('/assinatura', { replace: true });
+    const onSuspended = () => {
+      if (['master', 'admin'].includes(user?.role)) navigate('/assinatura', { replace: true });
+    };
     window.addEventListener('tenant-suspended', onSuspended);
     return () => window.removeEventListener('tenant-suspended', onSuspended);
-  }, [navigate]);
+  }, [navigate, user?.role]);
 
   const value = useMemo(() => ({
     tenant,

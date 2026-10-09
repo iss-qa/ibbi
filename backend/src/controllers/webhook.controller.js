@@ -3,7 +3,8 @@ const Tenant = require('../models/Tenant.model');
 const { runAsPlatform, runWithTenant } = require('../tenancy/context');
 const { getTenantBySlug, getTenantById } = require('../tenancy/tenant.service');
 const { handleInbound } = require('../services/ai/inbound.service');
-const { handleAsaasEvent } = require('../services/billing.service');
+const { handleWooviEvent, invoiceIdFrom } = require('../services/billing.service');
+const woovi = require('../services/woovi.service');
 const { fromJid, samePhone } = require('../utils/phone');
 const whatsapp = require('../services/whatsapp.service');
 
@@ -152,16 +153,26 @@ const cloudReceive = async (req, res) => {
   return undefined;
 };
 
-// ── Asaas: POST /api/webhooks/asaas ─────────────────────────────────────
-const asaas = async (req, res) => {
-  const token = process.env.ASAAS_WEBHOOK_TOKEN;
-  if (!token || !safeEqual(req.headers['asaas-access-token'], token)) return res.sendStatus(401);
-  try {
-    await runAsPlatform(() => handleAsaasEvent(req.body || {}));
-  } catch (err) {
-    console.error('[WEBHOOK] Asaas:', err.message);
+// ── Woovi/OpenPix: POST /api/webhooks/openpix ───────────────────────────
+// Uma URL para todos os eventos (CHARGE_COMPLETED, CHARGE_EXPIRED, TRANSACTION_RECEIVED…).
+// A conta Woovi é compartilhada com outros produtos: cobrança sem o prefixo do PastorIA (e o
+// teste de cadastro do webhook) recebe 200 sem efeito. A baixa nunca confia no corpo: a
+// cobrança é consultada na API da Woovi antes.
+const openpix = async (req, res) => {
+  const body = req.body || {};
+  if (!invoiceIdFrom(woovi.correlationIdOf(body))) return res.json({ received: true, ignored: true });
+  if (!(await woovi.verifyWebhook(req.rawBody, req.headers))) {
+    console.warn('[WEBHOOK] Woovi: assinatura inválida');
+    return res.sendStatus(401);
   }
-  return res.json({ received: true });
+  try {
+    const r = await runAsPlatform(() => handleWooviEvent(body));
+    return res.json({ received: true, ...r });
+  } catch (err) {
+    // 5xx: a Woovi reenvia o evento depois
+    console.error('[WEBHOOK] Woovi:', err.message);
+    return res.status(500).json({ received: false });
+  }
 };
 
-module.exports = { evolution, cloudVerify, cloudReceive, asaas, parseEvolutionMessage };
+module.exports = { evolution, cloudVerify, cloudReceive, openpix, parseEvolutionMessage };

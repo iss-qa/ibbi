@@ -503,8 +503,9 @@ npm run build
 
 - Catálogo em `backend/src/config/plans.js` (Semente R$47 até 100 pessoas · Crescer R$99 até 300 · Multiplicar R$197 até 1.000 · Rede acima de 1.000, sob consulta; anual = 10x mensal). `faixa`/`extras` aparecem em `components/PlanCards.jsx` (cada plano lista só o que soma ao anterior). Congregações ilimitadas: 1 igreja = 1 cobrança.
 - Limites por plano: pessoas ativas, mensagens WhatsApp/mês, interações de IA/mês (`usage.service` + `UsageCounter`).
-- `billing.service.runBillingCycle` (cron 06:00 BRT): fim de trial → fatura → vencida → inadimplente (3 dias) → suspensa (15 dias). Igreja suspensa recebe 402 `TENANT_SUSPENDED` (exceto `/api/tenant/*`).
-- Gateway opcional **Asaas** (`ASAAS_API_KEY`), webhook `POST /api/webhooks/asaas`.
+- `billing.service.runBillingCycle` (cron 06:00 BRT): fim de trial → fatura (já com Pix) → confere Pix na Woovi (webhook perdido) → vencida → inadimplente (`BILLING_GRACE_DAYS`, 1 dia, só aviso) → suspensa (`BILLING_SUSPEND_AFTER_DAYS`, 7 dias). Igreja suspensa recebe 402 `TENANT_SUSPENDED` (exceto `/api/tenant/*`, onde fica a Assinatura). O pagamento libera na hora (`recomputeStatus`).
+- **Gateway Woovi/OpenPix** (`services/woovi.service.js`; `WOOVI_ENV` + `WOOVI_PROD_APP_ID`/`WOOVI_SANDBOX_APP_ID`). Conta compartilhada com a Juntix: correlationID sempre `pastoria-<fatura>-<n>-<rand>`; o webhook ignora o resto. Webhook único `POST /api/webhooks/openpix` (CHARGE_COMPLETED, CHARGE_EXPIRED, TRANSACTION_RECEIVED), autenticado por `x-webhook-signature` (RSA, chaves em `/api/v1/webhook/public-keys`) ou `Authorization` = `WOOVI_WEBHOOK_SECRET`. **A baixa nunca confia no corpo**: `syncCharge` consulta a cobrança na API. Pix expirado ou valor reajustado → `createGatewayCharge` remove o antigo e gera outro. Woovi responde 400 "Cobrança não encontrada" (não 404) para cobrança inexistente.
+- Troca de plano (`PUT /api/tenant/billing/plan`, master): `repriceOpenInvoices` reajusta a fatura em aberto do mês e troca o Pix. Faturas: master e admin veem/pagam (`GET /api/tenant/billing`, `POST /billing/faturas/:id/pix` → QR em data URL, `GET /billing/faturas/:id` → status com conferência na Woovi). `Invoice` não tem tenantPlugin: sempre filtrar por `tenantId`.
 - Painel da plataforma: `/platform` (front) e `/api/platform/*` (JWT `aud: platform`, model `PlatformUser`).
 
 ## 🤖 IA e WhatsApp
@@ -541,7 +542,7 @@ Tenant (auth)            GET /api/tenant · PUT /api/tenant/settings · GET /api
 Cuidado (admin/master)   GET /api/care/overview · GET /api/care/alerts · PUT /api/care/alerts/:id
                          POST /api/care/alerts/:id/generate · POST /api/care/alerts/:id/send · POST /api/care/process-aula/:id
 Assistente (admin/master) POST /api/assistant/chat · GET|DELETE /api/assistant/history
-Webhooks                 POST /api/webhooks/evolution/:slug · GET|POST /api/webhooks/whatsapp · POST /api/webhooks/asaas
+Webhooks                 POST /api/webhooks/evolution/:slug · GET|POST /api/webhooks/whatsapp · POST /api/webhooks/openpix
 Plataforma               /api/platform/* (auth, metrics, tenants, invoices, billing/run, plans)
 Public                   GET /api/public/plans · GET /api/public/tenants/:slug · GET /api/public/invitations/:token/tenant
                          GET /api/public/signup/slug/:slug · POST /api/public/signup (cadastro da LP → tenant em trial + master; rate limit 5/h/IP, honeypot `website`)
