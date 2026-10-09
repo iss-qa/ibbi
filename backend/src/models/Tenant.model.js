@@ -192,7 +192,7 @@ const TenantSchema = new mongoose.Schema({
   // Pix da igreja (eventos pagos): copia-e-cola estático gerado localmente (utils/pix.js)
   pix: {
     chave: { type: String, trim: true },
-    nome: { type: String, trim: true, maxlength: 25 }, // nome do recebedor (como no banco)
+    nome: { type: String, trim: true, maxlength: 60 }, // nome do recebedor; no BR Code vão até 25 (utils/pix.js)
     cidade: { type: String, trim: true, maxlength: 15 },
   },
   // Aceite dos Termos de Uso e da Política de Privacidade (config/legal.js → TERMOS_VERSAO)
