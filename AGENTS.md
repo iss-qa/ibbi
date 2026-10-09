@@ -461,6 +461,16 @@ npm run build
 
 ---
 
+## 💸 Custo de IA
+
+- Toda chamada de IA passa por `usage.recordAi` (clientes Claude, Gemini e transcrição Whisper): grava um `AiUsageEvent` (provedor, modelo **servido** — `response.model` / `modelVersion` do Gemini —, operação `agente|texto|transcricao`, tokens de entrada/cache lido/cache escrito/saída/pensamento, segundos de áudio, custo em US$ e R$ com a cotação do momento, latência; TTL 400 dias) e soma no `UsageCounter` do mês.
+- Preços em `config/ai-pricing.js` (Claude: tabela oficial com leitura e escrita de cache 5 min/1 h; Haiku 5.5 com duas faixas pelo tamanho do prompt; Gemini com vigência; Whisper por minuto). Modelo novo → adicione na tabela, senão o custo fica 0 com aviso no log.
+- Câmbio ao vivo (AwesomeAPI, cache de 6h; `USD_BRL` é a reserva). Painel: `GET /api/platform/ia-uso?tenantId=&periodo=` → `IaUsoCard` (detalhe da igreja e dashboard da plataforma, atualiza a cada 15s).
+
+## 🪟 Diálogos
+
+- Nunca use `window.confirm/prompt/alert`: use `useDialog()` (`components/dialog/DialogProvider.jsx`, montado em `main.jsx`) → `await confirm({ title, message, danger })`, `await prompt({ title, label, options, required })`, `await alert(...)`.
+
 ## 🎨 Layout e UX (telas internas)
 
 - **Shell** (`App.jsx`): menu lateral flutuante arredondado (`Sidebar.jsx`, fixo/sticky a partir de `lg`; abaixo disso gaveta com Esc/backdrop) + barra superior com o botão de menu até `lg`. `Header` só fica em linha (título × ações) a partir de `lg`; conteúdo de página deve preferir breakpoints `lg`/`xl` para layouts lado a lado. Páginas não precisam de recuo para o botão (nada de `pl-12`). Conteúdo limitado a `max-w-[1440px]`.
@@ -515,6 +525,8 @@ npm run build
 - `billing.service.runBillingCycle` (cron 06:00 BRT): fim de trial → fatura (já com Pix) → confere Pix na Woovi (webhook perdido) → vencida → inadimplente (`BILLING_GRACE_DAYS`, 1 dia, só aviso) → suspensa (`BILLING_SUSPEND_AFTER_DAYS`, 7 dias). Igreja suspensa recebe 402 `TENANT_SUSPENDED` (exceto `/api/tenant/*`, onde fica a Assinatura). O pagamento libera na hora (`recomputeStatus`).
 - **Gateway Woovi/OpenPix** (`services/woovi.service.js`; `WOOVI_ENV` + `WOOVI_PROD_APP_ID`/`WOOVI_SANDBOX_APP_ID`). Conta compartilhada com a Juntix: correlationID sempre `pastoria-<fatura>-<n>-<rand>`; o webhook ignora o resto. Webhook único `POST /api/webhooks/openpix` (CHARGE_COMPLETED, CHARGE_EXPIRED, TRANSACTION_RECEIVED), autenticado por `x-webhook-signature` (RSA, chaves em `/api/v1/webhook/public-keys`) ou `Authorization` = `WOOVI_WEBHOOK_SECRET`. **A baixa nunca confia no corpo**: `syncCharge` consulta a cobrança na API. Pix expirado ou valor reajustado → `createGatewayCharge` remove o antigo e gera outro. Woovi responde 400 "Cobrança não encontrada" (não 404) para cobrança inexistente.
 - Troca de plano (`PUT /api/tenant/billing/plan`, master): `repriceOpenInvoices` reajusta a fatura em aberto do mês e troca o Pix. Faturas: master e admin veem/pagam (`GET /api/tenant/billing`, `POST /billing/faturas/:id/pix` → QR em data URL, `GET /billing/faturas/:id` → status com conferência na Woovi). `Invoice` não tem tenantPlugin: sempre filtrar por `tenantId`.
+- **Email da fatura** (`templates/invoice-email.template.js`, `billing.sendInvoiceEmail`): fatura nova, reajustada (troca de plano) e vencida vão para `Tenant.emailCobranca || email` com QR inline (`cid:pix-qr`), copia e cola, boleto (se houver) e botão para **`/pagar/:token`** (página pública com a marca do PastorIA — a página da Woovi mostra a logo da conta, e a API não permite trocar por cobrança). `Invoice.publicToken` é a autorização do link (`GET|POST /api/public/faturas/:token[/pix]`, rate limit). Reenvio: `POST /api/platform/invoices/:id/email`.
+- **Boleto** (opcional, `WOOVI_BOLETO=true` depois que a Woovi habilitar na conta): cobrança `type: BOLETO` (gera boleto + Pix) quando a igreja tem CNPJ + endereço (`Tenant.endereco`, validado em `utils/cobranca.js`); se a Woovi recusar, cai para só Pix.
 - Telas: `components/billing/` — `PixPaymentModal` (QR + copia e cola, consulta a fatura a cada 5s até confirmar), `BillingBell` (sino no Dashboard, usa `tenant.faturaAberta` de `GET /api/tenant`) e `BillingAlert` (faixa de fatura vencida). Igreja `suspensa`: o shell (`App.jsx`) leva master/admin para `/assinatura` (liberadas: `/assinatura`, `/profile`) e mostra aviso ao membro.
 - Painel da plataforma: `/platform` (front) e `/api/platform/*` (JWT `aud: platform`, model `PlatformUser`).
 

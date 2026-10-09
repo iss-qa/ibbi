@@ -53,6 +53,32 @@ router.post('/demo', demoLimiter, async (req, res) => {
 });
 
 // Cadastro de igreja pela landing page — cria tenant em trial. Limite baixo por IP contra abuso.
+// Página pública de pagamento da fatura (/pagar/:token, link do email). Sem login: o token
+// longo e aleatório é a autorização; devolve só o necessário para pagar.
+const faturaLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false });
+const billingPublic = require('../services/billing.service');
+const { runAsPlatform } = require('../tenancy/context');
+const faturaPublica = (gerarPix) => async (req, res) => {
+  try {
+    const out = await runAsPlatform(async () => {
+      const invoice = await billingPublic.findByPublicToken(req.params.token);
+      if (!invoice) return null;
+      // Webhook atrasado: confere o Pix direto na Woovi antes de mostrar "em aberto"
+      const atual = gerarPix || !invoice.gateway?.verificadoEm || Date.now() - new Date(invoice.gateway.verificadoEm) > 10000
+        ? await billingPublic.syncCharge(invoice).catch(() => invoice)
+        : invoice;
+      return billingPublic.publicView(atual, { gerarPix });
+    });
+    if (!out) return res.status(404).json({ message: 'Fatura não encontrada' });
+    return res.json(out);
+  } catch (err) {
+    console.error('[PUBLIC] Fatura:', err.message);
+    return res.status(502).json({ message: 'Não foi possível carregar a fatura agora. Tente de novo em instantes.' });
+  }
+};
+router.get('/faturas/:token', faturaLimiter, faturaPublica(false));
+router.post('/faturas/:token/pix', faturaLimiter, faturaPublica(true));
+
 const signupLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false });
 router.get('/signup/slug/:slug', signup.checkSlug);
 router.post('/signup', signupLimiter, signup.signup);

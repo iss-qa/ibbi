@@ -32,6 +32,15 @@ const TenantSchema = new mongoose.Schema({
   responsavel: { type: String, trim: true },
   cidade: { type: String, trim: true },
   uf: { type: String, trim: true },
+  // Endereço da igreja (cobrança por boleto exige endereço completo + CNPJ)
+  endereco: {
+    cep: { type: String, trim: true },
+    logradouro: { type: String, trim: true },
+    numero: { type: String, trim: true },
+    complemento: { type: String, trim: true },
+    bairro: { type: String, trim: true },
+  },
+  emailCobranca: { type: String, trim: true, lowercase: true }, // vazio = email da igreja
 
   status: {
     type: String,

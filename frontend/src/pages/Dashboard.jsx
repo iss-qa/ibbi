@@ -2,6 +2,7 @@ import { lazy, Suspense, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '../components/Header';
 import api from '../services/api';
+import { useDialog } from '../components/dialog/DialogProvider.jsx';
 import useAuth from '../hooks/useAuth';
 import useStaleQuery from '../hooks/useStaleQuery';
 import AniversarianteModal from './AniversarianteModal';
@@ -137,6 +138,7 @@ function KpiCard({ label, value, accent }) {
 
 export default function Dashboard() {
   const { user } = useAuth();
+  const { alert } = useDialog();
   const navigate = useNavigate();
   const { locked: lockedCongregacao, options: congregacaoOptions } = useCongregacaoScope();
   const [congregacao, setCongregacao] = useState(lockedCongregacao || 'Todos');
@@ -236,7 +238,7 @@ export default function Dashboard() {
 
     const win = window.open('', '_blank');
     if (!win) {
-      alert('Permita pop-ups neste site para imprimir a lista de aniversariantes.');
+      alert({ title: 'Pop-up bloqueado', message: 'Permita pop-ups neste site para imprimir a lista de aniversariantes.' });
       return;
     }
     win.document.write(html);

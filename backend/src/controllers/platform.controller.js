@@ -98,6 +98,9 @@ const getTenantDetail = async (req, res) => {
     User.countDocuments({ tenantId: tenant._id, ativo: true }),
     Message.countDocuments({ tenantId: tenant._id, criadoEm: { $gte: new Date(Date.now() - 30 * DAY_MS) } }),
   ]);
+  // Faturas em aberto anteriores ao link público ganham o token aqui (botão "Copiar link")
+  await Promise.all(faturas.filter((f) => !f.publicToken && ['pendente', 'vencido'].includes(f.status))
+    .map((f) => billing.ensurePublicToken(f)));
   const { whatsapp: wa, ...rest } = tenant;
   res.json({
     ...rest,
@@ -136,7 +139,7 @@ const updateTenant = async (req, res) => {
   const b = req.body || {};
   const tenant = await Tenant.findById(req.params.id);
   if (!tenant) return res.status(404).json({ message: 'Igreja não encontrada' });
-  ['nome', 'nomeCurto', 'documento', 'email', 'telefone', 'responsavel', 'cidade', 'uf', 'timezone', 'plano', 'trialEndsAt']
+  ['nome', 'nomeCurto', 'email', 'telefone', 'responsavel', 'cidade', 'uf', 'timezone', 'plano', 'trialEndsAt']
     .forEach((k) => { if (b[k] !== undefined) tenant[k] = b[k]; });
   if (b.billing) {
     ['ciclo', 'valorMensal', 'diaVencimento', 'isento'].forEach((k) => {
@@ -144,6 +147,9 @@ const updateTenant = async (req, res) => {
     });
   }
   if (b.limitesCustom) tenant.limitesCustom = b.limitesCustom;
+  const cobranca = require('../utils/cobranca').dadosCobranca(b);
+  if (cobranca.erro) return res.status(400).json({ message: cobranca.erro });
+  Object.assign(tenant, cobranca.set);
   if (b.status) {
     tenant.status = b.status;
     if (b.status === 'cancelada') {
@@ -240,6 +246,19 @@ const chargeInvoice = async (req, res) => {
   }
 };
 
+// Reenvia o email da fatura (Pix + boleto + link de pagamento) ao email de cobrança da igreja.
+const emailInvoice = async (req, res) => {
+  const invoice = await Invoice.findById(req.params.id);
+  const tenant = invoice && await Tenant.findById(invoice.tenantId).lean();
+  if (!invoice || !tenant) return res.status(404).json({ message: 'Fatura não encontrada' });
+  if (!['pendente', 'vencido'].includes(invoice.status)) return res.status(400).json({ message: 'Só faturas em aberto são enviadas.' });
+  if (!(tenant.emailCobranca || tenant.email)) return res.status(400).json({ message: 'A igreja não tem email cadastrado.' });
+  const atual = billing.gatewayEnabled() ? await billing.createGatewayCharge(invoice, tenant) : invoice;
+  const ok = await billing.sendInvoiceEmail(tenant, atual, atual.status === 'vencido' ? 'vencida' : 'lembrete');
+  if (!ok) return res.status(502).json({ message: 'Falha ao enviar o email (verifique o SMTP).' });
+  return res.json({ ok: true, para: tenant.emailCobranca || tenant.email, pagarUrl: billing.payUrlFor(atual.publicToken) });
+};
+
 // Confere o Pix direto na Woovi (webhook perdido).
 const syncInvoice = async (req, res) => {
   const invoice = await Invoice.findById(req.params.id);
@@ -248,6 +267,81 @@ const syncInvoice = async (req, res) => {
 };
 
 const runBilling = async (req, res) => res.json(await billing.runBillingCycle());
+
+// ── Consumo de IA detalhado (por chamada) ───────────────────────────────
+// GET /ia-uso?tenantId=&periodo=YYYY-MM — sem tenantId: todas as igrejas.
+const r4 = (v) => Math.round((Number(v) || 0) * 10000) / 10000;
+const r2 = (v) => Math.round((Number(v) || 0) * 100) / 100;
+const iaUso = async (req, res) => {
+  const AiUsageEvent = require('../models/AiUsageEvent.model');
+  const pricing = require('../config/ai-pricing');
+  const llm = require('../services/ai/llm');
+  const periodo = /^\d{4}-\d{2}$/.test(req.query.periodo || '') ? req.query.periodo : currentPeriod();
+  const inicio = new Date(`${periodo}-01T00:00:00Z`);
+  const fim = new Date(Date.UTC(inicio.getUTCFullYear(), inicio.getUTCMonth() + 1, 1));
+  const match = { at: { $gte: inicio, $lt: fim } };
+  if (req.query.tenantId) {
+    if (!/^[a-f0-9]{24}$/i.test(req.query.tenantId)) return res.status(400).json({ message: 'tenantId inválido' });
+    match.tenantId = new (require('mongoose').Types.ObjectId)(req.query.tenantId);
+  }
+  const soma = {
+    chamadas: { $sum: 1 },
+    interacoes: { $sum: { $cond: ['$interacao', 1, 0] } },
+    input: { $sum: '$inputTokens' },
+    cached: { $sum: '$cachedTokens' },
+    cacheWrite: { $sum: '$cacheWriteTokens' },
+    output: { $sum: '$outputTokens' },
+    thinking: { $sum: '$thinkingTokens' },
+    audioSeg: { $sum: '$audioSegundos' },
+    usd: { $sum: '$custoUsd' },
+    brl: { $sum: '$custoBrl' },
+    msMedio: { $avg: '$ms' },
+  };
+  const [porModelo, porOperacao, ultimas] = await Promise.all([
+    AiUsageEvent.aggregate([{ $match: match }, { $group: { _id: { provider: '$provider', modelo: '$modelVersion' }, ...soma } }, { $sort: { usd: -1 } }]),
+    AiUsageEvent.aggregate([{ $match: match }, { $group: { _id: '$operacao', ...soma } }, { $sort: { usd: -1 } }]),
+    AiUsageEvent.find(match).sort({ at: -1 }).limit(Math.min(Number(req.query.limite) || 25, 100)).populate('tenantId', 'nome slug').lean(),
+  ]);
+  const fmt = (g) => ({
+    chamadas: g.chamadas, interacoes: g.interacoes, input: g.input, cached: g.cached, cacheWrite: g.cacheWrite,
+    output: g.output, thinking: g.thinking, audioMin: r2(g.audioSeg / 60),
+    cachePct: g.input ? Math.round((g.cached / g.input) * 100) : 0,
+    usd: r4(g.usd), brl: r2(g.brl), msMedio: Math.round(g.msMedio || 0),
+  });
+  const totais = porModelo.reduce((t, g) => {
+    Object.keys(soma).forEach((k) => { if (k !== 'msMedio') t[k] = (t[k] || 0) + (g[k] || 0); });
+    return t;
+  }, {});
+  await pricing.refreshUsdBrl().catch(() => {});
+  const provider = llm.provider();
+  return res.json({
+    periodo,
+    cotacao: pricing.usdBrlInfo(),
+    ativo: provider ? {
+      provider,
+      providerNome: pricing.PROVIDER_LABEL[provider] || provider,
+      modelo: llm.modelName(),
+      preco: pricing.priceFor(llm.modelName()),
+      transcricao: process.env.TRANSCRIPTION_API_KEY
+        ? { modelo: process.env.TRANSCRIPTION_MODEL || 'whisper-1', usdMin: Number(process.env.TRANSCRIPTION_PRICE_USD_MIN) || pricing.AUDIO_PRICES[process.env.TRANSCRIPTION_MODEL || 'whisper-1'] || null }
+        : { modelo: provider === 'gemini' ? llm.modelName() : null, viaGemini: provider === 'gemini' },
+    } : null,
+    totais: { ...fmt({ ...totais, msMedio: 0 }), chamadas: totais.chamadas || 0 },
+    porModelo: porModelo.map((g) => ({
+      provider: g._id.provider,
+      providerNome: pricing.PROVIDER_LABEL[g._id.provider] || g._id.provider,
+      modelo: g._id.modelo,
+      preco: pricing.priceFor(g._id.modelo) || null,
+      ...fmt(g),
+    })),
+    porOperacao: porOperacao.map((g) => ({ operacao: g._id, ...fmt(g) })),
+    ultimas: ultimas.map((e) => ({
+      _id: e._id, at: e.at, igreja: e.tenantId?.nome, provider: e.provider, modelo: e.modelVersion || e.model, operacao: e.operacao,
+      input: e.inputTokens, cached: e.cachedTokens, cacheWrite: e.cacheWriteTokens, output: e.outputTokens, thinking: e.thinkingTokens,
+      audioSeg: e.audioSegundos, usd: r4(e.custoUsd), brl: r4(e.custoBrl), usdBrl: e.usdBrl, ms: e.ms,
+    })),
+  });
+};
 
 // ── Métricas ────────────────────────────────────────────────────────────
 const metrics = async (req, res) => {
@@ -357,7 +451,9 @@ module.exports = {
   cancelInvoice,
   chargeInvoice,
   syncInvoice,
+  emailInvoice,
   runBilling,
+  iaUso,
   metrics,
   updateTenantWhatsapp,
   testTenantWhatsapp,

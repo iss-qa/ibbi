@@ -3,6 +3,7 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
+import { useDialog } from './dialog/DialogProvider.jsx';
 import logoIbbi from '../assets/logo-ibbi.jpeg';
 
 // Nome vem do cadastro (inclusive formulário público): escapar antes de document.write
@@ -498,6 +499,7 @@ export default function CarteirinhaModal({ person, onClose, hideWhatsApp = false
   const [personData, setPersonData] = useState(person);
   const [downloading, setDownloading] = useState('');
   const [healthWarning, setHealthWarning] = useState(false);
+  const { alert } = useDialog();
 
   const frontRef = useRef(null);
   const backRef = useRef(null);
@@ -561,8 +563,8 @@ export default function CarteirinhaModal({ person, onClose, hideWhatsApp = false
 
   const firstName = personData.nome?.split(' ')[0] || 'Membro';
 
-  const handleMissingPhoto = useCallback(() => {
-    alert('Necessário adicionar sua foto para poder baixar a carteirinha. Edite ou revise seu cadastro.');
+  const handleMissingPhoto = useCallback(async () => {
+    await alert({ title: 'Foto obrigatória', message: 'Necessário adicionar sua foto para poder baixar a carteirinha. Edite ou revise seu cadastro.' });
 
     if (redirectToProfileOnMissingPhoto) {
       navigate('/profile', {
@@ -572,7 +574,7 @@ export default function CarteirinhaModal({ person, onClose, hideWhatsApp = false
         },
       });
     }
-  }, [navigate, redirectToProfileOnMissingPhoto]);
+  }, [alert, navigate, redirectToProfileOnMissingPhoto]);
 
   // Download PNG — usa as refs hidden (sem escala CSS) para gerar imagem em alta resolução
   const handlePng = async () => {
@@ -667,7 +669,7 @@ export default function CarteirinhaModal({ person, onClose, hideWhatsApp = false
   const handleWhatsApp = async () => {
     const celular = personData.celular;
     if (!celular) {
-      alert('Membro não possui número de celular cadastrado.');
+      alert({ title: 'Sem celular', message: 'Membro não possui número de celular cadastrado.' });
       return;
     }
     
@@ -693,10 +695,10 @@ export default function CarteirinhaModal({ person, onClose, hideWhatsApp = false
         mensagem: messageText
       });
       
-      alert('🎉 Carteirinha enviada com sucesso para o membro!');
+      alert({ title: 'Carteirinha enviada', message: '🎉 Carteirinha enviada com sucesso para o membro!' });
     } catch (err) {
       console.error('Erro ao enviar carteirinha:', err);
-      alert(err?.response?.data?.message || err.message || 'Erro ao enviar carteirinha via WhatsApp.');
+      alert({ title: 'Erro ao enviar', message: err?.response?.data?.message || err.message || 'Erro ao enviar carteirinha via WhatsApp.' });
     } finally {
       setDownloading('');
     }

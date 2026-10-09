@@ -73,6 +73,10 @@ const updateSettings = async (req, res) => {
   if (!tenant) return res.status(404).json({ message: 'Igreja não encontrada' });
 
   Object.assign(tenant, pick(body, ['nome', 'nomeCurto', 'email', 'telefone', 'responsavel', 'cidade', 'uf', 'timezone', 'programacaoSemanal']));
+  // Dados de cobrança (CNPJ, email de cobrança, endereço — o boleto exige)
+  const cobranca = require('../utils/cobranca').dadosCobranca(body);
+  if (cobranca.erro) return res.status(400).json({ message: cobranca.erro });
+  Object.assign(tenant, cobranca.set);
   if ('instagram' in body) {
     // Aceita "@usuario", "usuario" ou o link do perfil
     const ig = String(body.instagram || '').trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/[/?#].*$/, '');
@@ -310,6 +314,7 @@ const invoicePix = async (req, res) => {
     pago: false,
     fatura: serializeInvoice(atual),
     pix: { brCode: g.brCode, qrCode, invoiceUrl: g.invoiceUrl, expiraEm: g.expiraEm, valor: g.valor },
+    boleto: g.boleto?.digitable ? g.boleto : null,
   });
 };
 

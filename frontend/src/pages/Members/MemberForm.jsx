@@ -6,6 +6,7 @@ import CustomSelect from '../../components/CustomSelect';
 import CustomDatePicker from '../../components/CustomDatePicker';
 import { PERSON_TYPE_OPTIONS, calculateAge, determineGroup } from '../../utils/person';
 import useCongregacaoScope from '../../hooks/useCongregacaoScope';
+import { useDialog } from '../../components/dialog/DialogProvider.jsx';
 
 const initialState = {
   nome: '',
@@ -181,6 +182,7 @@ async function optimizeImage(file) {
 }
 
 export default function MemberForm({ initialData, onSubmit, onCancel, lockedCongregacao, readOnly, isSelfEdit, isExternal, highlightPhoto = false }) {
+  const { confirm, alert } = useDialog();
   const { options: congregacaoOptions } = useCongregacaoScope();
   const syncFormRules = (draft) => {
     const next = { ...draft };
@@ -366,10 +368,10 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
     // Celular é o WhatsApp de todos os envios: DDD + número (11 dígitos; 10 = sem o 9, confirmar)
     const celularDigits = String(form.celular || '').replace(/\D/g, '');
     if (celularDigits && (celularDigits.length < 10 || celularDigits.length > 11)) {
-      window.alert('Celular inválido: informe DDD + número, ex.: (71) 99999-8888.');
+      alert({ title: 'Celular inválido', message: 'Celular inválido: informe DDD + número, ex.: (71) 99999-8888.' });
       return;
     }
-    if (celularDigits.length === 10 && !window.confirm('O celular tem 10 dígitos (sem o 9). Confirma que está correto?')) {
+    if (celularDigits.length === 10 && !(await confirm({ title: 'Conferir celular', message: 'O celular tem 10 dígitos (sem o 9). Confirma que está correto?', confirmLabel: 'Está correto', cancelLabel: 'Corrigir' }))) {
       return;
     }
 
@@ -400,7 +402,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
         // A IA conferiu e não é uma foto real da pessoa (card de bom dia, flor, desenho…)
         if (err?.response?.data?.code !== 'FOTO_INVALIDA') throw err;
         const { message, podeConfirmar } = err.response.data;
-        if (podeConfirmar && window.confirm(`${message}\n\nUsar esta foto mesmo assim?`)) {
+        if (podeConfirmar && await confirm({ title: 'Foto não parece da pessoa', message: `${message}\n\nUsar esta foto mesmo assim?`, confirmLabel: 'Usar mesmo assim', cancelLabel: 'Escolher outra' })) {
           response = await api.post(`${endpoint}?confirmar=1`, data);
         } else {
           setPreview(previousPreview);
@@ -420,7 +422,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
       }
     } catch (err) {
       console.error('Erro no upload:', err);
-      alert(err?.response?.data?.message || 'Erro ao fazer upload da foto. Tente novamente.');
+      alert({ title: 'Erro no upload', message: err?.response?.data?.message || 'Erro ao fazer upload da foto. Tente novamente.' });
     } finally {
       setUploading(false);
     }

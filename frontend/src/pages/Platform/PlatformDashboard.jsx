@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import platformApi from '../../services/platformApi';
 import { Card, KpiCard, brl } from '../../components/ui';
+import IaUsoCard from './IaUsoCard';
 
 // Paleta categórica validada (dataviz): slot 1 azul, slot 2 laranja. Texto sempre em tons de tinta.
 const SERIES = ['#2a78d6', '#eb6834'];
@@ -147,6 +148,7 @@ export default function PlatformDashboard() {
           <SimpleBars data={serie} dataKey="iaCustoBrl" name="Custo IA (R$)" />
         </Card>
       </div>
+      <IaUsoCard />
     </div>
   );
 }

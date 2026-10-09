@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react';
 import html2canvas from 'html2canvas';
 import api from '../services/api';
+import { useDialog } from '../components/dialog/DialogProvider.jsx';
 
 // ─── Versículos ───────────────────────────────────────────────────────────────
 const VERSICULOS = [
@@ -425,6 +426,7 @@ function WhatsAppPreview({ person, texto, enviadoEm, enviadoPor, automatico, ver
 
 // ─── Modal Principal ──────────────────────────────────────────────────────────
 export default function AniversarianteModal({ person, onClose }) {
+  const { alert } = useDialog();
   const [format, setFormat] = useState('portrait');
   const [sending, setSending] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -489,7 +491,7 @@ export default function AniversarianteModal({ person, onClose }) {
       document.body.removeChild(a);
     } catch (err) {
       console.error(err);
-      alert('Erro ao baixar imagem. Tente novamente.');
+      alert({ title: 'Erro', message: 'Erro ao baixar imagem. Tente novamente.' });
     } finally {
       setDownloading(false);
     }
@@ -515,7 +517,7 @@ export default function AniversarianteModal({ person, onClose }) {
           setShowSentPreview(true);
         }
       } catch { /* silencioso */ }
-      alert(wasAlreadySent ? 'Reenvio realizado com sucesso!' : 'Cartão de aniversário enviado com sucesso via WhatsApp!');
+      alert({ title: 'Cartão enviado', message: wasAlreadySent ? 'Reenvio realizado com sucesso!' : 'Cartão de aniversário enviado com sucesso via WhatsApp!' });
     } catch (err) {
       setSending(false);
       setError(err?.response?.data?.message || 'Erro ao enviar. Tente novamente.');

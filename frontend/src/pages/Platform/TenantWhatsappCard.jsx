@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import platformApi from '../../services/platformApi';
 import { Badge, Button, Card, Field, fmtDateTime, inputClass } from '../../components/ui';
+import { useDialog } from '../../components/dialog/DialogProvider.jsx';
 
 // Instância de WhatsApp da igreja (configurada pela operação da plataforma no onboarding).
 export default function TenantWhatsappCard({ tenant, onSaved }) {
+  const { confirm } = useDialog();
   const wa = tenant.whatsapp || {};
   const [f, setF] = useState({
     provider: wa.provider === 'none' ? 'evolution' : wa.provider || 'evolution',
@@ -50,7 +52,7 @@ export default function TenantWhatsappCard({ tenant, onSaved }) {
   };
 
   const apresentar = async () => {
-    if (!window.confirm('Enviar a mensagem "salve nosso contato" (com o cartão de contato) para toda a liderança desta igreja?')) return;
+    if (!(await confirm({ title: 'Apresentar à liderança', message: 'Enviar a mensagem "salve nosso contato" (com o cartão de contato) para toda a liderança desta igreja?', confirmLabel: 'Enviar' }))) return;
     setBusy(true);
     try {
       const { data } = await platformApi.post(`/tenants/${tenant._id}/whatsapp/apresentar`, { forcar: true });

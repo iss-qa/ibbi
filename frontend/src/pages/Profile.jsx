@@ -4,11 +4,13 @@ import useAuth from '../hooks/useAuth';
 import Header from '../components/Header';
 import MemberForm from './Members/MemberForm';
 import api from '../services/api';
+import { useDialog } from '../components/dialog/DialogProvider.jsx';
 
 export default function Profile() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const { alert } = useDialog();
   const [editing, setEditing] = useState(false);
   const [highlightPhotoField, setHighlightPhotoField] = useState(false);
   const [personData, setPersonData] = useState(null);
@@ -60,22 +62,22 @@ export default function Profile() {
       });
       showToast("Dados atualizados com sucesso!");
     } catch (err) {
-      alert("Erro ao atualizar dados.");
+      alert({ title: 'Erro', message: 'Erro ao atualizar dados.' });
     }
   };
 
   const handlePasswordChange = async (e) => {
     e.preventDefault();
     if (!senhaAtual) {
-      alert("Informe a senha atual.");
+      alert({ title: 'Trocar senha', message: 'Informe a senha atual.' });
       return;
     }
     if (senhaNova !== senhaConfirm) {
-      alert("As senhas não coincidem!");
+      alert({ title: 'Trocar senha', message: 'As senhas não coincidem!' });
       return;
     }
     if (senhaNova.length < 6) {
-      alert("A senha deve ter pelo menos 6 caracteres.");
+      alert({ title: 'Trocar senha', message: 'A senha deve ter pelo menos 6 caracteres.' });
       return;
     }
 
@@ -89,7 +91,7 @@ export default function Profile() {
       setSenhaNova('');
       setSenhaConfirm('');
     } catch (err) {
-      alert(err?.response?.data?.message || "Erro ao alterar senha.");
+      alert({ title: 'Erro ao alterar senha', message: err?.response?.data?.message || 'Erro ao alterar senha.' });
     }
   };
 

@@ -7,6 +7,7 @@ import PlanCards from '../../components/PlanCards';
 import IndiqueGanhe from '../../components/IndiqueGanhe';
 import PixPaymentModal from '../../components/billing/PixPaymentModal';
 import { Badge, Button, Card, KpiCard, brl, fmtDate } from '../../components/ui';
+import { useDialog } from '../../components/dialog/DialogProvider.jsx';
 
 const STATUS_FATURA = {
   pendente: { color: 'amber', label: 'Em aberto' },
@@ -40,6 +41,7 @@ function UsageBar({ label, value, max }) {
 }
 
 export default function Subscription() {
+  const { confirm } = useDialog();
   const { tenant, refresh } = useTenant();
   const { user } = useAuth();
   const isMaster = user?.role === 'master';
@@ -56,7 +58,7 @@ export default function Subscription() {
       setMsg({ ok: true, text: 'Nossa equipe vai entrar em contato para montar o plano Rede.' });
       return;
     }
-    if (!window.confirm(`Mudar para o plano ${plan.nome} (${ciclo})? Se houver fatura em aberto neste mês, ela será reajustada para o novo valor.`)) return;
+    if (!(await confirm({ title: 'Mudar de plano', message: `Mudar para o plano ${plan.nome} (${ciclo})? Se houver fatura em aberto neste mês, ela será reajustada para o novo valor.`, confirmLabel: 'Mudar plano' }))) return;
     try {
       const { data: r } = await api.put('/tenant/billing/plan', { plano: plan.id, ciclo });
       await refresh();

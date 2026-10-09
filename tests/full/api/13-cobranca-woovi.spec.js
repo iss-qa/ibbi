@@ -66,6 +66,20 @@ test.describe.serial('Cobrança Woovi', () => {
     expect(pix.pix.qrCode).toMatch(/^data:image\/png;base64,/);
   });
 
+  test('link público /pagar/:token mostra o Pix sem login; token inválido dá 404', async ({ request }) => {
+    expect(fatura.publicToken).toMatch(/^[A-Za-z0-9_-]{20,40}$/);
+    const r = await request.get(api(`/public/faturas/${fatura.publicToken}`));
+    expect(r.status()).toBe(200);
+    const pub = await r.json();
+    expect(pub).toMatchObject({ igreja: 'Igreja Semente E2E', valor: 47, status: 'pendente' });
+    expect(pub.pix.brCode).toMatch(/^000201/);
+    expect(pub.pix.qrCode).toMatch(/^data:image\/png;base64,/);
+    expect(pub).not.toHaveProperty('gateway');
+    expect(pub).not.toHaveProperty('tenantId');
+    expect((await request.get(api('/public/faturas/token-que-nao-existe-123456'))).status()).toBe(404);
+    expect((await request.get(api('/public/faturas/x'))).status()).toBe(404);
+  });
+
   test('outra igreja não acessa a fatura', async ({ request }) => {
     const a = await cliente(request);
     expect((await a.get(`/tenant/billing/faturas/${fatura._id}`)).status()).toBe(404);
@@ -117,6 +131,29 @@ test.describe.serial('Cobrança Woovi', () => {
     expect(f).toMatchObject({ status: 'pago', valorPago: 99, metodo: 'pix' });
     expect(f.pix).toBeNull();
     expect((await (await master.get('/tenant')).json()).faturaAberta).toBeNull();
+    expect((await (await request.get(api(`/public/faturas/${fatura.publicToken}`))).json()).status).toBe('pago');
+  });
+
+  test('plataforma cancela a fatura: o Pix sai da Woovi e o link público mostra cancelada', async ({ request }) => {
+    const r = await request.post(api(`/platform/tenants/${semente._id}/invoices`), { headers: h(), data: { competencia: '2025-12' } });
+    const extra = await r.json();
+    const corr = extra.gateway.id;
+    expect((await request.put(api(`/platform/invoices/${extra._id}/cancel`), { headers: h(), data: { observacao: 'cortesia' } })).status()).toBe(200);
+    expect((await cobrancas(request)).find((c) => c.correlationID === corr)).toBeUndefined();
+    const pub = await (await request.get(api(`/public/faturas/${extra.publicToken}`))).json();
+    expect(pub).toMatchObject({ status: 'cancelado', pix: null });
+  });
+
+  test('consumo de IA por chamada: endpoint da plataforma responde com modelo e cotação', async ({ request }) => {
+    const r = await request.get(api('/platform/ia-uso'), { headers: h(), params: { tenantId: semente._id } });
+    expect(r.status()).toBe(200);
+    const d = await r.json();
+    expect(d.periodo).toMatch(/^\d{4}-\d{2}$/);
+    expect(d.cotacao.valor).toBeGreaterThan(1);
+    expect(Array.isArray(d.porModelo) && Array.isArray(d.ultimas)).toBe(true);
+    expect((await request.get(api('/platform/ia-uso'), { headers: h(), params: { tenantId: 'x' } })).status()).toBe(400);
+    const igreja = await cliente(request, { igreja: E2E.igrejas.semente });
+    expect((await request.get(api('/platform/ia-uso'), { headers: { Authorization: `Bearer ${igreja.token}` } })).status()).toBe(401);
   });
 
   test('7 dias de atraso suspendem; Assinatura continua liberada; pagar libera na hora', async ({ request }) => {

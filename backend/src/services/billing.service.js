@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const Tenant = require('../models/Tenant.model');
 const Invoice = require('../models/Invoice.model');
 const { invoiceAmountFor, getPlan } = require('../config/plans');
@@ -121,7 +122,7 @@ const createGatewayCharge = async (invoice, tenant, { throwOnError = false } = {
     const correlationID = `${woovi.CORRELATION_PREFIX}${invoice._id}-${tentativas}-${Math.random().toString(36).slice(2, 6)}`;
     const base = Math.max(new Date(invoice.vencimento).getTime(), Date.now());
     const expira = new Date(base + CHARGE_TTL_DAYS() * DAY_MS);
-    const charge = await woovi.createCharge({
+    const dados = {
       correlationID,
       valueCents: cents(invoice.valor),
       comment: `PastorIA - ${invoice.descricao}`,
@@ -131,13 +132,26 @@ const createGatewayCharge = async (invoice, tenant, { throwOnError = false } = {
         { key: 'Igreja', value: String(tenant.nome || tenant.slug).slice(0, 60) },
         { key: 'Fatura', value: invoice.competencia },
       ],
-    });
+    };
+    // Boleto + Pix quando habilitado e a igreja tem CNPJ e endereço; se a Woovi recusar, só Pix.
+    const pagadorBoleto = woovi.boletoEnabled() ? woovi.boletoCustomerFor(tenant) : null;
+    let charge;
+    if (pagadorBoleto) {
+      try {
+        charge = await woovi.createCharge({ ...dados, type: 'BOLETO', customer: pagadorBoleto });
+      } catch (err) {
+        console.warn(`[BILLING] Boleto recusado pela Woovi (fatura ${invoice._id}), seguindo só com Pix:`, err.message);
+      }
+    }
+    if (!charge) charge = await woovi.createCharge(dados);
+    const bol = charge?.paymentMethods?.boleto;
     invoice.gateway = {
       provider: 'woovi',
       id: correlationID,
       chargeId: charge?.globalID || charge?.identifier,
       invoiceUrl: charge?.paymentLinkUrl,
-      brCode: charge?.brCode,
+      brCode: charge?.brCode || charge?.paymentMethods?.pix?.brCode,
+      boleto: bol?.boletoDigitable ? { digitable: bol.boletoDigitable, barcode: bol.boletoBarcode, imagem: bol.barcodeImage } : undefined,
       valor: invoice.valor,
       expiraEm: charge?.expiresDate ? new Date(charge.expiresDate) : expira,
       status: charge?.status || 'ACTIVE',
@@ -178,15 +192,82 @@ const descricaoDe = (tenant, competencia) => {
   return `Assinatura ${getPlan(tenant.plano).nome} (${ciclo}) — ${competencia}`;
 };
 
-const notifyNewInvoice = async (tenant, invoice) => {
-  if (!tenant.email) return;
-  await sendEmail({
-    to: tenant.email,
-    subject: `Fatura disponível — ${invoice.descricao}`,
-    text: `Olá! A fatura "${invoice.descricao}" de ${brl(invoice.valor)} vence em ${toIso(invoice.vencimento)}.`
-      + `\nPague com Pix em ${appUrl()}/assinatura${invoice.gateway?.invoiceUrl ? ` ou direto em ${invoice.gateway.invoiceUrl}` : ''}.`
-      + `\nA confirmação é automática.`,
-  }).catch((err) => console.error('[BILLING] Falha no email da fatura:', err.message));
+// ── Email da fatura e link público de pagamento ─────────────────────────
+const newPublicToken = () => crypto.randomBytes(18).toString('base64url');
+const ensurePublicToken = async (invoice) => {
+  if (invoice.publicToken) return invoice.publicToken;
+  const token = newPublicToken();
+  await Invoice.updateOne({ _id: invoice._id, publicToken: { $exists: false } }, { $set: { publicToken: token } });
+  invoice.publicToken = (await Invoice.findById(invoice._id).select('publicToken').lean())?.publicToken || token;
+  return invoice.publicToken;
+};
+const payUrlFor = (token) => `${appUrl()}/pagar/${token}`;
+const emailCobrancaDe = (tenant) => tenant.emailCobranca || tenant.email;
+
+// tipo: nova | reajustada | vencida | lembrete. Pix (QR inline + copia e cola) e boleto, se houver.
+const sendInvoiceEmail = async (tenant, invoice, tipo = 'nova') => {
+  const to = emailCobrancaDe(tenant);
+  if (!to || invoice.valor <= 0) return false;
+  const tpl = require('../templates/invoice-email.template');
+  const token = await ensurePublicToken(invoice);
+  const brCode = invoice.gateway?.status === 'ACTIVE' ? invoice.gateway.brCode : null;
+  const qr = brCode ? await require('qrcode').toBuffer(brCode, { margin: 1, width: 440 }).catch(() => null) : null;
+  const ctx = {
+    tipo,
+    igreja: tenant.nome,
+    fatura: invoice,
+    pagarUrl: payUrlFor(token),
+    brCode,
+    temQr: Boolean(qr),
+    boleto: invoice.gateway?.status === 'ACTIVE' ? invoice.gateway.boleto : null,
+    suspendeAposDias: SUSPEND_AFTER_DAYS(),
+    logoUrl: /^https:/.test(appUrl()) ? `${appUrl()}/brand/pastoria-logo-horizontal.png` : null,
+  };
+  try {
+    await sendEmail({
+      to,
+      subject: tpl.invoiceEmailSubject(ctx),
+      html: tpl.invoiceEmailHtml(ctx),
+      text: tpl.invoiceEmailText(ctx),
+      attachments: qr ? [{ filename: 'pix.png', content: qr, cid: 'pix-qr', contentType: 'image/png' }] : undefined,
+    });
+    await Invoice.updateOne({ _id: invoice._id }, { $set: { emailEnviadoEm: new Date() }, $inc: { lembretesEnviados: tipo === 'nova' ? 0 : 1 } });
+    return true;
+  } catch (err) {
+    console.error(`[BILLING] Falha no email da fatura ${invoice._id} (${tipo}):`, err.message);
+    return false;
+  }
+};
+
+// Página pública /pagar/:token — só o necessário para pagar (sem dados internos).
+const findByPublicToken = (token) => (/^[A-Za-z0-9_-]{20,40}$/.test(String(token || ''))
+  ? Invoice.findOne({ publicToken: token })
+  : null);
+
+const publicView = async (invoice, { gerarPix = false } = {}) => {
+  const tenant = await Tenant.findById(invoice.tenantId).lean();
+  let atual = invoice;
+  if (gerarPix && OPEN.includes(atual.status) && tenant && woovi.enabled()) {
+    atual = await createGatewayCharge(atual, tenant);
+  }
+  const g = atual.gateway || {};
+  const ativo = OPEN.includes(atual.status) && g.status === 'ACTIVE';
+  return {
+    igreja: tenant?.nome,
+    descricao: atual.descricao,
+    valor: atual.valor,
+    vencimento: atual.vencimento,
+    status: atual.status,
+    pagoEm: atual.pagoEm,
+    diasAtraso: atual.status === 'vencido' ? diasDeAtraso(atual.vencimento) : 0,
+    pix: ativo && g.brCode ? {
+      brCode: g.brCode,
+      qrCode: await require('qrcode').toDataURL(g.brCode, { margin: 1, width: 320 }),
+      expiraEm: g.expiraEm,
+    } : null,
+    boleto: ativo && g.boleto?.digitable ? g.boleto : null,
+    gatewayAtivo: woovi.enabled(),
+  };
 };
 
 const generateInvoice = async (tenant, competencia = competenciaOf()) => {
@@ -208,6 +289,7 @@ const generateInvoice = async (tenant, competencia = competenciaOf()) => {
       valor,
       descricao: descricaoDe(tenant, competencia),
       vencimento: dueDateFor(tenant, competencia),
+      publicToken: newPublicToken(),
       ...(credito ? { status: 'pago', pagoEm: new Date(), valorPago: 0, metodo: 'credito', observacao: '1 mês grátis por indicação' } : {}),
     });
   } catch (err) {
@@ -219,7 +301,7 @@ const generateInvoice = async (tenant, competencia = competenciaOf()) => {
   }
   if (!credito) {
     invoice = await createGatewayCharge(invoice, tenant);
-    await notifyNewInvoice(tenant, invoice);
+    await sendInvoiceEmail(tenant, invoice, 'nova');
   }
   return { invoice, criada: true };
 };
@@ -241,7 +323,9 @@ const repriceOpenInvoices = async (tenant) => {
     inv.descricao = descricaoDe(tenant, inv.competencia);
     inv.observacao = `Reajustada de ${brl(valorAnterior)} para ${brl(valor)} pela troca de plano`;
     await inv.save();
-    reajustadas.push(await createGatewayCharge(inv, tenant));
+    const nova = await createGatewayCharge(inv, tenant);
+    if (OPEN.includes(nova.status)) await sendInvoiceEmail(tenant, nova, 'reajustada');
+    reajustadas.push(nova);
   }
   return reajustadas;
 };
@@ -262,17 +346,6 @@ const cancelInvoice = async (invoice, observacao) => {
 const annualAlreadyBilled = async (tenant) => {
   const since = competenciaOf(new Date(Date.now() - 335 * DAY_MS));
   return Invoice.exists({ tenantId: tenant._id, ciclo: 'anual', competencia: { $gte: since }, status: { $ne: 'cancelado' } });
-};
-
-const notifyOverdue = async (tenant, invoice) => {
-  if (!tenant.email) return;
-  await sendEmail({
-    to: tenant.email,
-    subject: `Fatura vencida — ${invoice.descricao}`,
-    text: `Olá! A fatura "${invoice.descricao}" no valor de ${brl(invoice.valor)} venceu em ${toIso(invoice.vencimento)}.`
-      + `\nPague com Pix em ${appUrl()}/assinatura${invoice.gateway?.invoiceUrl ? ` ou em ${invoice.gateway.invoiceUrl}` : ''}.`
-      + `\nCom ${SUSPEND_AFTER_DAYS()} dias de atraso o acesso e as automações são suspensos até o pagamento (a liberação é automática).`,
-  }).catch((err) => console.error('[BILLING] Falha no email de cobrança:', err.message));
 };
 
 // Ciclo diário: fim de trial, geração de faturas, conferência dos Pix, vencimentos,
@@ -328,7 +401,7 @@ const runBillingCycle = async () => {
       await inv.save();
       resumo.vencidas += 1;
       const tenant = await Tenant.findById(inv.tenantId).lean();
-      if (tenant && !tenant.billing?.isento) await notifyOverdue(tenant, inv);
+      if (tenant && !tenant.billing?.isento) await sendInvoiceEmail(tenant, inv, 'vencida');
     } catch (err) {
       console.error(`[BILLING] Falha ao marcar fatura ${inv._id} como vencida:`, err.message);
     }
@@ -380,5 +453,10 @@ module.exports = {
   openInvoiceSummary,
   invoiceIdFrom,
   policy,
+  sendInvoiceEmail,
+  ensurePublicToken,
+  payUrlFor,
+  findByPublicToken,
+  publicView,
   gatewayEnabled: woovi.enabled,
 };

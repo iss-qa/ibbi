@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { forwardRef, useEffect, useRef } from 'react';
 
 // Peças visuais reutilizadas pelas telas de Cuidado Pastoral, Configurações, Assinatura e Plataforma.
 
@@ -48,7 +48,7 @@ export function Badge({ color = 'gray', icon, children }) {
   );
 }
 
-export function Button({ variant = 'primary', className = '', ...props }) {
+export const Button = forwardRef(function Button({ variant = 'primary', className = '', ...props }, ref) {
   const styles = {
     primary: 'bg-ibbiBlue text-white hover:bg-ibbiNavy',
     gold: 'bg-ibbiGold text-ibbiNavy hover:brightness-95',
@@ -58,21 +58,22 @@ export function Button({ variant = 'primary', className = '', ...props }) {
   };
   return (
     <button
+      ref={ref}
       type="button"
       className={`px-3 py-2 rounded-xl text-sm font-medium transition active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 ${styles[variant]} ${className}`}
       {...props}
     />
   );
-}
+});
 
-export function Modal({ title, onClose, children, footer, wide }) {
+export function Modal({ title, onClose, children, footer, wide, role = 'dialog', layer = 'z-[60]' }) {
   return (
     // No celular abre como folha a partir de baixo; do sm em diante, centralizado.
-    <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-[60] sm:p-4" onClick={onClose}>
+    <div className={`fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center ${layer} sm:p-4`} onClick={onClose}>
       <div
         className={`bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full ${wide ? 'sm:max-w-3xl' : 'sm:max-w-lg'} max-h-[92dvh] sm:max-h-[90vh] flex flex-col pb-[env(safe-area-inset-bottom)]`}
         onClick={(e) => e.stopPropagation()}
-        role="dialog"
+        role={role}
         aria-modal="true"
         aria-label={title}
       >

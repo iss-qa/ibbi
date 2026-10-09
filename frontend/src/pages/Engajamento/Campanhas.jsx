@@ -3,6 +3,7 @@ import Header from '../../components/Header';
 import api from '../../services/api';
 import { Card, Button, Field, Modal, inputClass } from '../../components/ui';
 import { CONGREGACOES } from '../../constants/congregacoes';
+import { useDialog } from '../../components/dialog/DialogProvider.jsx';
 
 const STATUS = { agendada: ['⏰', 'Agendada'], enviando: ['📤', 'Enviando'], pausada: ['⏸️', 'Pausada (limite diário)'], concluida: ['✅', 'Concluída'], cancelada: ['❌', 'Cancelada'] };
 const TIPO = { sermao: '📖 Sermão', evento: '🎟️ Evento', lembrete: '🔔 Lembrete', aviso: '📣 Aviso' };
@@ -12,6 +13,7 @@ const amanha9h = () => { const d = new Date(Date.now() + 864e5); d.setHours(9, 0
 
 // Envios em massa graduais (anti-bloqueio): resumo do sermão e avisos para a igreja.
 export default function Campanhas() {
+  const { confirm } = useDialog();
   const [lista, setLista] = useState([]);
   const [form, setForm] = useState(null);
   const [previa, setPrevia] = useState(null);
@@ -41,7 +43,7 @@ export default function Campanhas() {
       setForm(null); load();
     } catch (e) { setErro(e.response?.data?.message || 'Não foi possível agendar'); }
   };
-  const cancelar = async (c) => { if (window.confirm(`Cancelar "${c.titulo}"? Quem ainda não recebeu não vai receber.`)) { await api.post(`/campanhas/${c.id}/cancelar`); load(); } };
+  const cancelar = async (c) => { if (await confirm({ title: 'Cancelar campanha', message: `Cancelar "${c.titulo}"? Quem ainda não recebeu não vai receber.`, confirmLabel: 'Cancelar campanha', cancelLabel: 'Voltar', danger: true })) { await api.post(`/campanhas/${c.id}/cancelar`); load(); } };
   const togglePublico = (t) => setForm((f) => ({ ...f, tipos: f.tipos.includes(t) ? f.tipos.filter((x) => x !== t) : [...f.tipos, t] }));
 
   return (

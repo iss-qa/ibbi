@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import Header from '../../components/Header';
 import api from '../../services/api';
+import { useDialog } from '../../components/dialog/DialogProvider.jsx';
 import useAuth from '../../hooks/useAuth';
 import useCongregacaoScope from '../../hooks/useCongregacaoScope';
 import { Badge, Button, KpiCard, inputClass } from '../../components/ui';
@@ -185,6 +186,7 @@ function AulasDaClasse({ classe, congregacao, ano, onAno, onEditar, onExcluir, p
 }
 
 export default function EbdList() {
+  const { confirm } = useDialog();
   const { user } = useAuth();
   const { locked: lockedCongregacao, options: congregacaoOptions } = useCongregacaoScope();
   const [params, setParams] = useSearchParams();
@@ -240,7 +242,7 @@ export default function EbdList() {
   };
 
   const removeAula = async (aula) => {
-    if (!confirm('Excluir esta aula?')) return;
+    if (!(await confirm({ title: 'Excluir aula', message: 'Excluir esta aula?', confirmLabel: 'Excluir', danger: true }))) return;
     await api.delete(`/ebd/${aula._id}`);
     setVersao((v) => v + 1);
   };

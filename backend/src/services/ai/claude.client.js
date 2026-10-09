@@ -1,6 +1,5 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const usage = require('../usage.service');
-const { costUsd } = require('../../config/ai-pricing');
 
 // Modelo padrão configurável. Para reduzir custo em alto volume, AI_MODEL pode apontar
 // para um modelo menor (ex.: claude-sonnet-5) — avalie a qualidade antes de trocar.
@@ -20,7 +19,7 @@ const getClient = () => {
  * Chamada única à Messages API com medição de consumo por tenant.
  * Em modelos com classificadores (Opus 5), usa fallback server-side por categoria de recusa.
  */
-const createMessage = async (params, { countInteraction = true } = {}) => {
+const createMessage = async (params, { countInteraction = true, operacao = 'agente' } = {}) => {
   const model = params.model || MODEL();
   const request = {
     model,
@@ -34,17 +33,25 @@ const createMessage = async (params, { countInteraction = true } = {}) => {
     request.fallbacks = 'default';
   }
 
+  const inicio = Date.now();
   const response = await getClient().beta.messages.create(request);
 
-  const entrada = (response.usage?.input_tokens || 0)
-    + (response.usage?.cache_read_input_tokens || 0)
-    + (response.usage?.cache_creation_input_tokens || 0);
-  await usage.increment({
-    iaInputTokens: entrada,
-    iaCachedTokens: response.usage?.cache_read_input_tokens || 0,
-    iaOutputTokens: response.usage?.output_tokens || 0,
-    iaCustoUsd: costUsd({ model, input: entrada, cached: response.usage?.cache_read_input_tokens || 0, output: response.usage?.output_tokens || 0 }),
-    ...(countInteraction ? { iaInteracoes: 1 } : {}),
+  // input_tokens não inclui o cache: entrada total = sem cache + lido + escrito.
+  const u = response.usage || {};
+  const lido = u.cache_read_input_tokens || 0;
+  const escrito = u.cache_creation_input_tokens || 0;
+  await usage.recordAi({
+    provider: 'anthropic',
+    model,
+    modelVersion: response.model || model, // com fallback, o modelo que de fato respondeu
+    operacao,
+    countInteraction,
+    input: (u.input_tokens || 0) + lido + escrito,
+    cached: lido,
+    cacheWrite: escrito,
+    cacheWrite1h: u.cache_creation?.ephemeral_1h_input_tokens || 0,
+    output: u.output_tokens || 0,
+    ms: Date.now() - inicio,
   });
 
   return response;
@@ -66,7 +73,7 @@ const generateText = async ({ system, prompt, maxTokens = 2000 }) => {
       output_config: { effort: 'low' },
       system,
       messages: [{ role: 'user', content: prompt }],
-    });
+    }, { operacao: 'texto' });
     if (response.stop_reason === 'refusal') return null;
     return textOf(response) || null;
   } catch (err) {

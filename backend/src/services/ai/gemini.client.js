@@ -1,6 +1,5 @@
 const crypto = require('crypto');
 const usage = require('../usage.service');
-const { costUsd } = require('../../config/ai-pricing');
 
 // Google Gemini (generateContent) com o mesmo "formato de conversa" usado pelo agente
 // (blocos text / image / tool_use / tool_result), para trocar de provedor sem mexer no loop.
@@ -88,7 +87,9 @@ const fromResponse = (json) => {
       input_tokens: json.usageMetadata?.promptTokenCount || 0, // inclui os tokens lidos do cache
       cached_tokens: json.usageMetadata?.cachedContentTokenCount || 0,
       output_tokens: (json.usageMetadata?.candidatesTokenCount || 0) + (json.usageMetadata?.thoughtsTokenCount || 0),
+      thinking_tokens: json.usageMetadata?.thoughtsTokenCount || 0,
     },
+    model: json.modelVersion || MODEL(), // versão exata que respondeu (ex.: gemini-3.8-flash-001)
   };
 };
 
@@ -145,7 +146,8 @@ const cachedContentFor = async (sys, decls, toolConfig) => {
   }
 };
 
-const createMessage = async ({ system, tools, messages, max_tokens: maxTokens = 8000 }, { countInteraction = true } = {}) => {
+const createMessage = async ({ system, tools, messages, max_tokens: maxTokens = 8000 }, { countInteraction = true, operacao = 'agente' } = {}) => {
+  const inicio = Date.now();
   const body = {
     contents: toContents(messages),
     generationConfig: { maxOutputTokens: maxTokens, temperature: 0.4 },
@@ -174,23 +176,29 @@ const createMessage = async ({ system, tools, messages, max_tokens: maxTokens = 
   if (!res.ok && cacheName && /cache/i.test(json?.error?.message || '')) {
     // Cache expirou do lado do Google antes do previsto: esquece e refaz sem ele.
     for (const [k, v] of caches) if (v.name === cacheName) caches.delete(k);
-    return createMessage({ system, tools, messages, max_tokens: maxTokens }, { countInteraction });
+    return createMessage({ system, tools, messages, max_tokens: maxTokens }, { countInteraction, operacao });
   }
   if (!res.ok) throw new GeminiError(res.status, json?.error?.message || `Gemini HTTP ${res.status}`);
 
   const response = fromResponse(json);
-  await usage.increment({
-    iaInputTokens: response.usage.input_tokens,
-    iaCachedTokens: response.usage.cached_tokens,
-    iaOutputTokens: response.usage.output_tokens,
-    iaCustoUsd: costUsd({ model: MODEL(), input: response.usage.input_tokens, cached: response.usage.cached_tokens, output: response.usage.output_tokens }),
-    ...(countInteraction ? { iaInteracoes: 1 } : {}),
+  await usage.recordAi({
+    provider: 'gemini',
+    model: MODEL(),
+    modelVersion: response.model,
+    operacao,
+    countInteraction,
+    input: response.usage.input_tokens,
+    cached: response.usage.cached_tokens,
+    output: response.usage.output_tokens,
+    thinking: response.usage.thinking_tokens,
+    ms: Date.now() - inicio,
   });
   return response;
 };
 
 // Transcrição nativa de áudio (o Gemini entende áudio diretamente).
 const transcribeAudio = async (base64, mimetype = 'audio/ogg') => {
+  const inicio = Date.now();
   const res = await fetch(`${BASE_URL}/models/${MODEL()}:generateContent`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
@@ -207,11 +215,16 @@ const transcribeAudio = async (base64, mimetype = 'audio/ogg') => {
   if (!res.ok) throw new GeminiError(res.status, json?.error?.message || `Gemini HTTP ${res.status}`);
   const um = json.usageMetadata || {};
   const saida = (um.candidatesTokenCount || 0) + (um.thoughtsTokenCount || 0);
-  await usage.increment({
-    iaInputTokens: um.promptTokenCount || 0,
-    iaCachedTokens: um.cachedContentTokenCount || 0,
-    iaOutputTokens: saida,
-    iaCustoUsd: costUsd({ model: MODEL(), input: um.promptTokenCount, cached: um.cachedContentTokenCount, output: saida }),
+  await usage.recordAi({
+    provider: 'gemini',
+    model: MODEL(),
+    modelVersion: json.modelVersion || MODEL(),
+    operacao: 'transcricao',
+    input: um.promptTokenCount || 0,
+    cached: um.cachedContentTokenCount || 0,
+    output: saida,
+    thinking: um.thoughtsTokenCount || 0,
+    ms: Date.now() - inicio,
   });
   return (json.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('').trim();
 };

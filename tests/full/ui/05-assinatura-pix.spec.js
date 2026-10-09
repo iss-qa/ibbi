@@ -10,6 +10,7 @@ test.use({ storageState: sessao('master') });
 const api = (p) => `${E2E.apiUrl}${p}`;
 const mock = (p) => `${E2E.mockUrl}${p}`;
 const SHOTS = process.env.E2E_SHOTS; // pasta opcional para capturas de tela
+const PLATFORM_KEY = 'platform_token'; // services/platformApi.js
 
 test.describe.serial('Assinatura e Pix', () => {
   let token;
@@ -28,6 +29,14 @@ test.describe.serial('Assinatura e Pix', () => {
     igreja = (await (await ctx.get(api('/platform/tenants'), { headers: h() })).json()).find((t) => t.slug === E2E.igrejas.a);
     await ctx.put(api(`/platform/tenants/${igreja._id}`), { headers: h(), data: { billing: { isento: false } } });
     await ctx.dispose();
+    // O spec 11 (indicação) dá 1 mês grátis a esta igreja: com crédito a fatura nasce paga, sem Pix.
+    expect(E2E.banco).toMatch(/_e2e$/);
+    await mongoose.connect(E2E.banco);
+    try {
+      await mongoose.connection.collection('tenants').updateOne({ _id: new mongoose.Types.ObjectId(igreja._id) }, { $set: { 'indicacao.creditosMeses': 0 } });
+    } finally {
+      await mongoose.disconnect();
+    }
   });
 
   test.afterAll(async ({ playwright }) => {
@@ -96,5 +105,65 @@ test.describe.serial('Assinatura e Pix', () => {
 
     await page.goto('/members');
     await expect(page).toHaveURL(/\/members/);
+  });
+
+  test('link do email: página pública /pagar/:token com a marca do PastorIA', async ({ browser, request }) => {
+    const fatura = await (await request.post(api(`/platform/tenants/${igreja._id}/invoices`), { headers: h(), data: { competencia: '2026-03' } })).json();
+    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } }); // sem login
+    const page = await ctx.newPage();
+    const erros = vigiar(page);
+    await page.goto(`/pagar/${fatura.publicToken}`);
+    await expect(page.getByText('Fatura da assinatura')).toBeVisible();
+    await expect(page.getByAltText('QR Code do Pix')).toBeVisible();
+    await expect(page.getByLabel('Pix copia e cola')).toHaveValue(/^000201/);
+    await shot(page, '5-pagina-publica');
+    await pagarNaWoovi(request, fatura._id);
+    await expect(page.getByText('Pagamento confirmado')).toBeVisible({ timeout: 25000 });
+    semErros(erros, '/pagar');
+    await ctx.close();
+  });
+
+  test('plataforma: cancelar fatura usa o diálogo do app e o consumo de IA aparece', async ({ browser, request }) => {
+    const fatura = await (await request.post(api(`/platform/tenants/${igreja._id}/invoices`), { headers: h(), data: { competencia: '2026-04' } })).json();
+    // Chamadas de IA de exemplo (a suíte roda sem IA): uma de cada provedor
+    await mongoose.connect(E2E.banco);
+    try {
+      const tid = new mongoose.Types.ObjectId(igreja._id);
+      await mongoose.connection.collection('aiusageevents').insertMany([
+        { tenantId: tid, at: new Date(), provider: 'anthropic', model: 'claude-opus-5-5', modelVersion: 'claude-opus-5-5', operacao: 'agente', interacao: true, inputTokens: 10000, cachedTokens: 6000, cacheWriteTokens: 2000, outputTokens: 1000, thinkingTokens: 0, audioSegundos: 0, custoUsd: 0.0392, usdBrl: 5, custoBrl: 0.196, ms: 4200 },
+        { tenantId: tid, at: new Date(), provider: 'gemini', model: 'gemini-3.8-flash', modelVersion: 'gemini-3.8-flash-001', operacao: 'texto', interacao: false, inputTokens: 9872, cachedTokens: 9378, cacheWriteTokens: 0, outputTokens: 420, thinkingTokens: 180, audioSegundos: 0, custoUsd: 0.0026, usdBrl: 5, custoBrl: 0.013, ms: 1800 },
+        { tenantId: tid, at: new Date(), provider: 'openai', model: 'whisper-1', modelVersion: 'whisper-1', operacao: 'transcricao', interacao: false, inputTokens: 0, cachedTokens: 0, cacheWriteTokens: 0, outputTokens: 0, thinkingTokens: 0, audioSegundos: 90, custoUsd: 0.009, usdBrl: 5, custoBrl: 0.045, ms: 2500 },
+      ]);
+    } finally {
+      await mongoose.disconnect();
+    }
+    const ctx = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+    const page = await ctx.newPage();
+    const erros = vigiar(page);
+    await page.goto('/platform/login');
+    await page.evaluate(([k, t]) => localStorage.setItem(k, t), [PLATFORM_KEY, token]);
+    await page.goto(`/platform/igrejas/${igreja._id}`);
+    await expect(page.getByText('Consumo de IA (por chamada)')).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'claude-opus-5-5' }).first()).toBeVisible();
+    await expect(page.getByRole('cell', { name: 'gemini-3.8-flash-001' }).first()).toBeVisible();
+    await expect(page.getByText('1,5 min')).toBeVisible();
+    const linha = page.locator('li', { hasText: '2026-04' });
+    page.on('dialog', () => { throw new Error('diálogo nativo do navegador não deveria abrir'); });
+    await linha.getByRole('button', { name: 'Cancelar' }).click();
+    const dlg = page.getByRole('alertdialog', { name: 'Cancelar fatura' });
+    await expect(dlg).toBeVisible();
+    await shot(page, '6-dialogo-cancelar');
+    await dlg.getByRole('button', { name: 'Cancelar fatura' }).click();
+    const motivo = page.getByRole('dialog', { name: 'Motivo do cancelamento' });
+    await motivo.getByRole('textbox').fill('teste e2e');
+    await motivo.getByRole('button', { name: 'Confirmar cancelamento' }).click();
+    await expect(page.getByText('Fatura cancelada.')).toBeVisible();
+    await expect(linha.getByText('Cancelada')).toBeVisible();
+    expect(fatura._id).toBeTruthy();
+    await page.getByText('Consumo de IA (por chamada)').scrollIntoViewIfNeeded();
+    await page.evaluate(() => window.scrollBy(0, -20));
+    await shot(page, '7-consumo-ia');
+    semErros(erros, '/platform/igrejas/:id');
+    await ctx.close();
   });
 });
