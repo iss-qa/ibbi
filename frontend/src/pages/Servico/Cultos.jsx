@@ -16,6 +16,9 @@ export default function Cultos() {
   const [telao, setTelao] = useState(false);
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(false);
+  // Convite fica fixo enquanto o modal está aberto (a lista de presentes atualiza a cada 15s)
+  const [convite, setConvite] = useState(null);
+  const [aviso, setAviso] = useState('');
 
   const load = useCallback(async () => {
     const { data } = await api.get('/cultos');
@@ -38,6 +41,31 @@ export default function Cultos() {
     }
   };
   const ver = async (id) => setAberto((await api.get(`/cultos/${id}`)).data);
+
+  useEffect(() => { setConvite(aberto?.convite || null); setAviso(''); }, [aberto?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const outraFrase = async () => {
+    const { data } = await api.get(`/cultos/${aberto.id}`);
+    setConvite(data.convite);
+  };
+  const compartilhar = async () => {
+    if (navigator.share) {
+      try { await navigator.share({ text: convite.texto }); return; } catch (e) { if (e?.name === 'AbortError') return; }
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(convite.texto)}`, '_blank', 'noopener');
+  };
+  const copiar = async () => {
+    try { await navigator.clipboard.writeText(convite.texto); setAviso('Convite copiado ✅'); } catch { setAviso('Não foi possível copiar. Selecione o texto e copie.'); }
+  };
+  const enviarLideranca = async () => {
+    setAviso('');
+    try {
+      const { data } = await api.post(`/cultos/${aberto.id}/lideranca`);
+      setAviso(`QR e convite na fila para ${data.destinatarios} contato(s) da liderança 📲`);
+    } catch (e) {
+      setAviso(e.response?.data?.message || 'Não foi possível enviar à liderança.');
+    }
+  };
   const encerrar = async () => {
     await api.post(`/cultos/${aberto.id}/encerrar`);
     setAberto(null);
@@ -115,7 +143,6 @@ export default function Cultos() {
             <div className="text-center">
               {aberto.qr ? <img src={aberto.qr} alt={`QR Code do check-in ${aberto.codigo}`} className="w-full max-w-[280px] mx-auto rounded-lg border border-slate-100" /> : <p className="text-sm text-slate-400">QR indisponível (número da igreja não configurado).</p>}
               <p className="mt-2 text-sm text-slate-600">ou envie <strong className="font-mono">CHEGUEI {aberto.codigo}</strong></p>
-              {aberto.link && <a href={aberto.link} target="_blank" rel="noreferrer" className="text-xs text-ibbiBlue break-all">{aberto.link}</a>}
             </div>
             <div>
               <p className="font-semibold text-ibbiNavy">{aberto.presentes} presença(s){aberto.visitantes ? ` · 🙋 ${aberto.visitantes} visitante(s)` : ''}</p>
@@ -131,6 +158,22 @@ export default function Cultos() {
               </ul>
             </div>
           </div>
+          {aberto.aberto && convite && (
+            <div className="mt-5 pt-4 border-t border-slate-100">
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <p className="font-semibold text-ibbiNavy">📤 Convite para os grupos</p>
+                <button type="button" className="text-xs text-ibbiBlue hover:underline" onClick={outraFrase}>🔀 Outra frase</button>
+              </div>
+              <p className="text-xs text-slate-500 mb-2">A liderança encaminha nos grupos da igreja. O link mostra o logo da igreja e abre o WhatsApp com o check-in pronto; não informa quantos já estão presentes.</p>
+              <pre className="whitespace-pre-wrap break-words font-sans text-sm bg-[#efe7dd] text-slate-800 rounded-xl p-3 max-h-56 overflow-y-auto">{convite.texto}</pre>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button variant="gold" onClick={compartilhar}>📤 Compartilhar</Button>
+                <Button variant="outline" onClick={copiar}>Copiar texto</Button>
+                <Button variant="outline" onClick={enviarLideranca}>📲 Enviar QR à liderança</Button>
+              </div>
+              {aviso && <p className="text-sm text-slate-700 mt-2">{aviso}</p>}
+            </div>
+          )}
         </Modal>
       )}
 

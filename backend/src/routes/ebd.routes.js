@@ -9,6 +9,7 @@ const router = express.Router();
 router.use(auth, requirePasswordChanged, requireRole('admin', 'master'));
 
 router.get('/', controller.list);
+router.get('/painel', controller.painel);
 router.get('/domingo/:date', controller.getBySunday);
 router.get('/relatorio/classe/:grupo', controller.reportByClasse);
 router.get('/relatorio/pessoa/:id', controller.reportByPessoa);

@@ -6,6 +6,7 @@ const { sendEmail } = require('./email.service');
 const { registrarComunicacao } = require('./trigger.service');
 const { getTenant } = require('../tenancy/context');
 const { churchShort } = require('../tenancy/brand');
+const { samePhone } = require('../utils/phone');
 
 const FLAG = {
   aniversarios: 'recebeAniversarios',
@@ -37,12 +38,13 @@ const classLeaders = (classe, congregacao) => (getTenant()?.ebdLideres || [])
  * Envia um texto para a liderança por WhatsApp (fila com delay anti-banimento) e,
  * opcionalmente, por email. Registra o envio na collection messages.
  */
-const notifyLeadership = async ({ texto, tipo, congregacao, extra = [], emailSubject, emailHtml }) => {
+const notifyLeadership = async ({ texto, tipo, congregacao, extra = [], excluir = [], imagem, emailSubject, emailHtml }) => {
   const base = await leadershipRecipients({ tipo, congregacao });
   const seen = new Set();
   const recipients = [...base, ...extra].filter((r) => {
     const key = r.celular || r.email;
     if (!key || seen.has(key)) return false;
+    if (r.celular && excluir.some((c) => samePhone(c, r.celular))) return false;
     seen.add(key);
     return true;
   });
@@ -65,7 +67,8 @@ const notifyLeadership = async ({ texto, tipo, congregacao, extra = [], emailSub
   ];
   if (zap.length && whatsapp.isConfigured()) {
     whatsapp.enqueue(zap.map((r) => ({
-      send: () => whatsapp.sendText(r.celular, texto),
+      // imagem (data URL) vai com o texto como legenda
+      send: () => (imagem ? whatsapp.sendImage(r.celular, imagem, texto) : whatsapp.sendText(r.celular, texto)),
       onSuccess: () => registrarComunicacao({
         tipo: 'lideranca', destinatarios: [{ nome: r.nome, celular: r.celular, status: 'concluido' }], conteudo: texto, status: 'concluido',
       }),

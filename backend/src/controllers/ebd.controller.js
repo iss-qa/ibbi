@@ -3,6 +3,7 @@ const Person = require('../models/Person.model');
 const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao, resolveWritableCongregacao } = require('../utils/access');
 const { escapeRegex } = require('../utils/sanitize');
 const { dayRangeFromIso } = require('../utils/time');
+const { sanitizePresencas } = require('../utils/presenca');
 
 // Aulas ficam gravadas ao meio-dia (ensureSunday): busca por data é pelo dia inteiro, não igualdade.
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -43,10 +44,80 @@ const list = async (req, res) => {
     const start = new Date(Number(year), Number(month) - 1, 1);
     const end = new Date(Number(year), Number(month), 0, 23, 59, 59);
     filter.data = { $gte: start, $lte: end };
+  } else if (/^\d{4}$/.test(String(req.query.ano || ''))) {
+    filter.data = anoRange(req.query.ano);
   }
   filter = await applyScopedCongregacaoFilter(req.user, filter, congregacao);
+  // resumo=1: sem a lista de presenças, só as contagens (tela de aulas por classe)
+  if (req.query.resumo) {
+    const aulas = await EbdAula.find(filter).select('data tema descricao classe congregacao presencas.presente').sort({ data: -1 }).lean();
+    return res.json(aulas.map(({ presencas = [], ...a }) => ({ ...a, total: presencas.length, presentes: presencas.filter((p) => p.presente).length })));
+  }
   const aulas = await EbdAula.find(filter).sort({ data: -1 });
-  res.json(aulas);
+  return res.json(aulas);
+};
+
+const anoRange = (ano) => ({ $gte: new Date(Date.UTC(Number(ano), 0, 1)), $lt: new Date(Date.UTC(Number(ano) + 1, 0, 1)) });
+const pct = (presentes, total) => (total ? Math.round((presentes / total) * 100) : null);
+const media = (lista) => {
+  const vals = lista.filter((v) => v !== null);
+  return vals.length ? Math.round(vals.reduce((s, v) => s + v, 0) / vals.length) : null;
+};
+
+/**
+ * Painel da EBD: indicadores do mês e um card por classe/congregação (média, último domingo, tendência).
+ * ?ano=AAAA (padrão: ano atual) e ?congregacao=
+ */
+const painel = async (req, res) => {
+  const ano = /^\d{4}$/.test(String(req.query.ano || '')) ? Number(req.query.ano) : new Date().getUTCFullYear();
+  const filter = await applyScopedCongregacaoFilter(req.user, { data: anoRange(ano) }, req.query.congregacao);
+  const aulas = await EbdAula.aggregate([
+    { $match: filter },
+    { $project: { classe: 1, congregacao: 1, data: 1, total: { $size: '$presencas' }, presentes: { $size: { $filter: { input: '$presencas', cond: '$$this.presente' } } } } },
+    { $sort: { data: -1 } },
+  ]);
+  const anosDisponiveis = (await EbdAula.aggregate([
+    { $match: await applyScopedCongregacaoFilter(req.user, {}, req.query.congregacao) },
+    { $group: { _id: { $year: '$data' } } },
+  ])).map((a) => a._id).filter(Boolean).sort((a, b) => b - a);
+
+  const grupos = new Map();
+  aulas.forEach((a) => {
+    const key = `${a.classe}|${a.congregacao}`;
+    if (!grupos.has(key)) grupos.set(key, { classe: a.classe, congregacao: a.congregacao, aulas: [] });
+    grupos.get(key).aulas.push({ data: a.data, pct: pct(a.presentes, a.total), presentes: a.presentes, total: a.total });
+  });
+
+  const agora = new Date();
+  const mesAtual = (d) => d.getUTCFullYear() === agora.getUTCFullYear() && d.getUTCMonth() === agora.getUTCMonth();
+  const doMes = aulas.filter((a) => mesAtual(new Date(a.data)));
+  const ultimoDia = aulas[0] ? new Date(aulas[0].data).toISOString().slice(0, 10) : null;
+  const doUltimo = aulas.filter((a) => new Date(a.data).toISOString().slice(0, 10) === ultimoDia);
+  const somar = (lista, k) => lista.reduce((s, a) => s + a[k], 0);
+
+  res.json({
+    ano,
+    anosDisponiveis: [...new Set([new Date().getUTCFullYear(), ...anosDisponiveis])].sort((a, b) => b - a),
+    kpis: {
+      aulasMes: doMes.length,
+      mediaMes: media(doMes.map((a) => pct(a.presentes, a.total))),
+      mediaAno: media(aulas.map((a) => pct(a.presentes, a.total))),
+      classes: grupos.size,
+      ultimoDomingo: ultimoDia ? { data: ultimoDia, presentes: somar(doUltimo, 'presentes'), total: somar(doUltimo, 'total'), pct: pct(somar(doUltimo, 'presentes'), somar(doUltimo, 'total')) } : null,
+    },
+    grupos: [...grupos.values()].map((g) => {
+      const [ultima, ...anteriores] = g.aulas;
+      const mediaAnteriores = media(anteriores.slice(0, 4).map((a) => a.pct));
+      return {
+        classe: g.classe,
+        congregacao: g.congregacao,
+        aulas: g.aulas.length,
+        media: media(g.aulas.map((a) => a.pct)),
+        ultima,
+        tendencia: ultima?.pct !== null && mediaAnteriores !== null ? ultima.pct - mediaAnteriores : null,
+      };
+    }),
+  });
 };
 
 const getById = async (req, res) => {
@@ -122,7 +193,7 @@ const updatePresencas = async (req, res) => {
   await assertPersonAccess(req.user, { congregacao: aula.congregacao });
   if (!canEditAula(aula, req.user)) return res.status(403).json({ message: 'Edição bloqueada' });
 
-  aula.presencas = req.body.presencas || [];
+  aula.presencas = sanitizePresencas(req.body?.presencas);
   aula.ausenciasProcessadasEm = undefined; // reprocessa ausências (idempotente por pessoa)
   await aula.save();
   res.json(aula);
@@ -203,6 +274,7 @@ const classeMapToGrupo = (classe) => {
 };
 
 module.exports = {
+  painel,
   list,
   getById,
   create,

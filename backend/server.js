@@ -158,6 +158,9 @@ app.use('/api/grupos', triagemRoutes);
 app.use('/api/projeto-amigo', projetoAmigoRoutes);
 app.use('/api/registrations', registrationRoutes);
 
+// Convite de check-in encaminhado nos grupos: prévia com o logo da igreja → wa.me
+app.get('/c/:slug/:codigo', require('./src/controllers/checkin-share.controller').page);
+
 const publicDir = path.join(__dirname, '..', 'public');
 app.use(express.static(publicDir));
 app.get('*', (req, res, next) => {

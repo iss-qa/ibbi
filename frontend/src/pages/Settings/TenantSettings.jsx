@@ -199,6 +199,7 @@ const buildPayload = (f, secrets) => {
     nomeCurto: f.nomeCurto,
     email: f.email,
     telefone: f.telefone,
+    instagram: f.instagram || '',
     responsavel: f.responsavel,
     cidade: f.cidade,
     uf: f.uf,
@@ -383,6 +384,7 @@ export default function TenantSettings() {
               <Field label="Nome curto / sigla"><input className={inputClass} value={form.nomeCurto || ''} onChange={(e) => set('nomeCurto', e.target.value)} /></Field>
               <Field label="Email"><input className={inputClass} value={form.email || ''} onChange={(e) => set('email', e.target.value)} /></Field>
               <Field label="Telefone"><input className={inputClass} value={form.telefone || ''} onChange={(e) => set('telefone', e.target.value)} /></Field>
+              <Field label="Instagram" hint="Vai no convite do check-in. Ex.: @suaigreja"><input className={inputClass} value={form.instagram ? `@${String(form.instagram).replace(/^@/, '')}` : ''} onChange={(e) => set('instagram', e.target.value.replace(/^@/, '').trim())} placeholder="@suaigreja" /></Field>
               <Field label="Responsável"><input className={inputClass} value={form.responsavel || ''} onChange={(e) => set('responsavel', e.target.value)} /></Field>
               <Field label="Fuso horário"><input className={inputClass} value={form.timezone || ''} onChange={(e) => set('timezone', e.target.value)} placeholder="America/Bahia" /></Field>
               <Field label="Cidade"><input className={inputClass} value={form.cidade || ''} onChange={(e) => set('cidade', e.target.value)} /></Field>
@@ -649,6 +651,9 @@ export default function TenantSettings() {
               <input type="number" min="2" max="12" className={inputClass} value={a.ausencia?.semanasAlerta || 4} onChange={(e) => set('automacoes.ausencia.semanasAlerta', Number(e.target.value))} />
             </Field>
             {!hasFeature('reengajamento') && <p className="text-xs text-amber-700 mt-2">Disponível a partir do plano Crescer.</p>}
+          </Card>
+          <Card title="📲 Check-in do culto" subtitle="Ao abrir o check-in (web ou WhatsApp), a liderança recebe o QR para o telão e um convite pronto para encaminhar nos grupos">
+            <Toggle checked={a.checkin?.avisarLideranca !== false} onChange={(v) => set('automacoes.checkin.avisarLideranca', v)} label="Enviar o QR e o convite à liderança" hint="Vai para o grupo da liderança quando configurado (aba Liderança)" />
           </Card>
           <Card title="📊 Relatório semanal" subtitle="Resumo da semana no WhatsApp (e email) da liderança">
             <Toggle checked={Boolean(a.relatorioSemanal?.ativo)} onChange={(v) => set('automacoes.relatorioSemanal.ativo', v)} label="Enviar relatório semanal" hint="Presença da EBD por classe (com a variação da semana anterior), quem precisa de contato, quem está esfriando, quem voltou, aniversariantes e uma sugestão prática da semana." />

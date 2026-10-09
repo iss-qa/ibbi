@@ -76,10 +76,16 @@ export default function EncontroChamada() {
                 <span className={p.presente ? 'text-slate-800' : 'text-slate-400 line-through'}>{p.nome}</span>
               </label>
               {!p.presente && (
-                <select className={`${inputClass} sm:max-w-[180px]`} value={p.justificativa || ''} onChange={(e) => setP(idx, { justificativa: e.target.value })}>
-                  <option value="">Sem justificativa</option>
-                  {OBS.map((o) => <option key={o} value={o}>{o}</option>)}
-                </select>
+                <div className="flex flex-col sm:flex-row gap-2 sm:max-w-md sm:flex-1 sm:justify-end">
+                  <select className={`${inputClass} sm:max-w-[180px]`} value={p.justificativa || ''} onChange={(e) => setP(idx, { justificativa: e.target.value })}>
+                    <option value="">Sem justificativa</option>
+                    {OBS.map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                  {/* "Outros": o líder escreve o motivo */}
+                  {p.justificativa === 'Outros' && (
+                    <input className={inputClass} placeholder="Qual o motivo?" maxLength={200} value={p.motivo || ''} onChange={(e) => setP(idx, { motivo: e.target.value })} aria-label={`Motivo da falta de ${p.nome}`} />
+                  )}
+                </div>
               )}
             </li>
           ))}

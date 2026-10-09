@@ -5,7 +5,8 @@ const Person = require('../models/Person.model');
 const { phoneVariants, toLocal } = require('../utils/phone');
 const { normalizeName } = require('../utils/person-rules');
 const { getTenant } = require('../tenancy/context');
-const { timezone } = require('../tenancy/brand');
+const { timezone, portalUrl } = require('../tenancy/brand');
+const templates = require('../templates/messages.templates');
 const { zonedParts, formatBr } = require('../utils/time');
 
 /**
@@ -51,6 +52,28 @@ const linkCheckin = (culto) => {
     throw err;
   }
   return `https://wa.me/${numero}?text=${encodeURIComponent(`CHEGUEI ${culto.codigo}`)}`;
+};
+
+// Link que a liderança encaminha nos grupos: página nossa (prévia com o logo da igreja) que abre o wa.me.
+const linkCompartilhar = (culto, tenant = getTenant()) => `${portalUrl()}/c/${tenant.slug}/${culto.codigo}`;
+
+const conviteCheckin = (culto, tenant = getTenant()) => templates.checkinConvite({
+  titulo: culto.titulo, link: linkCompartilhar(culto, tenant), instagram: tenant?.instagram,
+});
+
+/**
+ * Ao abrir o check-in: QR (para o telão) + convite pronto para a liderança encaminhar nos grupos.
+ * Vai pela fila anti-ban (notifyLeadership); `excluir` = quem já recebeu o QR (líder que abriu pelo WhatsApp).
+ */
+const avisarLideranca = async (culto, { excluir = [], forcar = false } = {}) => {
+  const tenant = getTenant();
+  if ((!forcar && tenant?.automacoes?.checkin?.avisarLideranca === false) || !numeroBot(tenant)) return { enviado: false, destinatarios: 0 };
+  const { notifyLeadership } = require('./leadership.service'); // tardio: evita ciclo de módulos
+  const imagem = await qrDataUrl(culto, 900);
+  const base = { congregacao: culto.congregacao, excluir };
+  const r = await notifyLeadership({ ...base, imagem, texto: templates.checkinLiderancaLegenda(culto) });
+  await notifyLeadership({ ...base, texto: conviteCheckin(culto, tenant) });
+  return { enviado: r.whatsapp > 0, destinatarios: r.whatsapp };
 };
 
 const qrDataUrl = async (culto, width = 900) => QRCode.toDataURL(linkCheckin(culto), { width, margin: 2, errorCorrectionLevel: 'M' });
@@ -114,5 +137,5 @@ const resumo = (c) => ({
 });
 
 module.exports = {
-  CHECKIN_RE, abrirCulto, qrDataUrl, linkCheckin, encerrar, checkin, checkinVisitante, registrarPresenca, numeroBot, resumo, hojeIso,
+  CHECKIN_RE, abrirCulto, qrDataUrl, linkCheckin, linkCompartilhar, conviteCheckin, avisarLideranca, cultoPorCodigo, encerrar, checkin, checkinVisitante, registrarPresenca, numeroBot, resumo, hojeIso,
 };

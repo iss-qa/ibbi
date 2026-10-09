@@ -1,4 +1,5 @@
 const GrupoEncontro = require('../models/GrupoEncontro.model');
+const { sanitizePresencas } = require('../utils/presenca');
 const Encontro = require('../models/Encontro.model');
 const Person = require('../models/Person.model');
 const encontros = require('../services/encontro.service');
@@ -65,7 +66,7 @@ const createGrupo = async (req, res) => {
     });
     if (!b.ebdClasses && encontros.EBD_PADRAO[grupo.tipo]) grupo.ebdClasses = encontros.EBD_PADRAO[grupo.tipo];
     await grupo.save();
-    const adicionados = (b.criterios?.sexo || b.criterios?.idadeMin || b.criterios?.tipos?.length) ? await encontros.syncMembers(grupo) : 0;
+    const adicionados = (b.criterios?.sexo || b.criterios?.idadeMin || b.criterios?.idadeMax || b.criterios?.tipos?.length) ? await encontros.syncMembers(grupo) : 0;
     const aulasEbd = await encontros.syncGrupoEbd(grupo);
     return res.status(201).json({ ...grupo.toJSON(), adicionados, aulasEbd });
   } catch (err) {
@@ -100,10 +101,24 @@ const addMembro = async (req, res) => {
     .select('nome celular congregacao').lean();
   if (!person) return res.status(404).json({ message: 'Pessoa não encontrada' });
   if (!grupo.membros.some((m) => String(m.personId) === String(person._id))) {
-    grupo.membros.push({ personId: person._id, nome: person.nome, celular: person.celular });
+    grupo.membros.push({ personId: person._id, nome: person.nome, celular: person.celular, manual: true });
     await grupo.save();
   }
   return res.json({ totalMembros: grupo.membros.length, membros: grupo.membros });
+};
+
+// Revisão pelos critérios: GET mostra o que mudaria; POST aplica o que o líder confirmou.
+const revisao = async (req, res) => {
+  const grupo = await loadGrupo(req, res);
+  if (!grupo) return undefined;
+  return res.json(await encontros.revisarCriterios(grupo));
+};
+
+const aplicarRevisao = async (req, res) => {
+  const grupo = await loadGrupo(req, res);
+  if (!grupo) return undefined;
+  const remover = Array.isArray(req.body?.remover) ? req.body.remover.slice(0, 2000) : [];
+  return res.json(await encontros.aplicarRevisao(grupo, { remover, adicionar: req.body?.adicionar === true }));
 };
 
 const removeMembro = async (req, res) => {
@@ -164,7 +179,7 @@ const updatePresencas = async (req, res) => {
   if (!encontro) return undefined;
   if (encontro.ebdAulaId) return res.status(400).json({ message: 'Edite a chamada desta aula no menu EBD.' });
   if (!canEditAula(encontro, req.user.role)) return res.status(403).json({ message: 'Edição bloqueada após 7 dias' });
-  encontro.presencas = (req.body?.presencas || []).map((p) => ({ personId: p.personId, nome: p.nome, presente: Boolean(p.presente), justificativa: p.justificativa }));
+  encontro.presencas = sanitizePresencas(req.body?.presencas);
   encontro.ausenciasProcessadasEm = undefined; // reprocessa ausências (idempotente por pessoa)
   await encontro.save();
   return res.json(encontro);
@@ -184,6 +199,6 @@ const processar = async (req, res) => {
 };
 
 module.exports = {
-  listGrupos, getGrupo, createGrupo, updateGrupo, syncMembros, addMembro, removeMembro, frequencia,
+  listGrupos, getGrupo, createGrupo, updateGrupo, syncMembros, addMembro, removeMembro, revisao, aplicarRevisao, frequencia,
   listEncontros, createEncontro, getEncontro, updateEncontro, updatePresencas, removeEncontro, processar,
 };

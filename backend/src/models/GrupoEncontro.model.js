@@ -9,6 +9,7 @@ const PessoaRefSchema = new mongoose.Schema({
   celular: { type: String, trim: true },
   papel: { type: String, trim: true }, // líderes: Presidente, Secretária, Regente…
   desde: { type: Date, default: Date.now },
+  manual: { type: Boolean }, // membro adicionado à mão (a revisão pelos critérios não sugere removê-lo)
 }, { _id: false });
 
 // Grupo que se reúne periodicamente (uniões, louvor, células). Frequência → retenção.

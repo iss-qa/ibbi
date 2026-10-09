@@ -36,6 +36,7 @@ export default function EbdChamada() {
         congregacao: p.congregacao,
         presente: prev ? prev.presente : true,
         justificativa: prev ? prev.justificativa || '' : '',
+        motivo: prev ? prev.motivo || '' : '',
       };
     });
     setAula((prev) => ({ ...prev, presencas }));
@@ -64,14 +65,26 @@ export default function EbdChamada() {
     });
   };
 
-  const updateObs = (idx, value) => {
+  const updateObs = (idx, value, campo = 'justificativa') => {
     setAula((prev) => {
       const updated = { ...prev };
       updated.presencas = [...(updated.presencas || [])];
-      updated.presencas[idx] = { ...updated.presencas[idx], justificativa: value };
+      updated.presencas[idx] = { ...updated.presencas[idx], [campo]: value };
       return updated;
     });
   };
+
+  // "Outros": o líder escreve o motivo
+  const motivoInput = (p, idx, className) => p.justificativa === 'outros' && (
+    <input
+      className={className}
+      placeholder="Qual o motivo?"
+      maxLength={200}
+      value={p.motivo || ''}
+      onChange={(e) => updateObs(idx, e.target.value, 'motivo')}
+      aria-label={`Motivo da falta de ${p.nome}`}
+    />
+  );
 
   const markAll = (value) => {
     setAula((prev) => ({
@@ -88,6 +101,7 @@ export default function EbdChamada() {
         personId: p.personId,
         presente: p.presente,
         justificativa: p.justificativa || '',
+        motivo: p.justificativa === 'outros' ? p.motivo || '' : '',
         nome: p.nome,
       }));
       await api.put(`/ebd/${id}/presencas`, { presencas: payload });
@@ -156,12 +170,15 @@ export default function EbdChamada() {
                     <td className="px-4 py-3">{p.congregacao || '-'}</td>
                     <td className="px-4 py-3">
                       {!p.presente ? (
-                        <select className="border rounded-lg px-2 py-2 text-lg sm:text-sm" value={p.justificativa || ''} onChange={(e) => updateObs(idx, e.target.value)}>
-                          <option value="">Selecione</option>
-                          {OBS_OPTIONS.map((opt) => (
-                            <option key={opt} value={opt.toLowerCase()}>{opt}</option>
-                          ))}
-                        </select>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <select className="border rounded-lg px-2 py-2 text-lg sm:text-sm" value={p.justificativa || ''} onChange={(e) => updateObs(idx, e.target.value)}>
+                            <option value="">Selecione</option>
+                            {OBS_OPTIONS.map((opt) => (
+                              <option key={opt} value={opt.toLowerCase()}>{opt}</option>
+                            ))}
+                          </select>
+                          {motivoInput(p, idx, 'border rounded-lg px-3 py-2 text-sm min-w-0 flex-1 basis-48')}
+                        </div>
                       ) : (
                         <span className="text-xs text-slate-400">—</span>
                       )}
@@ -193,6 +210,7 @@ export default function EbdChamada() {
                         <option key={opt} value={opt.toLowerCase()}>{opt}</option>
                       ))}
                     </select>
+                    {motivoInput(p, idx, 'w-full border rounded-lg px-3 py-2.5 text-base bg-white min-h-[44px]')}
                   </div>
                 )}
               </div>

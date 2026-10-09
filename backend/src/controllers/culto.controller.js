@@ -16,6 +16,8 @@ const detalhe = async (c) => ({
   ...cultoSvc.resumo(c),
   link: cultoSvc.numeroBot() ? cultoSvc.linkCheckin(c) : null,
   qr: cultoSvc.numeroBot() ? await cultoSvc.qrDataUrl(c, 900) : null,
+  // Convite com frase sorteada a cada abertura (sem contagem de presentes)
+  convite: cultoSvc.numeroBot() ? { texto: cultoSvc.conviteCheckin(c), link: cultoSvc.linkCompartilhar(c) } : null,
   presencas: [...c.presencas].sort((a, b) => new Date(b.em) - new Date(a.em)),
 });
 
@@ -33,6 +35,8 @@ const abrir = async (req, res) => {
   if (!congregacao) return res.status(400).json({ message: 'Informe a congregação' });
   const titulo = String(req.body?.titulo || 'Culto').trim().slice(0, 80) || 'Culto';
   const { culto, criado } = await cultoSvc.abrirCulto({ congregacao, titulo, userId: req.user._id, userNome: req.user.nome });
+  // Em segundo plano: a resposta não espera a fila do WhatsApp
+  if (criado) cultoSvc.avisarLideranca(culto).catch((err) => console.warn('[CULTO] Falha ao avisar a liderança:', err.message));
   return res.status(criado ? 201 : 200).json(await detalhe(culto));
 };
 
@@ -50,6 +54,18 @@ const encerrar = async (req, res) => {
   return res.json(cultoSvc.resumo(c));
 };
 
+// Reenvia o QR e o convite para a liderança (botão na tela do culto).
+const enviarLideranca = async (req, res) => {
+  const c = await findScoped(req);
+  if (!c) return res.status(404).json({ message: 'Culto não encontrado' });
+  if (!c.aberto) return res.status(400).json({ message: 'Este check-in já foi encerrado.' });
+  if (!cultoSvc.numeroBot()) return res.status(400).json({ message: 'Informe o número do WhatsApp da igreja em Configurações → WhatsApp.' });
+  // botão manual vale mesmo com o envio automático desligado
+  const r = await cultoSvc.avisarLideranca(c, { forcar: true });
+  if (!r.destinatarios) return res.status(400).json({ message: 'Nenhum contato da liderança com WhatsApp. Cadastre em Configurações → Liderança.' });
+  return res.json(r);
+};
+
 // Presença marcada pela recepção (quem não tem celular, por exemplo).
 const addPresenca = async (req, res) => {
   const c = await findScoped(req);
@@ -60,4 +76,4 @@ const addPresenca = async (req, res) => {
   return res.json(await detalhe(c));
 };
 
-module.exports = { list, abrir, get, encerrar, addPresenca };
+module.exports = { list, abrir, get, encerrar, addPresenca, enviarLideranca };

@@ -21,6 +21,32 @@ const avaliacaoPresenca = (pct) => {
 };
 const linhaRelatorio = (r) => `• *${r.nome}*${r.detalhe ? ` · ${r.detalhe}` : ''}: ${r.presentes}/${r.total} (${r.pct}%)${r.tema ? `\n  _Tema: ${r.tema}_` : ''}\n  ${avaliacaoPresenca(r.pct)}${r.ausentes?.length ? `\n  Ausentes: ${r.ausentes.slice(0, 8).join(', ')}${r.ausentes.length > 8 ? ` e mais ${r.ausentes.length - 8}` : ''}` : ''}`;
 const lista = (itens) => itens.map((i) => `• ${i}`).join('\n');
+const sortear = (lista) => lista[Math.floor(Math.random() * lista.length)];
+
+// Por que fazer check-in: frases curtas para o convite do culto (checkinConvite).
+const CHECKIN_FRASES = [
+  'Deus já viu que você veio adorá-Lo hoje. Mas nós, humanos, nem sempre vemos 😅 Ajude a gente a melhorar: registre sua presença e compartilhe que veio à casa do Pai!',
+  'Você veio à casa do Pai! 🏠 Registre sua presença: assim a liderança sabe quem está chegando e cuida melhor de cada um.',
+  'Cada check-in ajuda a igreja a perceber quem está faltando e ir atrás com carinho. Leva 5 segundos 💛',
+  '"Alegrei-me quando me disseram: Vamos à casa do Senhor." (Sl 122:1) 🙏 Marque sua presença e espalhe essa alegria!',
+  'Quem falta, faz falta. E quem vem, a gente quer celebrar! 🎉 Faça seu check-in no culto de hoje.',
+  'Sua presença importa para Deus e para nós ✨ Registre que você veio e ajude a igreja a cuidar de cada ovelha.',
+  'Chegou? Avise a família da fé! 📲 Toque no link, envie a mensagem e pronto: presença registrada.',
+  'O Bom Pastor chama cada ovelha pelo nome (Jo 10:3) 🐑 Ajude a liderança a conhecer cada uma também: faça seu check-in.',
+  'Trouxe alguém hoje? 🙌 Peça para fazer o check-in também: quem visita pela primeira vez recebe um acolhimento especial.',
+  'Ninguém deve se perder no meio da multidão. Seu check-in mostra quem está firme e quem precisa de cuidado 💛',
+  'Bom culto! 🙏 Antes de começar, registre sua presença: é rápido e ajuda a igreja a crescer com cuidado.',
+  '"Não deixemos de congregar-nos" (Hb 10:25). Registre que você veio adorar hoje e anime os irmãos a fazerem o mesmo!',
+  'Estar na casa do Senhor é motivo de gratidão 🙌 Faça seu check-in e ajude a igreja a acompanhar cada irmão de perto.',
+];
+
+const INSTAGRAM_CHAMADAS = [
+  (igreja, ig) => `📸 Fotos do culto e avisos no Instagram da ${igreja}: @${ig}`,
+  (igreja, ig) => `📸 Siga a ${igreja} no Instagram: @${ig}`,
+  (igreja, ig) => `📸 Marque @${ig} nos seus stories de hoje!`,
+  (igreja, ig) => `📸 Acompanhe a programação da semana no Instagram: @${ig}`,
+];
+
 module.exports = {
   avaliacaoPresenca,
   aniversario: (nome) => `🎂 *Feliz Aniversário, ${nome}!*\n\n_"Ensina-nos a contar os nossos dias..."_ (Sl 90:12)\n\nQue o Senhor continue a guiar seus passos! 🙏\n_${churchName()}_`,
@@ -360,6 +386,14 @@ Qualquer dúvida, estamos aqui! 💙`,
   checkinInvalido: () => 'Não encontrei esse culto aberto para check-in. Confira o código no telão ou peça ajuda à recepção. 🙏',
   checkinPedirNome: () => `Seja muito bem-vindo(a) à *${churchName()}*! 🙌\n\nPara registrar a sua presença, qual é o seu *nome completo*?`,
   checkinVisitanteOk: (nome) => `Que alegria ter você aqui, ${firstName(nome)}! 💛 Sua presença está registrada.\n\nSalve este número: por aqui você recebe as novidades da igreja e pode mandar pedidos de oração. Bom culto! 🙏`,
+  // Convite para o check-in, encaminhado pela liderança nos grupos da igreja. Frase sorteada a cada envio;
+  // nunca mostra quantos já estão presentes.
+  checkinConvite: ({ titulo, link, instagram }) => {
+    const frase = sortear(CHECKIN_FRASES);
+    const insta = instagram ? `\n\n${sortear(INSTAGRAM_CHAMADAS)(churchShort(), instagram)}\ninstagram.com/${instagram}` : '';
+    return `⛪ *${titulo} · ${churchShort()}*\n\n${frase}\n\n👉 Faça seu check-in: ${link}${insta}`;
+  },
+  checkinLiderancaLegenda: ({ titulo, congregacao, codigo }) => `📲 *Check-in aberto: ${titulo} · ${congregacao}*\nCódigo *${codigo}*. Coloque este QR no telão e *encaminhe a mensagem a seguir* nos grupos da igreja para a membresia registrar a presença. 👇`,
   checkinQrLegenda: (culto, codigo) => `📲 *Check-in: ${culto}*\nAponte a câmera para o QR Code: o WhatsApp abre com a mensagem pronta. Ou envie *CHEGUEI ${codigo}* para este número.`,
   cultoLider: ({ titulo, congregacao, data, codigo, presentes, visitantes }) => `⛪ *${titulo}* (${congregacao}) · ${data}\n\nCódigo do check-in: *${codigo}*\nPresenças registradas: *${presentes}*${visitantes ? ` (🙋 ${visitantes} visitante(s))` : ''}\n\nEnviei o QR Code acima: projete no telão ou imprima na recepção.\n\n1. Ver quem fez check-in\n2. Encerrar o check-in\n\n_Responda com o número. *menu* para voltar._`,
   cultoPresentes: (titulo, presentes) => `⛪ *${titulo}*: ${presentes.length} presença(s)\n\n${presentes.map((p) => `• ${p.nome}${p.visitante ? ' 🙋 visitante' : ''}`).join('\n') || '_Ninguém fez check-in ainda._'}`,

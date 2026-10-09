@@ -2,12 +2,89 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import Header from '../../components/Header';
 import api from '../../services/api';
-import { Badge, Button, Card, Field, Modal, inputClass } from '../../components/ui';
+import { Badge, Button, Card, Field, Modal, Tabs, inputClass } from '../../components/ui';
 import GrupoForm from './GrupoForm';
 import PersonPicker from './PersonPicker';
 import { ATIVIDADES, DIAS, atividadeLabel, hojeIso } from './shared';
 
 const NIVEL = { atencao: ['amber', 'Atenção'], risco: ['orange', 'Risco'], critico: ['red', 'Crítico'] };
+
+// "Sede · mulheres · 18 a 35 anos": de onde vem o número de membros do grupo
+const descCriterios = (g) => {
+  const c = g.criterios || {};
+  const sexo = c.sexo === 'Feminino' ? 'mulheres' : c.sexo === 'Masculino' ? 'homens' : 'homens e mulheres';
+  const idade = c.idadeMin && c.idadeMax ? `${c.idadeMin} a ${c.idadeMax} anos`
+    : c.idadeMin ? `${c.idadeMin} anos ou mais` : c.idadeMax ? `até ${c.idadeMax} anos` : 'todas as idades';
+  return [g.congregacao, sexo, idade, ...(c.tipos?.length ? [c.tipos.join(', ')] : [])].join(' · ');
+};
+
+function RevisaoModal({ grupo, onClose, onDone }) {
+  const [rev, setRev] = useState(null);
+  const [remover, setRemover] = useState([]);
+  const [adicionar, setAdicionar] = useState(true);
+  const [saving, setSaving] = useState(false);
+  useEffect(() => {
+    api.get(`/encontros/grupos/${grupo._id}/revisao`).then(({ data }) => {
+      setRev(data);
+      // Quem foi adicionado à mão e os líderes ficam desmarcados
+      setRemover(data.fora.filter((f) => !f.manual && !f.lider).map((f) => String(f.personId)));
+    }).catch(() => setRev({ erro: true }));
+  }, [grupo._id]);
+  const marcar = (id) => setRemover((r) => (r.includes(id) ? r.filter((x) => x !== id) : [...r, id]));
+  const aplicar = async () => {
+    setSaving(true);
+    try {
+      const { data } = await api.post(`/encontros/grupos/${grupo._id}/revisao`, { remover, adicionar: adicionar && rev.faltando.length > 0 });
+      onDone(`${data.removidos} removido(s) e ${data.adicionados} adicionado(s). O grupo tem ${data.totalMembros} membros.`);
+    } finally {
+      setSaving(false);
+    }
+  };
+  const nada = rev && !rev.erro && !rev.fora.length && !rev.faltando.length;
+  return (
+    <Modal
+      title="Revisar membros pelos critérios"
+      onClose={onClose}
+      footer={<><Button variant="ghost" onClick={onClose}>{nada ? 'Fechar' : 'Cancelar'}</Button>{!nada && rev && !rev.erro && <Button onClick={aplicar} disabled={saving || (!remover.length && !(adicionar && rev.faltando.length))}>{saving ? 'Aplicando…' : 'Aplicar'}</Button>}</>}
+    >
+      {!rev && <p className="text-sm text-slate-500">Carregando…</p>}
+      {rev?.erro && <p className="text-sm text-red-600">Não foi possível revisar agora.</p>}
+      {rev && !rev.erro && (
+        <div className="space-y-4 text-sm">
+          <p className="rounded-xl bg-slate-50 border border-slate-100 p-3 text-slate-700">
+            <strong>{rev.pelosCriterios}</strong> pessoa(s) atendem hoje a <strong>{descCriterios(grupo)}</strong>. O grupo tem <strong>{grupo.membros.length}</strong>.
+          </p>
+          {nada && <p className="text-emerald-700">Tudo certo: o grupo já está de acordo com os critérios. ✅</p>}
+          {rev.fora.length > 0 && (
+            <div>
+              <p className="font-medium text-ibbiNavy mb-1">Não atendem mais aos critérios ({rev.fora.length}) — marcados serão removidos</p>
+              <ul className="max-h-60 overflow-y-auto divide-y divide-slate-50 border border-slate-100 rounded-xl">
+                {rev.fora.map((f) => (
+                  <li key={f.personId}>
+                    <label className="flex items-center gap-3 px-3 py-2 cursor-pointer">
+                      <input type="checkbox" className="w-4 h-4" checked={remover.includes(String(f.personId))} onChange={() => marcar(String(f.personId))} />
+                      <span className="flex-1 min-w-0 truncate">{f.nome}</span>
+                      <span className="text-xs text-slate-500 shrink-0">{f.motivo}{f.manual ? ' · adicionado à mão' : ''}{f.lider ? ' · líder' : ''}</span>
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {rev.faltando.length > 0 && (
+            <label className="flex items-start gap-3 cursor-pointer">
+              <input type="checkbox" className="w-4 h-4 mt-0.5" checked={adicionar} onChange={(e) => setAdicionar(e.target.checked)} />
+              <span>
+                Incluir <strong>{rev.faltando.length}</strong> pessoa(s) que atendem aos critérios e ainda não estão no grupo
+                <span className="block text-xs text-slate-500 mt-0.5 line-clamp-2">{rev.faltando.slice(0, 8).map((p) => p.nome).join(', ')}{rev.faltando.length > 8 ? '…' : ''}</span>
+              </span>
+            </label>
+          )}
+        </div>
+      )}
+    </Modal>
+  );
+}
 
 function NovoEncontroModal({ grupo, onClose, onCreated }) {
   const [f, setF] = useState({ data: hojeIso(), atividade: 'culto', tema: '', descricao: '' });
@@ -47,6 +124,7 @@ export default function GrupoEncontroPage() {
   const [encontros, setEncontros] = useState([]);
   const [freq, setFreq] = useState(null);
   const [showNovo, setShowNovo] = useState(false);
+  const [showRevisao, setShowRevisao] = useState(false);
   const [msg, setMsg] = useState('');
 
   const load = useCallback(async () => {
@@ -61,14 +139,16 @@ export default function GrupoEncontroPage() {
 
   if (!grupo) return <p className="text-sm text-slate-500">Carregando...</p>;
 
-  const sincronizar = async () => {
-    const { data } = await api.post(`/encontros/grupos/${id}/sincronizar`);
-    setMsg(`${data.adicionados} pessoa(s) adicionada(s) pelos critérios.`);
-    load();
-  };
   const addMembro = async (p) => { await api.post(`/encontros/grupos/${id}/membros`, { personId: p._id }); load(); };
   const removeMembro = async (pid) => { await api.delete(`/encontros/grupos/${id}/membros/${pid}`); load(); };
-  const salvarGrupo = async (payload) => { await api.put(`/encontros/grupos/${id}`, payload); setMsg('Grupo atualizado.'); setTab('encontros'); load(); };
+  const salvarGrupo = async (payload) => {
+    const mudouCriterios = payload.criterios && JSON.stringify(payload.criterios) !== JSON.stringify(grupo.criterios || {});
+    await api.put(`/encontros/grupos/${id}`, payload);
+    setMsg('Grupo atualizado.');
+    await load();
+    // Critérios novos: mostra quem entra e quem sai antes de mexer na lista
+    if (mudouCriterios) { setTab('membros'); setShowRevisao(true); } else setTab('encontros');
+  };
 
   return (
     <div>
@@ -87,12 +167,12 @@ export default function GrupoEncontroPage() {
         </div>
       )}
 
-      <div className="flex gap-1 mb-4 overflow-x-auto" role="tablist">
-        {[['encontros', grupo.tipo === 'ebd' ? 'Aulas' : 'Encontros'], ['membros', `Membros (${grupo.membros.length})`], ['frequencia', 'Frequência'], ...(grupo.tipo === 'ebd' ? [] : [['config', 'Configurar']])].map(([k, l]) => (
-          <button key={k} type="button" role="tab" aria-selected={tab === k} onClick={() => setTab(k)}
-            className={`px-3 py-2 rounded-lg text-sm whitespace-nowrap ${tab === k ? 'bg-ibbiNavy text-white' : 'bg-white text-slate-600 border border-stone-100 hover:bg-slate-50'}`}>{l}</button>
-        ))}
-      </div>
+      <Tabs
+        className="mb-4"
+        value={tab}
+        onChange={setTab}
+        tabs={[['encontros', grupo.tipo === 'ebd' ? 'Aulas' : 'Encontros'], ['membros', `Membros (${grupo.membros.length})`], ['frequencia', 'Frequência'], ...(grupo.tipo === 'ebd' ? [] : [['config', 'Configurar']])].map(([id, label]) => ({ id, label }))}
+      />
 
       {tab === 'encontros' && (
         <Card>
@@ -123,7 +203,12 @@ export default function GrupoEncontroPage() {
       )}
 
       {tab === 'membros' && (
-        <Card title="Membros" subtitle={grupo.tipo === 'ebd' ? 'Alunos que já apareceram nas chamadas desta classe' : 'Quem entra na chamada de cada encontro'} action={grupo.tipo !== 'ebd' && <Button variant="outline" onClick={sincronizar}>Atualizar pelos critérios</Button>}>
+        <Card title="Membros" subtitle={grupo.tipo === 'ebd' ? 'Alunos que já apareceram nas chamadas desta classe' : 'Quem entra na chamada de cada encontro'} action={grupo.tipo !== 'ebd' && <Button variant="outline" onClick={() => setShowRevisao(true)}>Revisar pelos critérios</Button>}>
+          {grupo.tipo !== 'ebd' && (
+            <p className="mb-3 text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-xl px-3 py-2">
+              Entram sozinhos: <strong>{descCriterios(grupo)}</strong>. Pessoas novas que se encaixam são incluídas; ninguém sai sem você revisar. Ajuste em <button type="button" className="text-ibbiBlue hover:underline" onClick={() => setTab('config')}>Configurar</button>.
+            </p>
+          )}
           {grupo.tipo !== 'ebd' && <div className="mb-3 max-w-md"><PersonPicker congregacao={grupo.congregacao} placeholder="Adicionar pessoa ao grupo" onPick={addMembro} /></div>}
           <ul className="divide-y divide-slate-100">
             {[...grupo.membros].sort((a, b) => a.nome.localeCompare(b.nome)).map((m) => (
@@ -166,6 +251,7 @@ export default function GrupoEncontroPage() {
         <Card title="Configurar grupo"><GrupoForm initial={grupo} onSubmit={salvarGrupo} /></Card>
       )}
 
+      {showRevisao && <RevisaoModal grupo={grupo} onClose={() => setShowRevisao(false)} onDone={(texto) => { setShowRevisao(false); setMsg(texto); load(); }} />}
       {showNovo && <NovoEncontroModal grupo={grupo} onClose={() => setShowNovo(false)} onCreated={(e) => navigate(`/encontros/${e._id}`)} />}
     </div>
   );
