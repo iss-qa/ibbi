@@ -5,11 +5,10 @@ const fs = require('fs');
 const axios = require('axios');
 const { sanitizeFotoUrl } = require('../utils/sanitize');
 
-// Detecta se está rodando em ambiente serverless real (AWS Lambda, Vercel, etc.)
+// Detecta se está rodando em ambiente serverless real (AWS Lambda, Netlify…). Produção (EasyPanel) usa o chromium do sistema.
 // NODE_ENV=production sozinho não é suficiente — ambientes locais também podem usar production
 const IS_SERVERLESS = Boolean(
   process.env.AWS_LAMBDA_FUNCTION_NAME ||   // AWS Lambda
-  process.env.VERCEL ||                     // Vercel
   process.env.NETLIFY ||                    // Netlify
   process.env.FORCE_SERVERLESS_CHROMIUM     // Flag manual de override
 );
@@ -125,7 +124,7 @@ const generateBirthdayCard = async (person, format = 'portrait', options = {}) =
   let browser;
   try {
     if (IS_SERVERLESS) {
-      // Ambiente serverless (Lambda, Vercel): usa chromium binário mínimo
+      // Ambiente serverless (Lambda, Netlify): usa chromium binário mínimo
       const chromium = require('@sparticuz/chromium');
       const puppeteerCore = require('puppeteer-core');
       browser = await puppeteerCore.launch({

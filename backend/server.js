@@ -181,36 +181,25 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Conexão + migração idempotente do multi-tenant. Memorizada: a função da Vercel (api/index.js)
-// chama a cada requisição e só a primeira de cada instância faz o trabalho.
-let initPromise = null;
-const init = () => {
-  initPromise = initPromise || connectDb().then(bootstrapTenancy).catch((err) => {
-    initPromise = null;
-    throw err;
-  });
-  return initPromise;
-};
+// Conexão + migração idempotente do multi-tenant, depois API, scheduler e monitor.
+const init = () => connectDb().then(bootstrapTenancy);
 
-// Na Vercel (serverless) não há processo contínuo: sem listen, scheduler nem monitor.
-if (!process.env.VERCEL) {
-  init()
-    .then(() => {
-      // DISABLE_SCHEDULER=true: sobe só a API (QA/desenvolvimento), sem automações nem monitor.
-      if (process.env.DISABLE_SCHEDULER === 'true') {
-        console.log('[server] Scheduler e monitor da Evolution DESLIGADOS (DISABLE_SCHEDULER=true).');
-      } else {
-        startScheduler();
-        startEvolutionMonitor();
-      }
-      app.listen(PORT, () => {
-        console.log(`Backend rodando na porta ${PORT}`);
-      });
-    })
-    .catch((err) => {
-      console.error('Erro ao conectar no MongoDB:', err);
-      process.exit(1);
+init()
+  .then(() => {
+    // DISABLE_SCHEDULER=true: sobe só a API (QA/desenvolvimento), sem automações nem monitor.
+    if (process.env.DISABLE_SCHEDULER === 'true') {
+      console.log('[server] Scheduler e monitor da Evolution DESLIGADOS (DISABLE_SCHEDULER=true).');
+    } else {
+      startScheduler();
+      startEvolutionMonitor();
+    }
+    app.listen(PORT, () => {
+      console.log(`Backend rodando na porta ${PORT}`);
     });
-}
+  })
+  .catch((err) => {
+    console.error('Erro ao conectar no MongoDB:', err);
+    process.exit(1);
+  });
 
 module.exports = { app, init };

@@ -454,7 +454,7 @@ npm run build
 12. **Índice único composto** { tenantId, data, classe, congregacao } na collection ebdaulas
 13. **Presença pré-populada** com todos os ativos do grupo, presente = true por padrão
 14. **Chamada bloqueada** para edição após 7 dias — exceto master
-15. **Dependência nova no backend vai também no `package.json` da raiz** — a Vercel só instala a raiz; faltar uma derruba toda a `/api` (`FUNCTION_INVOCATION_FAILED`). `api/index.js` reaproveita o app de `backend/server.js`: rota nova entra só no `server.js`
+15. **Dependência nova do backend vai em `backend/package.json`** — é o que o [Dockerfile](Dockerfile) instala na imagem de produção (EasyPanel). Produção = um processo Node (`backend/server.js`) servindo a API, o front buildado (`public/`), o scheduler e a fila; não há mais deploy na Vercel.
 
 ---
 
