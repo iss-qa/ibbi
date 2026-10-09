@@ -148,9 +148,9 @@ function PrayerList() {
   return (
     <div className="min-h-screen">
       <Header title="Pedidos de Oração" subtitle="O que a igreja pediu para orarmos juntos" />
-      <div className="max-w-4xl mx-auto px-4"><Intercessores /></div>
+      <div className="max-w-4xl mx-auto sm:px-4"><Intercessores /></div>
 
-      <div className="max-w-4xl mx-auto px-4 mt-6 space-y-4">
+      <div className="max-w-4xl mx-auto sm:px-4 mt-6 space-y-4">
         <div className="flex flex-wrap items-center gap-2 justify-between">
           <div className="flex flex-wrap gap-2">
             <div className="inline-flex bg-white border border-slate-200 rounded-lg p-1 text-sm">
@@ -234,7 +234,7 @@ export default function PrayerRequest() {
   return (
     <div className="min-h-screen">
       <Header title="Pedido de Oração" subtitle="Envie sua solicitação com segurança" />
-      <div className="max-w-2xl mx-auto px-4 mt-6">
+      <div className="max-w-2xl mx-auto sm:px-4 mt-6">
         <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 sm:p-8">
           <PrayerForm />
         </div>

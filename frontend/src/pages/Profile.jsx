@@ -139,7 +139,7 @@ export default function Profile() {
           />
         </div>
       ) : (
-        <div className="space-y-6 max-w-4xl mx-auto mt-6 px-4">
+        <div className="space-y-6 max-w-4xl mx-auto mt-6 sm:px-4">
           
           {/* Sessão Dados Pessoais (Agora Em Cima) */}
           <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">

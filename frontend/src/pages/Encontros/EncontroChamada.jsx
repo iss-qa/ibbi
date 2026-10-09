@@ -47,7 +47,7 @@ export default function EncontroChamada() {
       <Link to={`/encontros/grupos/${enc.grupoId}`} className="text-sm text-ibbiBlue">← {enc.grupoNome}</Link>
       <Header title={`${enc.grupoNome} — ${new Date(enc.data).toLocaleDateString('pt-BR')}`} subtitle={`${atividadeLabel(enc.atividade)}${enc.tema ? ` · ${enc.tema}` : ''}`} />
 
-      <div className="bg-white rounded-xl shadow-soft p-4 sm:p-6">
+      <div className="bg-white rounded-2xl shadow-soft p-4 sm:p-6">
         <div className="grid sm:grid-cols-3 gap-3 mb-4">
           <Field label="Atividade">
             <select className={inputClass} value={enc.atividade} onChange={(e) => setEnc({ ...enc, atividade: e.target.value })}>
@@ -58,10 +58,10 @@ export default function EncontroChamada() {
           <Field label="Anotações"><input className={inputClass} value={enc.descricao || ''} onChange={(e) => setEnc({ ...enc, descricao: e.target.value })} /></Field>
         </div>
 
-        <div className="grid grid-cols-3 gap-3 mb-3">
-          <div className="bg-emerald-50 text-emerald-700 rounded-xl p-3"><p className="text-xs">Presentes</p><p className="text-2xl font-semibold tabular-nums">{stats.presentes}</p></div>
-          <div className="bg-rose-50 text-rose-700 rounded-xl p-3"><p className="text-xs">Ausentes</p><p className="text-2xl font-semibold tabular-nums">{stats.ausentes}</p></div>
-          <div className="bg-blue-50 text-blue-700 rounded-xl p-3"><p className="text-xs">Frequência</p><p className="text-2xl font-semibold tabular-nums">{stats.pct}%</p></div>
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-3">
+          <div className="bg-emerald-50 text-emerald-700 rounded-xl p-2.5 sm:p-3 min-w-0"><p className="text-xs truncate">Presentes</p><p className="text-xl sm:text-2xl font-semibold tabular-nums">{stats.presentes}</p></div>
+          <div className="bg-rose-50 text-rose-700 rounded-xl p-2.5 sm:p-3 min-w-0"><p className="text-xs truncate">Ausentes</p><p className="text-xl sm:text-2xl font-semibold tabular-nums">{stats.ausentes}</p></div>
+          <div className="bg-blue-50 text-blue-700 rounded-xl p-2.5 sm:p-3 min-w-0"><p className="text-xs truncate">Frequência</p><p className="text-xl sm:text-2xl font-semibold tabular-nums">{stats.pct}%</p></div>
         </div>
         <div className="flex flex-wrap gap-2 mb-4">
           <Button variant="outline" onClick={() => all(true)}>Todos presentes</Button>

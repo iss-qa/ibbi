@@ -70,7 +70,7 @@ const textareaClass =
 
 function SectionCard({ children, className = '' }) {
   return (
-    <div className={`bg-white rounded-xl border border-slate-100 shadow-sm ${className}`}>
+    <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm ${className}`}>
       {children}
     </div>
   );
@@ -602,7 +602,7 @@ export default function CommunicationPanel({ embedded = false }) {
                 return (
                 <div
                   key={row._id}
-                  className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 px-4 py-4 hover:bg-slate-50 transition group cursor-pointer relative"
+                  className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-3 px-4 py-4 hover:bg-slate-50 transition group cursor-pointer relative"
                   onClick={() => setShowMessage(row)}
                 >
                   <div className="flex items-start gap-4 w-full overflow-hidden">
@@ -628,7 +628,7 @@ export default function CommunicationPanel({ embedded = false }) {
                       <p className="text-xs text-slate-500 line-clamp-1">{row.conteudo || '—'}</p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-between w-full sm:w-auto mt-2 sm:mt-0 pt-2 sm:pt-0 border-t border-slate-100 sm:border-0 shrink-0">
+                  <div className="flex items-center justify-between w-full lg:w-auto mt-2 lg:mt-0 pt-2 lg:pt-0 border-t border-slate-100 lg:border-0 shrink-0">
                     <div className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
                       {new Date(row.criadoEm).toLocaleDateString('pt-BR')}
                       <span className="text-[10px] text-slate-400 font-semibold bg-slate-100 px-1.5 py-0.5 rounded-md">
@@ -643,12 +643,12 @@ export default function CommunicationPanel({ embedded = false }) {
                       >
                         Reenviar
                       </button>
-                      <svg className="w-5 h-5 text-slate-300 group-hover:text-slate-400 transition hidden sm:block" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                      <svg className="w-5 h-5 text-slate-300 group-hover:text-slate-400 transition hidden lg:block" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                       </svg>
                     </div>
                   </div>
-                  <svg className="w-5 h-5 text-slate-300 group-hover:text-slate-400 transition absolute top-5 right-4 sm:hidden" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-slate-300 group-hover:text-slate-400 transition absolute top-5 right-4 lg:hidden" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
                   </svg>
                 </div>

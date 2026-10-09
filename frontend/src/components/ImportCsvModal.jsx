@@ -120,7 +120,7 @@ export default function ImportCsvModal({ onClose, onImported }) {
           )}
           {error && <p className="text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}
 
-          <div className="border border-stone-100 rounded-xl overflow-hidden max-h-72 overflow-y-auto">
+          <div className="border border-stone-100 rounded-xl overflow-auto max-h-72">
             <table className="w-full text-xs">
               <thead className="bg-stone-50 text-slate-500 sticky top-0">
                 <tr>

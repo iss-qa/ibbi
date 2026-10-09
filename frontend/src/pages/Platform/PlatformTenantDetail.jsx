@@ -110,7 +110,7 @@ export default function PlatformTenantDetail() {
 
         <Card title="Consumo mensal" subtitle="Custo de IA: ~ = estimado pelos tokens (antes do registro por chamada)">
           {t.consumo[0] && (
-            <div className="grid grid-cols-3 gap-2 mb-4 text-center">
+            <div className="grid grid-cols-1 min-[400px]:grid-cols-3 gap-2 mb-4 text-center">
               {[
                 ['Custo IA no mês', `${t.consumo[0].iaCusto.estimado ? '~' : ''}${money(t.consumo[0].iaCusto.brl)}`],
                 ['Por interação', money(t.consumo[0].iaCusto.porInteracaoBrl)],
@@ -123,7 +123,8 @@ export default function PlatformTenantDetail() {
               ))}
             </div>
           )}
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm whitespace-nowrap [&_td+td]:pl-3 [&_th+th]:pl-3">
             <thead><tr className="text-left text-slate-500"><th className="py-1">Mês</th><th className="text-right">WhatsApp</th><th className="text-right">Recebidas</th><th className="text-right">IA</th><th className="text-right">Tokens (entrada)</th><th className="text-right">Cache</th><th className="text-right">Custo IA</th></tr></thead>
             <tbody className="tabular-nums">
               {t.consumo.map((c) => (
@@ -136,6 +137,7 @@ export default function PlatformTenantDetail() {
               {!t.consumo.length && <tr><td colSpan={7} className="text-slate-400 py-2">Sem consumo registrado.</td></tr>}
             </tbody>
           </table>
+          </div>
         </Card>
       </div>
 

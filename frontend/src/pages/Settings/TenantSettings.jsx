@@ -360,7 +360,7 @@ export default function TenantSettings() {
       />
 
       {(dirty || msg) && (
-        <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pointer-events-none md:pl-[19rem]">
+        <div className="fixed inset-x-0 bottom-0 z-30 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pointer-events-none lg:pl-[19rem]">
           <div className="mx-auto max-w-xl pointer-events-auto flex items-center gap-3 rounded-2xl bg-ibbiNavy text-white shadow-soft pl-4 pr-2 py-2" role="status">
             <p className={`text-sm flex-1 min-w-0 ${msg ? (msg.ok ? 'text-emerald-300' : 'text-red-300') : 'text-white/80'}`}>
               {msg ? msg.text : 'Alterações não salvas'}

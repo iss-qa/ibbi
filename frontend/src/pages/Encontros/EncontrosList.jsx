@@ -57,7 +57,7 @@ export default function EncontrosList() {
           const u = g.ultimoEncontro;
           const pct = u?.total ? Math.round((u.presentes / u.total) * 100) : null;
           return (
-            <Link key={g._id} to={`/encontros/grupos/${g._id}`} className="bg-white rounded-xl border border-stone-100 p-5 hover:shadow-soft transition block">
+            <Link key={g._id} to={`/encontros/grupos/${g._id}`} className="bg-white rounded-2xl border border-stone-100 p-5 hover:shadow-soft transition block">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <h3 className="font-display text-lg text-ibbiNavy truncate">{g.nome}</h3>

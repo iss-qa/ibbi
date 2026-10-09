@@ -66,7 +66,7 @@ export default function GrupoForm({ initial, onSubmit, submitLabel = 'Salvar' })
       <div className="border border-slate-100 rounded-lg p-3">
         <p className="text-sm font-medium text-slate-700">Quem faz parte</p>
         <p className="text-xs text-slate-400 mb-2">Pessoas ativas da congregação que atendem aos critérios entram automaticamente. Você pode adicionar ou remover na aba Membros.</p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 [&>*:first-child]:col-span-2 sm:[&>*:first-child]:col-span-1">
           <Field label="Sexo">
             <select className={inputClass} value={f.criterios?.sexo || ''} onChange={(e) => setCrit('sexo', e.target.value || null)}>
               <option value="">Todos</option><option value="Feminino">Feminino</option><option value="Masculino">Masculino</option>

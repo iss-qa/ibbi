@@ -111,7 +111,7 @@ export default function Signup() {
         </div>
       </header>
 
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-14 grid lg:grid-cols-[1fr_1.15fr] gap-10">
+      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-14 grid grid-cols-1 lg:grid-cols-[1fr_1.15fr] gap-10">
         <aside className="lg:sticky lg:top-10 self-start">
           <p className="text-brandGold text-sm font-semibold tracking-wider uppercase">Cadastro da igreja</p>
           {ref && !done && <p className="mt-3 inline-block text-sm bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-lg px-3 py-1.5">🎁 Indicação de <strong>{ref}</strong>: você ganhou <strong>+7 dias</strong> de teste (21 no total).</p>}
@@ -171,7 +171,7 @@ export default function Signup() {
               <label className="text-sm font-medium text-slate-700">Código da igreja <span className="text-slate-400 font-normal">(usado no login)</span></label>
               <div className="mt-1 flex items-center border border-stone-200 rounded-lg overflow-hidden focus-within:ring-2 focus-within:ring-brandGold/60">
                 <span className="px-3 text-sm text-slate-400 bg-stone-50 py-2.5 border-r border-stone-200">igreja:</span>
-                <input className="flex-1 px-3 py-2.5 text-sm focus:outline-none" value={form.slug} onChange={(e) => { setSlugTouched(true); setForm((f) => ({ ...f, slug: slugify(e.target.value) })); }} placeholder="batista-da-paz" />
+                <input className="flex-1 min-w-0 px-3 py-2.5 text-sm focus:outline-none" value={form.slug} onChange={(e) => { setSlugTouched(true); setForm((f) => ({ ...f, slug: slugify(e.target.value) })); }} placeholder="batista-da-paz" />
               </div>
               {slugStatus && (
                 <p className={`text-xs mt-1 ${slugStatus.disponivel ? 'text-emerald-600' : 'text-red-600'}`}>

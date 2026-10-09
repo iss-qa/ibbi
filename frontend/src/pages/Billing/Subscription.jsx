@@ -26,9 +26,9 @@ function UsageBar({ label, value, max }) {
   const p = pct(value, max);
   return (
     <div>
-      <div className="flex justify-between text-sm mb-1">
-        <span className="text-slate-600">{label}</span>
-        <span className="tabular-nums text-slate-700">{value.toLocaleString('pt-BR')}{max ? ` / ${max.toLocaleString('pt-BR')}` : ' · ilimitado'}</span>
+      <div className="flex justify-between gap-2 text-sm mb-1">
+        <span className="text-slate-600 min-w-0">{label}</span>
+        <span className="tabular-nums text-slate-700 whitespace-nowrap">{value.toLocaleString('pt-BR')}{max ? ` / ${max.toLocaleString('pt-BR')}` : ' · ilimitado'}</span>
       </div>
       <div className="h-2 rounded-full bg-slate-100 overflow-hidden" role="progressbar" aria-valuenow={p} aria-valuemin={0} aria-valuemax={100} aria-label={label}>
         <div className={`h-full rounded-full ${p >= 90 ? 'bg-red-500' : p >= 70 ? 'bg-amber-500' : 'bg-ibbiBlue'}`} style={{ width: `${max ? p : 0}%` }} />
@@ -100,8 +100,8 @@ export default function Subscription() {
             {data.faturas.map((f) => {
               const s = STATUS_FATURA[f.status];
               return (
-                <li key={f._id} className="py-2 flex items-center justify-between gap-2 text-sm">
-                  <div>
+                <li key={f._id} className="py-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <div className="min-w-0">
                     <p className="text-slate-800">{f.descricao}</p>
                     <p className="text-xs text-slate-500">Vencimento {fmtDate(f.vencimento)}{f.pagoEm ? ` · pago em ${fmtDate(f.pagoEm)}` : ''}</p>
                   </div>

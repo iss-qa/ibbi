@@ -11,7 +11,7 @@ import useCongregacaoScope from '../hooks/useCongregacaoScope';
 const ChartsSection = lazy(() => import('../components/dashboard/ChartsSection'));
 
 const SkeletonCard = () => (
-  <div className="bg-white rounded-xl border border-stone-100 p-4 animate-pulse">
+  <div className="bg-white rounded-2xl border border-stone-100 p-4 animate-pulse">
     <div className="h-3 w-24 bg-stone-200 rounded mb-3" />
     <div className="h-8 w-16 bg-stone-200 rounded" />
   </div>
@@ -31,7 +31,7 @@ const SkeletonList = ({ rows = 3 }) => (
 const SkeletonChartGrid = () => (
   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
     {Array.from({ length: 4 }).map((_, i) => (
-      <div key={i} className="bg-white rounded-xl border border-stone-100 p-4 sm:p-6">
+      <div key={i} className="bg-white rounded-2xl border border-stone-100 p-4 sm:p-6">
         <div className="h-4 w-40 bg-stone-200 rounded mb-2 animate-pulse" />
         <div className="h-3 w-56 bg-stone-100 rounded mb-4 animate-pulse" />
         <div className="h-56 bg-stone-100 rounded-lg animate-pulse" />
@@ -124,7 +124,7 @@ function BirthdayItem({ person, onClick, compact = false }) {
 
 function KpiCard({ label, value, accent }) {
   return (
-    <div className="bg-white rounded-xl border border-stone-100 p-3 sm:p-4 transition-all duration-300 hover:shadow-sm">
+    <div className="bg-white rounded-2xl border border-stone-100 p-3 sm:p-4 transition-all duration-300 hover:shadow-sm">
       <p className="text-[11px] sm:text-sm text-slate-500 leading-snug">{label}</p>
       <p className={`text-xl sm:text-2xl font-semibold mt-1 sm:mt-2 ${accent || 'text-ibbiNavy'}`}>
         {value}
@@ -325,7 +325,7 @@ export default function Dashboard() {
       </section>
 
       <section className="mt-6 sm:mt-8 grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-        <div className="bg-white rounded-xl border border-stone-100 p-4 sm:p-6">
+        <div className="bg-white rounded-2xl border border-stone-100 p-4 sm:p-6">
           <div className="flex items-baseline justify-between mb-1">
             <h3 className="font-display text-lg sm:text-xl text-ibbiNavy">Aniversariantes da semana</h3>
             {stats?.aniversariantes?.length > 0 && (
@@ -370,7 +370,7 @@ export default function Dashboard() {
           )}
         </div>
 
-        <div className="bg-white rounded-xl border border-stone-100 p-4 sm:p-6">
+        <div className="bg-white rounded-2xl border border-stone-100 p-4 sm:p-6">
           <div className="flex items-baseline justify-between mb-1">
             <h3 className="font-display text-lg sm:text-xl text-ibbiNavy">Aniversariantes do mês</h3>
             {stats?.aniversariantesMes?.length > 0 && (

@@ -217,7 +217,7 @@ export default function ProjetoAmigoTab({ personId, personTipo }) {
                   <div className={`absolute -left-[14px] top-3 w-3 h-3 rounded-full border-2 border-white shadow-sm ${STATUS_DOT[acao.status] || 'bg-slate-400'}`} />
 
                   {/* Card */}
-                  <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-3 sm:p-4 hover:shadow-md transition">
+                  <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-3 sm:p-4 hover:shadow-md transition">
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">{TIPO_ACAO_ICON[acao.tipo_acao] || '\u{1F4CB}'}</span>

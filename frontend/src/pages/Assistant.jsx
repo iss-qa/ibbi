@@ -78,7 +78,7 @@ export default function Assistant() {
         action={history.length > 0 && <Button variant="ghost" onClick={clear}>Nova conversa</Button>}
       />
 
-      <div className="flex-1 overflow-y-auto bg-white rounded-xl border border-stone-100 p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto bg-white rounded-2xl border border-stone-100 p-4 space-y-3">
         {history.length === 0 && (
           <div className="text-center py-8">
             <p className="text-slate-500 text-sm mb-4">Experimente pedir:</p>
@@ -123,7 +123,7 @@ export default function Assistant() {
           </label>
         )}
         <input
-          className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ibbiBlue"
+          className="flex-1 min-w-0 border border-slate-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ibbiBlue"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder={`Fale com ${nome}...`}

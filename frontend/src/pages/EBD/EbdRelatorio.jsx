@@ -12,7 +12,7 @@ export default function EbdRelatorio() {
   return (
     <div>
       <Header title="Relatórios EBD" subtitle="Resumo geral" />
-      <div className="bg-white rounded-xl shadow-soft p-6">
+      <div className="bg-white rounded-2xl shadow-soft p-4 sm:p-6 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-slate-50 text-left">
             <tr>

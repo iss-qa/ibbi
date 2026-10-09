@@ -206,11 +206,11 @@ export default function GrupoDetalhe() {
         </div>
       )}
 
-      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-4xl mx-auto sm:px-4 py-6 space-y-6">
         {/* Progress + Members Summary */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Progress Card */}
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Progresso</h3>
             <div className="flex items-end gap-3 mb-3">
               <span className="text-3xl font-bold text-slate-800">{progresso}%</span>
@@ -228,7 +228,7 @@ export default function GrupoDetalhe() {
           </div>
 
           {/* Members Card */}
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
             <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">
               Equipe ({membros.length})
             </h3>
@@ -292,7 +292,7 @@ export default function GrupoDetalhe() {
         <AcompanhadosCard grupo={grupo} acompanhados={acompanhados} grupoId={id} setGrupo={setGrupo} showToast={showToast} canEdit={canEdit} />
 
         {/* Activities Section */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
           <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
             <h3 className="text-sm font-semibold text-slate-800">Atividades de Acompanhamento</h3>
             <div className="flex gap-2">
@@ -555,7 +555,7 @@ function AcompanhadosCard({ grupo, acompanhados, grupoId, setGrupo, showToast, c
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-5">
+    <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wide">
           {tipoLabel} em acompanhamento ({acompanhados.length})

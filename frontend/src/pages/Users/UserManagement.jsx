@@ -174,7 +174,7 @@ export default function UserManagement() {
         }
       />
 
-      <div className="bg-white rounded-xl shadow-soft p-4 mb-4">
+      <div className="bg-white rounded-2xl shadow-soft p-4 mb-4">
         <input
           className="w-full border rounded-lg px-3 py-3 sm:py-2 min-h-[44px] appearance-none focus:ring-2 focus:ring-blue-100 outline-none"
           placeholder="Buscar por nome"
@@ -183,8 +183,8 @@ export default function UserManagement() {
         />
       </div>
 
-      <div className="bg-white rounded-xl flex flex-col overflow-hidden shadow-soft">
-        <div className="hidden md:block">
+      <div className="bg-white rounded-2xl flex flex-col overflow-hidden shadow-soft">
+        <div className="hidden xl:block overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-slate-50 text-left border-y border-slate-100">
               <tr>
@@ -247,13 +247,13 @@ export default function UserManagement() {
           </table>
         </div>
 
-        <div className="md:hidden flex flex-col gap-3">
+        <div className="xl:hidden grid md:grid-cols-2 gap-3">
           {users
             .map((user) => (
             <div key={user._id} className="border border-slate-200 rounded-xl p-4 flex flex-col gap-3 bg-white">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-sm font-semibold text-slate-800">{user.nome}</p>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 break-words">{user.nome}</p>
                   <p className="text-xs text-slate-500">{user.login}</p>
                   <p className="text-xs text-slate-400 mt-1">{user.congregacao || '-'}</p>
                   <div className="mt-1"><AccessSummary user={user} /></div>
@@ -261,7 +261,7 @@ export default function UserManagement() {
                     <button type="button" className="text-xs text-ibbiBlue mt-1" onClick={() => setAccessTarget(user)}>Gerenciar acesso</button>
                   )}
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 shrink-0">
                   <button className="text-orange-500 bg-orange-50 px-3 py-2 rounded-lg text-sm font-medium hover:bg-orange-100 transition" onClick={() => resetPassword(user._id)}>
                     Resetar
                   </button>
@@ -274,7 +274,7 @@ export default function UserManagement() {
                 <div className="flex flex-col gap-1">
                   <span className="text-xs text-slate-500 font-medium">Permissão (Role)</span>
                   <select
-                    className="border rounded-lg px-3 py-2 text-lg sm:text-base bg-slate-50 min-h-[44px]"
+                    className="border rounded-lg px-3 py-2 text-base bg-slate-50 min-h-[44px] min-w-0"
                     value={user.role}
                     onChange={(e) => updateRole(user._id, e.target.value)}
                     disabled={currentUser?.role !== 'master' && user.role === 'master'}
@@ -287,7 +287,7 @@ export default function UserManagement() {
                 <div className="flex flex-col gap-1">
                   <span className="text-xs text-slate-500 font-medium">Status</span>
                   <select
-                    className="border rounded-lg px-3 py-2 text-lg sm:text-base bg-slate-50 min-h-[44px]"
+                    className="border rounded-lg px-3 py-2 text-base bg-slate-50 min-h-[44px] min-w-0"
                     value={user.ativo ? 'ativo' : 'inativo'}
                     onChange={(e) => updateStatus(user._id, e.target.value === 'ativo')}
                     disabled={currentUser?.role !== 'master' && user.role === 'master'}

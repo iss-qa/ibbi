@@ -50,7 +50,7 @@ export default function Impacto() {
         )} />
       {!d ? <p className="text-sm text-slate-500">Calculando…</p> : (
         <>
-          <div className="rounded-2xl bg-gradient-to-r from-ibbiNavy to-ibbiBlue text-white p-6 mb-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="rounded-2xl bg-gradient-to-r from-ibbiNavy to-ibbiBlue text-white p-6 mb-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
               <p className="text-white/70 text-sm">Horas de secretaria economizadas</p>
               <p className="font-display text-5xl text-ibbiGold">~{d.atual.horasEconomizadas}h</p>

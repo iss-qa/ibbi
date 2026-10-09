@@ -25,19 +25,19 @@ export default function Celulas() {
       {!d.celulas.length && (
         <Card><p className="text-sm text-slate-600">Nenhuma célula ainda. Crie em <Link to="/encontros" className="text-ibbiBlue underline">Encontros</Link> com o tipo <strong>Célula</strong>. Depois de cada chamada pelo WhatsApp, o líder informa visitantes e decisões (ex.: "2 1").</p></Card>
       )}
-      <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
+      <div className="grid lg:grid-cols-2 xl:grid-cols-3 gap-4">
         {d.celulas.map((c) => (
           <Link key={c.id} to={`/encontros/grupos/${c.id}`} className="bg-white rounded-2xl border border-stone-100 p-4 hover:shadow-soft transition">
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <p className="font-display text-lg text-ibbiNavy">{c.nome}</p>
+            <div className="flex flex-wrap items-start justify-between gap-x-2 gap-y-1">
+              <div className="min-w-0">
+                <p className="font-display text-lg text-ibbiNavy break-words">{c.nome}</p>
                 <p className="text-xs text-slate-500">{c.congregacao}{c.lideres.length ? ` · ${c.lideres.join(', ')}` : ''}</p>
               </div>
               <span className="text-xs whitespace-nowrap">{SAUDE[c.saude][0]} {SAUDE[c.saude][1]}</span>
             </div>
-            <div className="mt-3 grid grid-cols-4 gap-2 text-center text-xs">
+            <div className="mt-3 grid grid-cols-4 gap-1.5 sm:gap-2 text-center text-[11px] sm:text-xs">
               {[['Membros', c.membros], ['Presença', c.media != null ? `${c.media}%` : '—'], ['Visitantes', c.visitantesMes], ['Decisões', c.decisoesMes]].map(([l, v]) => (
-                <div key={l} className="rounded-lg bg-slate-50 py-2"><p className="text-base font-semibold text-ibbiNavy tabular-nums">{v}</p><p className="text-slate-500">{l}</p></div>
+                <div key={l} className="rounded-lg bg-slate-50 py-2"><p className="text-base font-semibold text-ibbiNavy tabular-nums">{v}</p><p className="text-slate-500 truncate px-0.5">{l}</p></div>
               ))}
             </div>
             {c.multiplicar && <p className="mt-3 text-xs font-semibold text-emerald-700">🌱 Pronta para multiplicar: hora de preparar um novo líder!</p>}

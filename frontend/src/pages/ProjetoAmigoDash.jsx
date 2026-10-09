@@ -239,19 +239,19 @@ export default function ProjetoAmigoDash() {
       <div className="max-w-7xl mx-auto px-4 py-6 space-y-6">
         {/* KPIs */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
             <p className="text-3xl font-bold text-slate-800">{decididosMes}</p>
             <p className="text-xs text-slate-400 mt-1">Novos decididos (mês)</p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
             <p className="text-3xl font-bold text-slate-800">{visitantesMes}</p>
             <p className="text-xs text-slate-400 mt-1">Visitantes (mês)</p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
             <p className="text-3xl font-bold text-blue-600">{emAcompanhamento}</p>
             <p className="text-xs text-slate-400 mt-1">Em acompanhamento</p>
           </div>
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-4">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4">
             <p className={`text-3xl font-bold ${semAmigo > 0 ? 'text-red-600' : 'text-emerald-600'}`}>{semAmigo}</p>
             <p className="text-xs text-slate-400 mt-1">Sem amigo atribuído</p>
             {semAmigo > 0 && (
@@ -266,19 +266,19 @@ export default function ProjetoAmigoDash() {
         </div>
 
         {/* Fluxo de Acompanhamento */}
-        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-5 sm:p-7 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-4 sm:p-7 overflow-hidden">
           <div className="flex items-center gap-2 mb-6">
             <div className="w-1 h-5 bg-gradient-to-b from-blue-600 to-emerald-500 rounded-full" />
             <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wide">Fluxo de Acompanhamento</h3>
           </div>
 
           {/* Row 1: Etapas 1, 2, 3 */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-0 relative">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 xl:gap-0 relative">
             {ETAPAS_ROW1.map((etapa, i) => (
               <div key={etapa.key} className="flex items-center">
                 <FluxoCard etapa={etapa} onClick={() => navigate(`/grupos?etapa=${etapa.key}`)} />
                 {i < 2 && (
-                  <div className={`hidden sm:flex items-center justify-center w-8 shrink-0 fluxo-arrow fluxo-arrow-${i + 1}`}>
+                  <div className={`hidden xl:flex items-center justify-center w-8 shrink-0 fluxo-arrow fluxo-arrow-${i + 1}`}>
                     <svg className="w-7 h-7 text-blue-400 drop-shadow-sm" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                     </svg>
@@ -289,7 +289,7 @@ export default function ProjetoAmigoDash() {
           </div>
 
           {/* Curved Arrow: Etapa 3 → Etapa 4 (ondulada) */}
-          <div className="hidden sm:block relative h-16 my-1 mx-4">
+          <div className="hidden xl:block relative h-16 my-1 mx-4">
             <svg className="absolute inset-0 w-full h-full" viewBox="0 0 1000 64" fill="none" preserveAspectRatio="xMidYMid meet">
               {/* Descida direita */}
               <path d="M920 4 Q980 4, 980 32 Q980 56, 940 58" stroke="#6366f1" strokeWidth="3" strokeLinecap="round" fill="none" className="fluxo-curve-path" opacity="0.55" />
@@ -301,19 +301,19 @@ export default function ProjetoAmigoDash() {
               <polygon points="12,50 20,64 28,50" fill="#6366f1" opacity="0.55" />
             </svg>
           </div>
-          <div className="flex sm:hidden justify-center py-3">
+          <div className="flex xl:hidden justify-center py-3">
             <svg className="w-7 h-7 text-indigo-400 fluxo-arrow fluxo-arrow-2" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
             </svg>
           </div>
 
           {/* Row 2: Etapas 4, 5, 6 */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-0 fluxo-row-2">
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-3 xl:gap-0 fluxo-row-2">
             {ETAPAS_ROW2.map((etapa, i) => (
               <div key={etapa.key} className="flex items-center">
                 <FluxoCard etapa={etapa} onClick={() => navigate(`/grupos?etapa=${etapa.key}`)} />
                 {i < 2 && (
-                  <div className={`hidden sm:flex items-center justify-center w-8 shrink-0 fluxo-arrow fluxo-arrow-${i + 4}`}>
+                  <div className={`hidden xl:flex items-center justify-center w-8 shrink-0 fluxo-arrow fluxo-arrow-${i + 4}`}>
                     <svg className="w-7 h-7 text-violet-400 drop-shadow-sm" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                     </svg>
@@ -327,7 +327,7 @@ export default function ProjetoAmigoDash() {
         {/* Dual Track: Novos Decididos + Visitantes */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Novos Decididos */}
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-amber-400" />
@@ -347,7 +347,7 @@ export default function ProjetoAmigoDash() {
           </div>
 
           {/* Visitantes */}
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full bg-emerald-400" />
@@ -369,7 +369,7 @@ export default function ProjetoAmigoDash() {
 
         {/* Grupos em andamento */}
         {grupos.length > 0 && (
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm">
             <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
               <h3 className="text-sm font-semibold text-slate-800">Grupos em andamento</h3>
               <button
@@ -420,18 +420,18 @@ function FluxoCard({ etapa, onClick }) {
   return (
     <div
       onClick={onClick}
-      className={`fluxo-card relative flex-1 rounded-2xl bg-gradient-to-br ${etapa.gradient} p-[1px] overflow-hidden shadow-lg cursor-pointer hover:scale-[1.03] hover:shadow-xl transition-all duration-200`}
+      className={`fluxo-card relative flex-1 min-w-0 rounded-2xl bg-gradient-to-br ${etapa.gradient} p-[1px] overflow-hidden shadow-lg cursor-pointer hover:scale-[1.03] hover:shadow-xl transition-all duration-200`}
     >
-      <div className="relative rounded-[15px] bg-gradient-to-br from-white/[0.08] to-transparent p-5 h-full">
+      <div className="relative rounded-[15px] bg-gradient-to-br from-white/[0.08] to-transparent p-4 sm:p-5 h-full">
         {/* Header */}
         <div className="flex items-center gap-3 mb-4">
           <div className={`w-10 h-10 rounded-xl ${etapa.numBg} flex items-center justify-center shrink-0 backdrop-blur-sm`}>
             <span className="text-white text-lg font-black">{etapa.num}</span>
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="text-base font-bold text-white tracking-tight">{etapa.label}</h4>
+            <h4 className="text-[15px] sm:text-base font-bold text-white tracking-tight leading-tight break-words">{etapa.label}</h4>
           </div>
-          <div className={`w-9 h-9 rounded-lg ${etapa.iconBg} flex items-center justify-center shrink-0`}>
+          <div className={`w-9 h-9 rounded-lg ${etapa.iconBg} hidden min-[360px]:flex items-center justify-center shrink-0`}>
             <svg className="w-5 h-5 text-white/80" fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d={etapa.icon} />
             </svg>

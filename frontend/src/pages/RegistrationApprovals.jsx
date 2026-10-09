@@ -164,7 +164,7 @@ export default function RegistrationApprovals() {
 
       {/* Filtros */}
       <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {['pending', 'approved', 'rejected'].map((s) => (
             <button
               key={s}
@@ -176,7 +176,7 @@ export default function RegistrationApprovals() {
           ))}
         </div>
         <input
-          className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm flex-1 max-w-xs focus:outline-none focus:ring-2 focus:ring-ibbiBlue"
+          className="border border-slate-200 rounded-lg px-3 py-1.5 text-sm flex-1 min-w-0 sm:max-w-xs focus:outline-none focus:ring-2 focus:ring-ibbiBlue"
           placeholder="Buscar por nome..."
           value={search}
           onChange={(e) => { setSearch(e.target.value); setPage(1); }}
