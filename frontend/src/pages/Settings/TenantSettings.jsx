@@ -40,6 +40,61 @@ function Rows({ items, onChange, empty, render, novo }) {
   );
 }
 
+// Logo: a imagem é reduzida no navegador (lado maior 256px) e salva junto da igreja.
+const LOGO_MAX_LADO = 256;
+const LOGO_MAX_BYTES = 300 * 1024;
+const reduzLogo = (file) => new Promise((resolve, reject) => {
+  const img = new Image();
+  const src = URL.createObjectURL(file);
+  img.onload = () => {
+    URL.revokeObjectURL(src);
+    const escala = Math.min(1, LOGO_MAX_LADO / Math.max(img.width, img.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.width * escala));
+    canvas.height = Math.max(1, Math.round(img.height * escala));
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    // PNG mantém transparência; se passar do limite, WebP comprime mais.
+    let url = canvas.toDataURL('image/png');
+    if (url.length * 0.75 > LOGO_MAX_BYTES) url = canvas.toDataURL('image/webp', 0.9);
+    if (url.length * 0.75 > LOGO_MAX_BYTES) reject(new Error('Imagem muito grande mesmo reduzida. Tente outra.'));
+    else resolve(url);
+  };
+  img.onerror = () => { URL.revokeObjectURL(src); reject(new Error('Não foi possível ler a imagem.')); };
+  img.src = src;
+});
+
+function LogoField({ value, onChange }) {
+  const [erro, setErro] = useState('');
+  const escolher = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setErro('');
+    if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) { setErro('Envie PNG, JPEG ou WebP.'); return; }
+    try { onChange(await reduzLogo(file)); } catch (err) { setErro(err.message); }
+  };
+  return (
+    // Não usa <Field>: ele é um <label> e o botão de arquivo já é outro.
+    <div>
+      <span className="text-sm font-medium text-slate-600">Logo</span>
+      <div className="mt-1 flex items-center gap-4">
+        <div className="w-16 h-16 rounded-full border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden shrink-0">
+          {value ? <img src={value} alt="Logo da igreja" className="w-full h-full object-cover" /> : <span className="text-[11px] text-slate-400">sem logo</span>}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="cursor-pointer inline-flex items-center px-3 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-slate-50">
+            {value ? 'Trocar imagem' : 'Enviar imagem'}
+            <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={escolher} />
+          </label>
+          {value && <button type="button" className="text-sm text-red-600 hover:underline" onClick={() => onChange('')}>Remover</button>}
+        </div>
+      </div>
+      <span className="block text-[11px] text-slate-400 mt-1">PNG, JPEG ou WebP. Quadrado com fundo transparente fica melhor. Clique em Salvar para aplicar.</span>
+      {erro && <p className="text-xs text-red-600 mt-1">{erro}</p>}
+    </div>
+  );
+}
+
 // Nome do assistente: catálogo bíblico (cada um com sua apresentação) ou um nome próprio.
 function AssistenteField({ value, onChange }) {
   const [catalogo, setCatalogo] = useState([]);
@@ -226,14 +281,14 @@ export default function TenantSettings() {
           <Card title="💰 Pix da igreja" subtitle="Para eventos pagos: cada inscrito recebe o Pix copia e cola com o valor e um QR Code">
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="sm:col-span-2"><Field label="Chave Pix" hint="CNPJ, email, celular (+55…) ou chave aleatória"><input className={inputClass} value={form.pix?.chave || ''} onChange={(e) => set('pix.chave', e.target.value)} /></Field></div>
-              <Field label="Nome do recebedor" hint="Como aparece no banco (até 25 letras)"><input className={inputClass} maxLength={25} value={form.pix?.nome || ''} onChange={(e) => set('pix.nome', e.target.value)} /></Field>
+              <Field label="Nome do recebedor" hint="Nome completo da igreja. No código Pix vão até 25 letras (limite do Banco Central)"><input className={inputClass} maxLength={60} value={form.pix?.nome || ''} onChange={(e) => set('pix.nome', e.target.value)} /></Field>
               <Field label="Cidade" hint="Até 15 letras"><input className={inputClass} maxLength={15} value={form.pix?.cidade || ''} onChange={(e) => set('pix.cidade', e.target.value)} /></Field>
             </div>
             <p className="text-[11px] text-slate-400 mt-2">O dinheiro cai direto na conta da igreja. A confirmação do pagamento é feita pela liderança em Eventos.</p>
           </Card>
           <Card title="Identidade visual" subtitle="Aparece no login, menu e mensagens">
             <div className="space-y-3">
-              <Field label="URL do logo"><input className={inputClass} value={form.branding?.logoUrl || ''} onChange={(e) => set('branding.logoUrl', e.target.value)} placeholder="https://..." /></Field>
+              <LogoField value={form.branding?.logoUrl || ''} onChange={(v) => set('branding.logoUrl', v)} />
               <Field label="Assinatura das mensagens" hint="Padrão: nome da igreja"><input className={inputClass} value={form.branding?.assinatura || ''} onChange={(e) => set('branding.assinatura', e.target.value)} /></Field>
               <Field label="URL do portal" hint="Usada nos links de acesso enviados aos membros"><input className={inputClass} value={form.branding?.portalUrl || ''} onChange={(e) => set('branding.portalUrl', e.target.value)} /></Field>
             </div>

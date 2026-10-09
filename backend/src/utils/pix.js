@@ -2,6 +2,12 @@
 // Sem gateway: o pagamento cai direto na chave da igreja; a liderança confirma no painel.
 const semAcento = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
 const campo = (id, valor) => `${id}${String(valor.length).padStart(2, '0')}${valor}`;
+// Corta no limite do campo sem partir palavra ("IGREJA BATISTA BIBLICA ISRAEL" → "IGREJA BATISTA BIBLICA").
+const cortaPalavra = (s, max) => {
+  if (s.length <= max) return s;
+  const corte = s.slice(0, max + 1).lastIndexOf(' ');
+  return (corte > 0 ? s.slice(0, corte) : s.slice(0, max)).trim();
+};
 
 // CRC16/CCITT-FALSE (polinômio 0x1021, inicial 0xFFFF), exigido no campo 63.
 const crc16 = (payload) => {
@@ -15,7 +21,7 @@ const crc16 = (payload) => {
 
 /**
  * @param {object} p { chave, nome, cidade, valor?, txid?, descricao? }
- * nome ≤ 25 e cidade ≤ 15 caracteres, sem acento (limites do padrão).
+ * nome ≤ 25 e cidade ≤ 15 caracteres, sem acento (limites do padrão; nome maior é cortado na palavra).
  */
 const pixCopiaECola = ({ chave, nome, cidade, valor, txid, descricao }) => {
   if (!chave || !nome || !cidade) throw new Error('Configure a chave Pix, o nome e a cidade do recebedor');
@@ -29,7 +35,7 @@ const pixCopiaECola = ({ chave, nome, cidade, valor, txid, descricao }) => {
     campo('53', '986'),
     valor ? campo('54', Number(valor).toFixed(2)) : '',
     campo('58', 'BR'),
-    campo('59', semAcento(nome).toUpperCase().slice(0, 25)),
+    campo('59', cortaPalavra(semAcento(nome).toUpperCase().trim(), 25)),
     campo('60', semAcento(cidade).toUpperCase().slice(0, 15)),
     campo('62', campo('05', id)),
     '6304',
@@ -37,4 +43,4 @@ const pixCopiaECola = ({ chave, nome, cidade, valor, txid, descricao }) => {
   return payload + crc16(payload);
 };
 
-module.exports = { pixCopiaECola, crc16 };
+module.exports = { pixCopiaECola, crc16, cortaPalavra };

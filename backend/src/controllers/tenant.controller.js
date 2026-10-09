@@ -13,6 +13,23 @@ const { runWithTenant } = require('../tenancy/context');
 
 const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => obj?.[k] !== undefined).map((k) => [k, obj[k]]));
 
+// Logo da igreja: imagem enviada (data URL PNG/JPEG/WebP, até 300 KB) ou link https. Vazio remove.
+const LOGO_MAX_BYTES = 300 * 1024;
+const LOGO_MAGIC = { png: [0x89, 0x50, 0x4e, 0x47], jpeg: [0xff, 0xd8, 0xff], webp: [0x52, 0x49, 0x46, 0x46] };
+const validaLogo = (valor) => {
+  const v = String(valor || '').trim();
+  if (!v) return { ok: true, valor: undefined };
+  const data = v.match(/^data:image\/(png|jpeg|webp);base64,([A-Za-z0-9+/=]+)$/);
+  if (data) {
+    const buf = Buffer.from(data[2], 'base64');
+    if (buf.length > LOGO_MAX_BYTES) return { ok: false, message: 'Logo muito grande (máx. 300 KB). Envie uma imagem menor.' };
+    if (!LOGO_MAGIC[data[1]].every((b, i) => buf[i] === b)) return { ok: false, message: 'Arquivo do logo inválido. Envie PNG, JPEG ou WebP.' };
+    return { ok: true, valor: v };
+  }
+  if (/^https:\/\/\S+$/i.test(v) && v.length <= 2000) return { ok: true, valor: v };
+  return { ok: false, message: 'Logo inválido: envie uma imagem ou use um link https.' };
+};
+
 const get = async (req, res) => {
   const [consumo, pessoasAtivas] = await Promise.all([
     usage.getUsage(req.tenant._id),
@@ -47,13 +64,21 @@ const updateSettings = async (req, res) => {
     if (!lista.length) return res.status(400).json({ message: 'Informe ao menos uma congregação' });
     tenant.congregacoes = lista;
   }
-  if (body.branding) tenant.branding = { ...tenant.branding?.toObject?.(), ...pick(body.branding, ['logoUrl', 'corPrimaria', 'corSecundaria', 'assinatura', 'portalUrl']) };
+  if (body.branding) {
+    const branding = pick(body.branding, ['logoUrl', 'corPrimaria', 'corSecundaria', 'assinatura', 'portalUrl']);
+    if ('logoUrl' in branding && branding.logoUrl !== tenant.branding?.logoUrl) {
+      const logo = validaLogo(branding.logoUrl);
+      if (!logo.ok) return res.status(400).json({ message: logo.message });
+      branding.logoUrl = logo.valor;
+    }
+    tenant.branding = { ...tenant.branding?.toObject?.(), ...branding };
+  }
   if (body.automacoes) tenant.automacoes = body.automacoes;
-  // Pix da igreja (eventos pagos): limites do padrão BR Code (nome ≤ 25, cidade ≤ 15)
+  // Pix da igreja (eventos pagos): cidade ≤ 15 (BR Code); o nome guarda até 60 e o BR Code usa até 25
   if (body.pix) {
     tenant.pix = {
       chave: String(body.pix.chave || '').trim().slice(0, 77) || undefined,
-      nome: String(body.pix.nome || '').trim().slice(0, 25) || undefined,
+      nome: String(body.pix.nome || '').trim().slice(0, 60) || undefined,
       cidade: String(body.pix.cidade || '').trim().slice(0, 15) || undefined,
     };
   }
