@@ -19,7 +19,7 @@ const E2E = {
 };
 
 // Ambiente do backend de teste. Toda variável do .env real que não estiver aqui é ZERADA
-// (ver start-backend.js), para não usar SMTP, IA, Asaas ou WhatsApp de verdade por engano.
+// (ver start-backend.js), para não usar SMTP, IA, Woovi ou WhatsApp de verdade por engano.
 E2E.backendEnv = {
   NODE_ENV: 'test',
   PORT: String(PORTAS.api),
@@ -54,6 +54,11 @@ E2E.backendEnv = {
   PLATFORM_ADMIN_EMAIL: 'plataforma@e2e.test',
   PLATFORM_ADMIN_PASSWORD: 'Plataforma@E2e123',
   TRIAL_DAYS: '14',
+  // Woovi falsa (mesmo servidor do WhatsApp falso): cobranças Pix da assinatura
+  WOOVI_ENV: 'sandbox',
+  WOOVI_SANDBOX_APP_ID: 'app-id-falso-e2e',
+  WOOVI_API_URL: E2E.mockUrl,
+  WOOVI_WEBHOOK_SECRET: 'segredo-webhook-e2e',
 };
 
 module.exports = E2E;

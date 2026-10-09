@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import Header from '../../components/Header';
 import api from '../../services/api';
 import { useTenant } from '../../context/TenantContext';
+import useAuth from '../../hooks/useAuth';
 import PlanCards from '../../components/PlanCards';
 import IndiqueGanhe from '../../components/IndiqueGanhe';
 import { Badge, Card, KpiCard, brl, fmtDate } from '../../components/ui';
@@ -39,6 +40,8 @@ function UsageBar({ label, value, max }) {
 
 export default function Subscription() {
   const { tenant, refresh } = useTenant();
+  const { user } = useAuth();
+  const isMaster = user?.role === 'master';
   const [data, setData] = useState(null);
   const [ciclo, setCiclo] = useState('mensal');
   const [msg, setMsg] = useState(null);
@@ -51,7 +54,7 @@ export default function Subscription() {
       setMsg({ ok: true, text: 'Nossa equipe vai entrar em contato para montar o plano Rede.' });
       return;
     }
-    if (!window.confirm(`Mudar para o plano ${plan.nome} (${ciclo})? O novo valor vale a partir da próxima fatura.`)) return;
+    if (!window.confirm(`Mudar para o plano ${plan.nome} (${ciclo})? Se houver fatura em aberto neste mês, ela será reajustada para o novo valor.`)) return;
     try {
       await api.put('/tenant/billing/plan', { plano: plan.id, ciclo });
       await refresh();
@@ -71,10 +74,10 @@ export default function Subscription() {
   return (
     <div>
       <Header title="Assinatura" subtitle={tenant.nome} action={<Badge color={st.color}>{st.label}</Badge>} />
-      <IndiqueGanhe />
+      {isMaster && <IndiqueGanhe />}
       {['suspensa', 'inadimplente'].includes(data.status) && (
         <div className="mb-4 rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-900">
-          Há faturas em atraso. {data.status === 'suspensa' ? 'O acesso ao sistema e as automações estão suspensos' : 'Após 15 dias de atraso o acesso é suspenso'} — regularize abaixo.
+          Há faturas em atraso. {data.status === 'suspensa' ? 'O acesso ao sistema e as automações estão suspensos' : `Com ${data.politica?.suspendAfterDays || 7} dias de atraso o acesso é suspenso`} — regularize abaixo.
         </div>
       )}
       {msg && <p className={`text-sm mb-4 ${msg.ok ? 'text-emerald-700' : 'text-red-600'}`}>{msg.text}</p>}
@@ -108,8 +111,8 @@ export default function Subscription() {
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="tabular-nums font-medium">{brl(f.valor)}</span>
                     <Badge color={s.color}>{s.label}</Badge>
-                    {f.gateway?.invoiceUrl && f.status !== 'pago' && (
-                      <a href={f.gateway.invoiceUrl} target="_blank" rel="noreferrer" className="text-ibbiBlue font-medium hover:underline">Pagar</a>
+                    {f.pix?.invoiceUrl && ['pendente', 'vencido'].includes(f.status) && (
+                      <a href={f.pix.invoiceUrl} target="_blank" rel="noreferrer" className="text-ibbiBlue font-medium hover:underline">Pagar com Pix</a>
                     )}
                   </div>
                 </li>
@@ -119,6 +122,7 @@ export default function Subscription() {
         </Card>
       </div>
 
+      {isMaster && (
       <Card
         title="Planos"
         subtitle="Uma assinatura por igreja — todas as congregações incluídas"
@@ -134,6 +138,7 @@ export default function Subscription() {
       >
         <PlanCards plans={data.planos} ciclo={ciclo} current={data.billing?.ciclo === ciclo ? data.plano : null} onSelect={changePlan} selectLabel="Mudar para este plano" />
       </Card>
+      )}
     </div>
   );
 }

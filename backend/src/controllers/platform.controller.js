@@ -157,6 +157,12 @@ const updateTenant = async (req, res) => {
     return res.status(400).json({ message: err.message });
   }
   invalidateTenant(tenant._id);
+  // Plano/valor/ciclo/isenção alterados pela plataforma: a fatura em aberto do mês acompanha
+  if (b.plano || b.billing) {
+    await billing.repriceOpenInvoices(tenant.toObject()).catch((err) => console.error('[BILLING] Reajuste:', err.message));
+    // Status escolhido à mão pela plataforma prevalece
+    if (!b.status) await billing.recomputeStatus(tenant._id).catch(() => {});
+  }
   return res.json(tenant);
 };
 
@@ -216,17 +222,29 @@ const payInvoice = async (req, res) => {
 };
 
 const cancelInvoice = async (req, res) => {
-  const invoice = await Invoice.findByIdAndUpdate(req.params.id, { status: 'cancelado', observacao: req.body?.observacao }, { new: true });
+  const invoice = await Invoice.findById(req.params.id);
   if (!invoice) return res.status(404).json({ message: 'Fatura não encontrada' });
-  return res.json(invoice);
+  return res.json(await billing.cancelInvoice(invoice, req.body?.observacao));
 };
 
+// Gera (ou renova) o Pix da fatura na Woovi.
 const chargeInvoice = async (req, res) => {
-  if (!billing.asaasEnabled()) return res.status(400).json({ message: 'Gateway (ASAAS_API_KEY) não configurado' });
+  if (!billing.gatewayEnabled()) return res.status(400).json({ message: 'Woovi não configurada (WOOVI_ENV + WOOVI_PROD_APP_ID/WOOVI_SANDBOX_APP_ID)' });
   const invoice = await Invoice.findById(req.params.id);
   const tenant = invoice && await Tenant.findById(invoice.tenantId).lean();
   if (!invoice || !tenant) return res.status(404).json({ message: 'Fatura não encontrada' });
-  return res.json(await billing.createGatewayCharge(invoice, tenant));
+  try {
+    return res.json(await billing.createGatewayCharge(invoice, tenant, { throwOnError: true }));
+  } catch (err) {
+    return res.status(502).json({ message: err.message });
+  }
+};
+
+// Confere o Pix direto na Woovi (webhook perdido).
+const syncInvoice = async (req, res) => {
+  const invoice = await Invoice.findById(req.params.id);
+  if (!invoice) return res.status(404).json({ message: 'Fatura não encontrada' });
+  return res.json(await billing.syncCharge(invoice));
 };
 
 const runBilling = async (req, res) => res.json(await billing.runBillingCycle());
@@ -338,6 +356,7 @@ module.exports = {
   payInvoice,
   cancelInvoice,
   chargeInvoice,
+  syncInvoice,
   runBilling,
   metrics,
   updateTenantWhatsapp,

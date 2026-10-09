@@ -171,7 +171,7 @@ export default function App() {
                         {hasFeature('agenteWhatsApp') && <Route path="/assistente" element={<Assistant />} />}
                         {user?.role === 'master' && <Route path="/users" element={<UserManagement />} />}
                         {user?.role === 'master' && <Route path="/configuracoes" element={<TenantSettings />} />}
-                        {user?.role === 'master' && <Route path="/assinatura" element={<Subscription />} />}
+                        <Route path="/assinatura" element={<Subscription />} />
                         {user?.role === 'master' && <Route path="/primeiros-passos" element={<Onboarding />} />}
                       </>
                     )}

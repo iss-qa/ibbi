@@ -192,7 +192,9 @@ const navItemsByRole = (role, user, features = {}, tenant = null) => {
       { to: '/users', label: 'Usuários' },
       { to: '/configuracoes', label: 'Configurações' },
       { to: '/assinatura', label: 'Assinatura' },
-    ] }] : []),
+    ] }] : [{ key: 'admin', label: 'Administração', icon: '/configuracoes', items: [
+      { to: '/assinatura', label: 'Assinatura' },
+    ] }]),
   ];
 
   return [

@@ -27,6 +27,7 @@ router.get('/invoices', controller.listInvoices);
 router.put('/invoices/:id/pay', controller.payInvoice);
 router.put('/invoices/:id/cancel', controller.cancelInvoice);
 router.post('/invoices/:id/charge', controller.chargeInvoice);
+router.post('/invoices/:id/sync', controller.syncInvoice);
 router.post('/billing/run', controller.runBilling);
 
 module.exports = router;

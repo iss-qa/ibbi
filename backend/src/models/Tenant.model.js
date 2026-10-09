@@ -53,7 +53,6 @@ const TenantSchema = new mongoose.Schema({
     valorMensal: { type: Number }, // override (negociação / plano Rede)
     isento: { type: Boolean, default: false }, // cliente fundador / cortesia
     diaVencimento: { type: Number, min: 1, max: 28, default: 10 },
-    asaasCustomerId: { type: String },
   },
 
   timezone: { type: String, default: 'America/Bahia' },

@@ -57,7 +57,8 @@ export default function PlatformInvoices() {
                     <td className="py-1 text-right whitespace-nowrap">
                       {['pendente', 'vencido'].includes(f.status) && (
                         <>
-                          {!f.gateway?.id && <Button variant="ghost" className="text-xs mr-1" onClick={() => act(() => platformApi.post(`/invoices/${f._id}/charge`), 'Cobrança criada no gateway.')}>Cobrar (Asaas)</Button>}
+                          {f.gateway?.status !== 'ACTIVE' && <Button variant="ghost" className="text-xs mr-1" onClick={() => act(() => platformApi.post(`/invoices/${f._id}/charge`), 'Pix gerado na Woovi.')}>Gerar Pix (Woovi)</Button>}
+                          {f.gateway?.provider === 'woovi' && f.gateway?.id && <Button variant="ghost" className="text-xs mr-1" onClick={() => act(() => platformApi.post(`/invoices/${f._id}/sync`), 'Pix conferido na Woovi.')}>Conferir Pix</Button>}
                           {f.gateway?.invoiceUrl && <a href={f.gateway.invoiceUrl} target="_blank" rel="noreferrer" className="text-xs text-ibbiBlue mr-2">link</a>}
                           <Button variant="ghost" className="text-xs mr-1" onClick={() => act(() => platformApi.put(`/invoices/${f._id}/pay`, { metodo: 'pix' }), 'Baixa registrada.')}>Dar baixa</Button>
                           <Button variant="ghost" className="text-xs" onClick={() => window.confirm('Cancelar fatura?') && act(() => platformApi.put(`/invoices/${f._id}/cancel`, {}), 'Fatura cancelada.')}>Cancelar</Button>

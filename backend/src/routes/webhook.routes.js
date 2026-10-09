@@ -6,6 +6,7 @@ const router = express.Router();
 router.post('/evolution/:slug', controller.evolution);
 router.get('/whatsapp', controller.cloudVerify);
 router.post('/whatsapp', controller.cloudReceive);
-router.post('/asaas', controller.asaas);
+// Woovi/OpenPix (cobranças da assinatura) — `/woovi` é apelido da mesma rota
+router.post(['/openpix', '/woovi'], controller.openpix);
 
 module.exports = router;
