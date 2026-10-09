@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import logo from '../assets/logo-ibbi.jpeg';
@@ -162,36 +162,59 @@ const navItemsByRole = (role, user, features = {}, tenant = null) => {
     return items;
   }
 
-  const items = [
-    { to: '/dashboard', label: 'Dashboard' },
-    { to: '/impacto', label: 'Impacto do mês' },
-    { to: '/members', label: 'Pessoas' },
-    { to: '/approvals', label: 'Aprovações' },
-    { to: '/whatsapp/central', label: 'Central WhatsApp' },
-    { to: '/cuidado', label: 'Cuidado Pastoral' },
-    ...(features.jornadaVisitante ? [{ to: '/jornada', label: 'Jornada do Visitante' }] : []),
-    ...(features.agenteWhatsApp ? [{ to: '/assistente', label: 'Assistente IA' }] : []),
-    { to: '/projeto-amigo', label: 'Projeto Amigo' },
-    { to: '/ebd', label: 'EBD' },
-    { to: '/encontros', label: 'Encontros' },
-    { to: '/cultos', label: 'Cultos (QR)' },
-    { to: '/escalas', label: 'Escalas' },
-    { to: '/celulas', label: 'Células' },
-    { to: '/eventos', label: 'Eventos' },
-    { to: '/campanhas', label: 'Campanhas' },
-    { to: '/prayer', label: 'Pedidos de Oração' },
-    { to: '/profile', label: 'Meu perfil' },
-  ];
-
-  if (role === 'master') {
-    items.splice(items.length - 1, 0,
+  // Liderança (admin/master): itens soltos no topo + seções que abrem e fecham.
+  const sections = [
+    { key: 'pessoas', label: 'Pessoas', icon: '/members', items: [
+      { to: '/members', label: 'Pessoas' },
+      { to: '/approvals', label: 'Aprovações' },
+      ...(features.jornadaVisitante ? [{ to: '/jornada', label: 'Jornada do Visitante' }] : []),
+      { to: '/projeto-amigo', label: 'Projeto Amigo' },
+    ] },
+    { key: 'cuidado', label: 'Cuidado pastoral', icon: '/projeto-amigo', items: [
+      { to: '/cuidado', label: 'Cuidado Pastoral' },
+      { to: '/prayer', label: 'Pedidos de Oração' },
+      { to: '/impacto', label: 'Impacto do mês' },
+    ] },
+    { key: 'reunioes', label: 'Cultos e reuniões', icon: '/encontros', items: [
+      { to: '/cultos', label: 'Cultos (QR)' },
+      { to: '/ebd', label: 'EBD' },
+      { to: '/encontros', label: 'Encontros' },
+      { to: '/celulas', label: 'Células' },
+      { to: '/escalas', label: 'Escalas' },
+    ] },
+    { key: 'comunicacao', label: 'Comunicação', icon: '/communication', items: [
+      { to: '/whatsapp/central', label: 'Central WhatsApp' },
+      { to: '/campanhas', label: 'Campanhas' },
+      { to: '/eventos', label: 'Eventos' },
+      ...(features.agenteWhatsApp ? [{ to: '/assistente', label: 'Assistente IA' }] : []),
+    ] },
+    ...(role === 'master' ? [{ key: 'admin', label: 'Administração', icon: '/configuracoes', items: [
       { to: '/users', label: 'Usuários' },
       { to: '/configuracoes', label: 'Configurações' },
-      { to: '/assinatura', label: 'Assinatura' });
-    if (!tenant?.onboarding?.concluido) items.unshift({ to: '/primeiros-passos', label: 'Primeiros passos 🌱' });
-  }
+      { to: '/assinatura', label: 'Assinatura' },
+    ] }] : []),
+  ];
 
-  return items;
+  return [
+    ...(role === 'master' && !tenant?.onboarding?.concluido ? [{ to: '/primeiros-passos', label: 'Primeiros passos 🌱' }] : []),
+    { to: '/dashboard', label: 'Dashboard' },
+    ...sections.filter((s) => s.items.length),
+  ];
+};
+
+const chevronIcon = (open) => (
+  <svg className={`w-4 h-4 ml-auto shrink-0 transition-transform duration-200 ${open ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M9 6l6 6-6 6" />
+  </svg>
+);
+
+// Seções abertas ficam lembradas no navegador (conveniência; sem storage, tudo começa fechado).
+const OPEN_KEY = 'sidebar:open';
+const readOpen = () => {
+  try { return JSON.parse(localStorage.getItem(OPEN_KEY)) || []; } catch { return []; }
+};
+const saveOpen = (keys) => {
+  try { localStorage.setItem(OPEN_KEY, JSON.stringify(keys)); } catch { /* sem storage */ }
 };
 
 function LogoutModal({ onConfirm, onCancel }) {
@@ -230,13 +253,58 @@ function LogoutModal({ onConfirm, onCancel }) {
 // Routes that should highlight "Projeto Amigo" in the sidebar
 const PROJETO_AMIGO_ROUTES = ['/projeto-amigo', '/grupos'];
 
+// Item ativo também nas subpáginas (/ebd/:id, /encontros/grupos/:id…).
+const matchesRoute = (to, pathname) => {
+  if (to === '/projeto-amigo') return PROJETO_AMIGO_ROUTES.some((r) => pathname.startsWith(r));
+  return pathname === to || pathname.startsWith(`${to}/`);
+};
+
+const itemClass = (active, nested) => `px-3 ${nested ? 'py-1.5 text-[15px]' : 'py-2'} rounded-lg transition flex items-center gap-3 ${
+  active ? 'bg-ibbiGold text-ibbiNavy font-semibold' : 'hover:bg-white/10'
+}`;
+
 export default function Sidebar({ user, isOpen, onClose }) {
   const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [openKeys, setOpenKeys] = useState(readOpen);
   const { tenant, features } = useTenant();
   const brand = tenant || user?.tenant;
+  const entries = navItemsByRole(user?.role, user, features, brand);
+  const isActive = (to) => matchesRoute(to, location.pathname);
+  const activeSection = entries.find((e) => e.items?.some((i) => isActive(i.to)))?.key;
+
+  // Abre sozinha a seção da página atual (ao navegar por link, busca, dashboard…).
+  useEffect(() => {
+    if (!activeSection) return;
+    setOpenKeys((keys) => {
+      if (keys.includes(activeSection)) return keys;
+      const next = [...keys, activeSection];
+      saveOpen(next);
+      return next;
+    });
+  }, [activeSection]);
+
+  const toggleSection = (key) => {
+    setOpenKeys((keys) => {
+      const next = keys.includes(key) ? keys.filter((k) => k !== key) : [...keys, key];
+      saveOpen(next);
+      return next;
+    });
+  };
+
+  const renderItem = (item, nested = false) => (
+    <NavLink
+      key={item.to}
+      to={item.to}
+      className={() => itemClass(isActive(item.to), nested)}
+      onClick={onClose}
+    >
+      {navIconMap[item.to] || navIconMap['/dashboard']}
+      <span>{item.label}</span>
+    </NavLink>
+  );
 
   const handleLogout = () => {
     logout();
@@ -246,7 +314,7 @@ export default function Sidebar({ user, isOpen, onClose }) {
   return (
     <>
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-40 w-72 md:w-64 bg-ibbiNavy text-white min-h-screen px-6 py-8 overflow-y-auto md:max-h-screen md:sticky md:top-0 transform transition-transform duration-200 ${
+        className={`fixed md:static inset-y-0 left-0 z-40 w-72 md:w-64 bg-ibbiNavy text-white min-h-screen px-4 py-8 overflow-y-auto md:max-h-screen md:sticky md:top-0 transform transition-transform duration-200 ${
           isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         }`}
       >
@@ -262,22 +330,39 @@ export default function Sidebar({ user, isOpen, onClose }) {
 
         <nav className="flex flex-col gap-2">
           <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/35">Menu</div>
-          {navItemsByRole(user?.role, user, features, brand).map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              className={({ isActive }) => {
-                const forceActive = item.to === '/projeto-amigo' && PROJETO_AMIGO_ROUTES.some((r) => location.pathname.startsWith(r));
-                return `px-3 py-2 rounded-lg transition flex items-center gap-3 ${
-                  isActive || forceActive ? 'bg-ibbiGold text-ibbiNavy font-semibold' : 'hover:bg-white/10'
-                }`;
-              }}
-              onClick={onClose}
-            >
-              {navIconMap[item.to] || navIconMap['/dashboard']}
-              <span>{item.label}</span>
-            </NavLink>
-          ))}
+          {entries.map((entry) => {
+            if (!entry.items) return renderItem(entry);
+            const open = openKeys.includes(entry.key);
+            const hasActive = entry.key === activeSection;
+            return (
+              <div key={entry.key}>
+                <button
+                  type="button"
+                  onClick={() => toggleSection(entry.key)}
+                  aria-expanded={open}
+                  aria-controls={`nav-${entry.key}`}
+                  className={`w-full px-3 py-2 rounded-lg transition flex items-center gap-3 text-left hover:bg-white/10 ${
+                    hasActive && !open ? 'text-ibbiGold font-semibold' : ''
+                  }`}
+                >
+                  {navIconMap[entry.icon]}
+                  <span>{entry.label}</span>
+                  {chevronIcon(open)}
+                </button>
+                {open && (
+                  <div id={`nav-${entry.key}`} className="mt-1 ml-[18px] pl-3 border-l border-white/10 flex flex-col gap-1">
+                    {entry.items.map((item) => renderItem(item, true))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {user?.role !== 'user' && (
+            <div className="mt-3 pt-3 border-t border-white/10 flex flex-col gap-2">
+              {renderItem({ to: '/profile', label: 'Meu perfil' })}
+            </div>
+          )}
           <InstalarApp />
           <button
             onClick={() => { setShowLogoutModal(true); onClose(); }}
