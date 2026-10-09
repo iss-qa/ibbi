@@ -233,6 +233,7 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
   const photoFieldRef = useRef(null);
   const [photoHighlighted, setPhotoHighlighted] = useState(false);
   const [photoError, setPhotoError] = useState(false);
+  const [photoRejection, setPhotoRejection] = useState('');
 
   const currentAge = calculateAge(form.dataNascimento);
 
@@ -383,14 +384,30 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
   const handlePhotoUpload = async (file) => {
     if (!file) return;
     const optimizedFile = await optimizeImage(file);
+    const previousPreview = preview;
     const previewUrl = URL.createObjectURL(optimizedFile);
     setPreview(previewUrl);
+    setPhotoRejection('');
     const data = new FormData();
     data.append('file', optimizedFile);
     setUploading(true);
     try {
       const endpoint = isExternal ? '/uploads/person-photo/public' : '/uploads/person-photo';
-      const response = await api.post(endpoint, data);
+      let response;
+      try {
+        response = await api.post(endpoint, data);
+      } catch (err) {
+        // A IA conferiu e não é uma foto real da pessoa (card de bom dia, flor, desenho…)
+        if (err?.response?.data?.code !== 'FOTO_INVALIDA') throw err;
+        const { message, podeConfirmar } = err.response.data;
+        if (podeConfirmar && window.confirm(`${message}\n\nUsar esta foto mesmo assim?`)) {
+          response = await api.post(`${endpoint}?confirmar=1`, data);
+        } else {
+          setPreview(previousPreview);
+          setPhotoRejection(message);
+          return;
+        }
+      }
       
       if (response.data.url) {
         const relativeUrl = response.data.url;
@@ -491,6 +508,16 @@ export default function MemberForm({ initialData, onSubmit, onCancel, lockedCong
                   Câmera
                 </button>
               </div>
+              {photoRejection ? (
+                <p role="alert" className="mt-1 max-w-[13rem] text-center text-[11px] leading-snug font-medium text-red-600">
+                  {photoRejection}
+                </p>
+              ) : (
+                <p className="mt-1 max-w-[13rem] text-center text-[11px] leading-snug text-slate-500">
+                  {isExternal ? 'Envie uma foto real sua' : 'Foto real da pessoa'}, de frente e com o rosto visível.
+                  {' '}<span className="font-semibold text-slate-600">Não use cards de bom dia, flores, desenhos ou figurinhas</span>: ela vai para a ficha e a carteirinha.
+                </p>
+              )}
             </div>
           )}
 

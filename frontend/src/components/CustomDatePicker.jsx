@@ -13,6 +13,7 @@ export default function CustomDatePicker({ value, onChange, className }) {
   };
 
   const [textValue, setTextValue] = useState(formatDateToText(value));
+  const [invalid, setInvalid] = useState(false);
 
   // Mantém sincronizado caso o valor mude externamente
   useEffect(() => {
@@ -39,10 +40,15 @@ export default function CustomDatePicker({ value, onChange, className }) {
     setTextValue(masked);
 
     if (val.length === 8) {
-      const parentVal = `${val.slice(4, 8)}-${val.slice(2, 4)}-${val.slice(0, 2)}`;
-      onChange(parentVal);
-    } else if (val.length === 0) {
-      onChange('');
+      const [d, m, y] = [Number(val.slice(0, 2)), Number(val.slice(2, 4)), Number(val.slice(4, 8))];
+      const date = new Date(Date.UTC(y, m - 1, d));
+      // 31/02 ou mês 13 não sobem para o formulário (o servidor recusaria a data)
+      const valid = y >= 1900 && y <= 2100 && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
+      setInvalid(!valid);
+      onChange(valid ? `${val.slice(4, 8)}-${val.slice(2, 4)}-${val.slice(0, 2)}` : '');
+    } else {
+      setInvalid(false);
+      if (val.length === 0) onChange('');
     }
   };
 
@@ -50,7 +56,9 @@ export default function CustomDatePicker({ value, onChange, className }) {
     return (
       <input
         type="tel"
-        className={className}
+        className={`${className || ''} ${invalid ? 'border-red-400 ring-1 ring-red-300' : ''}`}
+        aria-invalid={invalid}
+        title={invalid ? 'Data inválida' : undefined}
         placeholder="DD/MM/AAAA"
         value={textValue}
         onChange={handleChangeText}

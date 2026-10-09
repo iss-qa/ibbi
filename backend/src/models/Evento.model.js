@@ -23,6 +23,16 @@ const EventoSchema = new mongoose.Schema({
   congregacao: { type: String, trim: true },
   vagas: { type: Number, min: 1 }, // vazio = ilimitado
   valor: { type: Number, min: 0, default: 0 }, // R$; 0 = gratuito
+  // Quem recebe o pagamento: o Pix da igreja (Configurações → Igreja) ou um líder/departamento com a
+  // própria chave. Os pagamentos são marcados um a um no painel (switch "Pago"), por enquanto pelo master/admin.
+  recebedor: {
+    tipo: { type: String, enum: ['igreja', 'lider'], default: 'igreja' },
+    nome: { type: String, trim: true, maxlength: 60 },
+    departamento: { type: String, trim: true, maxlength: 60 },
+    personId: { type: mongoose.Schema.Types.ObjectId, ref: 'Person' },
+    chaveTipo: { type: String, enum: ['cpf', 'cnpj', 'celular', 'email', 'aleatoria'] },
+    chave: { type: String, trim: true, maxlength: 77 },
+  },
   codigo: { type: String, required: true, uppercase: true, trim: true },
   inscricoesAbertas: { type: Boolean, default: true },
   inscricoes: [InscricaoSchema],

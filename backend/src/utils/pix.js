@@ -43,4 +43,21 @@ const pixCopiaECola = ({ chave, nome, cidade, valor, txid, descricao }) => {
   return payload + crc16(payload);
 };
 
-module.exports = { pixCopiaECola, crc16, cortaPalavra };
+// Chave Pix no formato do DICT: CPF/CNPJ só dígitos, celular +55DDDNÚMERO, e-mail e aleatória em minúsculas.
+// Retorna null se a chave não bate com o tipo (CPF e celular têm 11 dígitos: o tipo desfaz a dúvida).
+const TIPOS_CHAVE = ['cpf', 'cnpj', 'celular', 'email', 'aleatoria'];
+const normalizarChavePix = (tipo, chave) => {
+  const bruta = String(chave || '').trim();
+  const digitos = bruta.replace(/\D/g, '');
+  if (tipo === 'cpf') return digitos.length === 11 ? digitos : null;
+  if (tipo === 'cnpj') return digitos.length === 14 ? digitos : null;
+  if (tipo === 'celular') {
+    const local = digitos.startsWith('55') && digitos.length >= 12 ? digitos.slice(2) : digitos;
+    return local.length === 10 || local.length === 11 ? `+55${local}` : null;
+  }
+  if (tipo === 'email') return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(bruta) && bruta.length <= 77 ? bruta.toLowerCase() : null;
+  if (tipo === 'aleatoria') return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bruta) ? bruta.toLowerCase() : null;
+  return null;
+};
+
+module.exports = { pixCopiaECola, crc16, cortaPalavra, normalizarChavePix, TIPOS_CHAVE };

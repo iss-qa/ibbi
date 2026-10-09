@@ -1,7 +1,7 @@
 const { parse } = require('csv-parse/sync');
 const Person = require('../models/Person.model');
 const { getTenant } = require('../tenancy/context');
-const { applyPersonBusinessRules } = require('../utils/person-rules');
+const { applyPersonBusinessRules, parseDate } = require('../utils/person-rules');
 
 // Importação de pessoas por CSV. Aceita o modelo do PastorIA (cabeçalhos abaixo) e
 // apelidos comuns (export do ChurchCRM, planilhas em inglês). Cabeçalhos são casados
@@ -75,22 +75,6 @@ const pick = (row, headerMap, field) => {
   const header = Object.keys(headerMap).find((h) => headerMap[h] === field);
   const v = header ? row[header] : undefined;
   return v === undefined || v === null ? '' : String(v).trim();
-};
-
-// Datas: ISO, dd/mm/aaaa, dd-mm-aaaa, dd.mm.aaaa e aaaa/mm/dd. Retorna Date (UTC) ou null.
-const parseDate = (value) => {
-  const s = String(value || '').trim();
-  if (!s) return null;
-  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
-  if (m) return toDate(m[1], m[2], m[3]);
-  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
-  if (m) return toDate(m[3].length === 2 ? `19${m[3]}` : m[3], m[2], m[1]);
-  const d = new Date(s);
-  return Number.isNaN(d.getTime()) ? null : d;
-};
-const toDate = (y, mo, d) => {
-  const date = new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d)));
-  return Number.isNaN(date.getTime()) || date.getUTCMonth() !== Number(mo) - 1 ? null : date;
 };
 
 const parseBool = (value) => {

@@ -54,3 +54,6 @@ docs/*.csv
 tests/full/.auth/
 tests/full/report/
 tests/full/test-results/
+
+# Material de divulgação (vídeos e imagens grandes): fica só local
+marketing/
