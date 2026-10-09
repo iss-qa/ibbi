@@ -108,6 +108,7 @@ const serializeForTenantAdmin = (tenant) => {
     uf: tenant.uf,
     pix: tenant.pix || {},
     cultosProgramados: tenant.cultosProgramados || [],
+    programacaoSemanal: tenant.programacaoSemanal || '', // salva em PUT /settings; sem isso a tela recarregava vazia
     termosPendentes: tenant.termos?.versao !== require('../config/legal').TERMOS_VERSAO,
     termos: tenant.termos ? { versao: tenant.termos.versao, aceitoEm: tenant.termos.aceitoEm, aceitoPor: tenant.termos.aceitoPor } : null,
     ia: tenant.ia,

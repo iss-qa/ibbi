@@ -1,9 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="512" height="512">
-  <title>PastorIA</title>
-  <circle cx="24" cy="24" r="24" fill="#0a1f44"/>
-  <path d="M30 40V16.5a5.5 5.5 0 1 0-11 0" fill="none" stroke="#c9a227" stroke-width="3.2" stroke-linecap="round"/>
-  <ellipse cx="18" cy="31" rx="7" ry="5.2" fill="#f7f3ea"/>
-  <circle cx="12.5" cy="29" r="2.6" fill="#f7f3ea"/>
-  <circle cx="11.6" cy="28.6" r="0.7" fill="#0a1f44"/>
-  <path d="M15 36v3M20 36v3" stroke="#f7f3ea" stroke-width="1.8" stroke-linecap="round"/>
-</svg>

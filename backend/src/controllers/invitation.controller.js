@@ -9,6 +9,7 @@ const { portalUrl } = require('../tenancy/brand');
 const { randomToken } = require('../utils/crypto');
 const { sanitizeFotoUrl, PUBLIC_PERSON_FIELDS, pickFields } = require('../utils/sanitize');
 const { toLocal } = require('../utils/phone');
+const { normalizePersonDates } = require('../utils/person-rules');
 
 // Link permanente de cadastro externo: um por igreja (o da IBBI é migrado com o token histórico).
 const createInvitation = async (req, res) => {
@@ -67,8 +68,11 @@ const submitInvitation = withInviteTenant(async (req, res, invite) => {
   if (typeof payload.nome !== 'string' || !payload.nome.trim()) {
     return res.status(400).json({ message: 'Nome é obrigatório' });
   }
-  if (payload.dataNascimento && Number.isNaN(new Date(payload.dataNascimento).getTime())) {
-    return res.status(400).json({ message: 'Data de nascimento inválida' });
+  // Celular com o campo de data como texto (navegador do WhatsApp/Instagram) manda "28/05/2026" ou lixo.
+  // Nascimento inválido volta para a pessoa corrigir; batismo/casamento são opcionais e só são descartados.
+  const datasInvalidas = normalizePersonDates(payload);
+  if (datasInvalidas.includes('Data de nascimento')) {
+    return res.status(400).json({ message: 'Data de nascimento inválida. Use o formato dd/mm/aaaa.' });
   }
   if (payload.congregacao !== undefined && typeof payload.congregacao !== 'string') delete payload.congregacao;
   if (payload.fotoUrl !== undefined) payload.fotoUrl = sanitizeFotoUrl(payload.fotoUrl);

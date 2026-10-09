@@ -7,6 +7,8 @@ const { handleWooviEvent, invoiceIdFrom } = require('../services/billing.service
 const woovi = require('../services/woovi.service');
 const { fromJid, samePhone } = require('../utils/phone');
 const whatsapp = require('../services/whatsapp.service');
+const { CHECKIN_RE } = require('../services/culto.service');
+const { INSCREVER_RE } = require('../services/evento.service');
 
 const safeEqual = (a, b) => {
   const ba = Buffer.from(String(a || ''));
@@ -21,8 +23,26 @@ const inboundAllowed = (from) => {
   return !lista.length || lista.some((n) => samePhone(n, from));
 };
 
+// "CHEGUEI <código>" (QR do culto) e "INSCREVER <código>" são pedidos explícitos à igreja, sem IA:
+// passam mesmo com a allowlist. O número fica liberado por 30 min para responder o nome que o bot pede.
+const COMANDO_PUBLICO_TTL_MS = 30 * 60 * 1000;
+const comandoPublicoAte = new Map();
+const comandoPublico = (msg) => {
+  const agora = Date.now();
+  if (CHECKIN_RE.test(msg.text || '') || INSCREVER_RE.test(msg.text || '')) {
+    comandoPublicoAte.set(msg.from, agora + COMANDO_PUBLICO_TTL_MS);
+    return true;
+  }
+  const ate = comandoPublicoAte.get(msg.from);
+  if (ate && ate < agora) comandoPublicoAte.delete(msg.from);
+  return Boolean(ate && ate >= agora);
+};
+
 const processLater = (tenant, msg) => {
-  if (!inboundAllowed(msg.from)) return;
+  if (!inboundAllowed(msg.from) && !comandoPublico(msg)) {
+    console.info(`[WEBHOOK] Ignorada: …${String(msg.from).slice(-4)} fora da WHATSAPP_INBOUND_ALLOWLIST`);
+    return;
+  }
   // Igreja suspensa/cancelada não usa a IA (custo da plataforma), igual ao 402 da API
   if (['suspensa', 'cancelada'].includes(tenant?.status)) return;
   setImmediate(() => runWithTenant(tenant, () => handleInbound(msg))
@@ -71,7 +91,11 @@ const parseEvolutionMessage = (data) => {
   if (jid.endsWith('@g.us') || jid === 'status@broadcast') return null;
   if (jid.includes('@lid')) jid = key.senderPn || key.remoteJidAlt || data.senderPn || '';
   const from = fromJid(jid);
-  if (!from) return null;
+  if (!from) {
+    // LID (identificador de privacidade do WhatsApp) sem o número junto: não há como identificar a pessoa
+    if (String(key.remoteJid || '').includes('@lid')) console.warn('[WEBHOOK] Mensagem de LID sem número (senderPn/remoteJidAlt): ignorada');
+    return null;
+  }
 
   const { text, media } = contentOf(data);
   if (!text && !media) return null;

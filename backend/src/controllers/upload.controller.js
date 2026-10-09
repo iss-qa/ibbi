@@ -1,3 +1,5 @@
+const { checkPersonPhoto } = require('../services/ai/photo-check.service');
+
 const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
 const MAX_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -31,7 +33,21 @@ const uploadPersonPhoto = async (req, res) => {
     return res.status(400).json({ message: 'Conteúdo do arquivo não corresponde ao tipo informado.' });
   }
 
-  const url = `data:${mime};base64,${req.file.buffer.toString('base64')}`;
+  const base64 = req.file.buffer.toString('base64');
+
+  // Foto real da pessoa (ficha/carteirinha), não card de bom dia, flor ou desenho.
+  // Líder logado pode confirmar "usar mesmo assim" (?confirmar=1) se a IA errar; no link público, não.
+  const lider = ['admin', 'master'].includes(req.user?.role);
+  if (!(lider && req.query.confirmar === '1')) {
+    const verificacao = await checkPersonPhoto({ base64, mimetype: mime });
+    if (!verificacao.aprovada) {
+      return res.status(422).json({
+        code: 'FOTO_INVALIDA', motivo: verificacao.motivo, message: verificacao.mensagem, podeConfirmar: lider,
+      });
+    }
+  }
+
+  const url = `data:${mime};base64,${base64}`;
   res.json({ url });
 };
 

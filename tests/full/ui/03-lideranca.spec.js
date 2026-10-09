@@ -1,6 +1,7 @@
 // Telas da liderança (master): todas carregam sem erro, e os fluxos principais funcionam pela web.
 const { test, expect } = require('@playwright/test');
 const { sessao, vigiar, semErros } = require('./util');
+const { cliente, diaIso } = require('../helpers');
 
 test.use({ storageState: sessao('master') });
 
@@ -96,5 +97,26 @@ test.describe('Liderança: fluxos pela web', () => {
     await page.goto('/prayer');
     await expect(page.getByText(/cirurgia/).first()).toBeVisible();
     await expect(page.getByText(/Intercessor/i).first()).toBeVisible();
+  });
+
+  test('eventos: recebedor do pagamento e switch Pago por inscrito', async ({ page, request }, info) => {
+    const a = await cliente(request);
+    const evento = await (await a.post('/eventos', {
+      titulo: 'Retiro UI E2E', data: diaIso(15), valor: 120,
+      recebedor: { tipo: 'lider', nome: 'Maria Tesoureira', departamento: 'Tesouraria', chaveTipo: 'email', chave: 'tesouraria@e2e.test' },
+    })).json();
+    await a.post(`/eventos/${evento.id}/inscricoes`, { nome: 'Pedro Pagante Teste' });
+
+    const erros = vigiar(page);
+    await page.goto('/eventos');
+    await page.getByRole('button', { name: /Retiro UI E2E/ }).click();
+    const modal = page.getByRole('dialog');
+    await expect(modal.getByText('Maria Tesoureira · Tesouraria')).toBeVisible();
+    await expect(modal.getByText(/Recebido R\$\s0,00 de R\$\s120,00/)).toBeVisible();
+    await modal.getByRole('switch').first().click();
+    await expect(modal.getByText('✅ Pago')).toBeVisible();
+    await expect(modal.getByText(/registrado por/)).toBeVisible();
+    await page.screenshot({ path: info.outputPath('eventos-pagamento.png') });
+    semErros(erros);
   });
 });

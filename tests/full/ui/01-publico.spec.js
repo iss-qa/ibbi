@@ -1,6 +1,7 @@
 // Páginas públicas: landing, planos, termos/privacidade, cadastro e versão mobile.
 const { test, expect } = require('@playwright/test');
 const { vigiar, semErros } = require('./util');
+const { cliente } = require('../helpers');
 
 test.describe('Páginas públicas', () => {
   test('landing: slogan, chamada para cadastro, demonstração e planos com os preços', async ({ page }) => {
@@ -56,6 +57,19 @@ test.describe('Páginas públicas', () => {
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
     const largura = await page.evaluate(() => document.documentElement.scrollWidth);
     expect(largura).toBeLessThanOrEqual(392);
+    await ctx.close();
+  });
+
+  test('link de cadastro (390px): orienta a enviar foto real da pessoa', async ({ browser, request }, info) => {
+    const { token } = await (await (await cliente(request)).post('/invitations', {})).json();
+    const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true });
+    const page = await ctx.newPage();
+    await page.goto(`/external/${token}`);
+    await expect(page.getByText(/Envie uma foto real sua/)).toBeVisible();
+    await expect(page.getByText(/Não use cards de bom dia/)).toBeVisible();
+    const largura = await page.evaluate(() => document.documentElement.scrollWidth);
+    expect(largura).toBeLessThanOrEqual(392);
+    await page.screenshot({ path: info.outputPath('cadastro-foto.png') });
     await ctx.close();
   });
 

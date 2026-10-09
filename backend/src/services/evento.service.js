@@ -6,6 +6,7 @@ const { pixCopiaECola } = require('../utils/pix');
 const { phoneVariants, toLocal } = require('../utils/phone');
 const { normalizeName } = require('../utils/person-rules');
 const { getTenant } = require('../tenancy/context');
+const { churchName } = require('../tenancy/brand');
 const { formatBr } = require('../utils/time');
 
 /**
@@ -19,8 +20,23 @@ const gerarCodigo = () => Array.from(crypto.randomBytes(5), (b) => ALFABETO[b % 
 const ATIVOS = ['inscrito', 'pago'];
 
 // Cidade do BR Code: a dos Dados da igreja (o campo do Pix antigo fica só como reserva).
-const pixConfig = (tenant = getTenant()) => ({ ...(tenant?.pix || {}), cidade: tenant?.cidade || tenant?.pix?.cidade });
+const cidadeIgreja = (tenant) => tenant?.cidade || tenant?.pix?.cidade;
+const pixConfig = (tenant = getTenant()) => ({ ...(tenant?.pix || {}), cidade: cidadeIgreja(tenant) });
 const pixPronto = (tenant = getTenant()) => Boolean(pixConfig(tenant).chave && pixConfig(tenant).nome && pixConfig(tenant).cidade);
+
+const recebeLider = (e) => e?.recebedor?.tipo === 'lider' && Boolean(e.recebedor.chave);
+// Pix do evento: a chave do líder/departamento, se o evento tiver uma; senão a da igreja.
+const pixDoEvento = (e, tenant = getTenant()) => (recebeLider(e)
+  ? { chave: e.recebedor.chave, nome: e.recebedor.nome, cidade: cidadeIgreja(tenant) }
+  : pixConfig(tenant));
+const pixProntoEvento = (e, tenant = getTenant()) => {
+  const cfg = pixDoEvento(e, tenant);
+  return Boolean(cfg.chave && cfg.nome && cfg.cidade);
+};
+// "João Silva · Tesouraria dos Jovens" ou o nome da igreja: vai na divulgação e na confirmação.
+const recebedorTexto = (e, tenant = getTenant()) => (recebeLider(e)
+  ? [e.recebedor.nome, e.recebedor.departamento].filter(Boolean).join(' · ')
+  : (tenant?.pix?.nome || churchName()));
 
 const criar = async (dados, user) => {
   for (let i = 0; i < 5; i += 1) {
@@ -37,8 +53,8 @@ const ocupadas = (e) => e.inscricoes.filter((i) => ATIVOS.includes(i.status)).le
 const vagasRestantes = (e) => (e.vagas ? Math.max(0, e.vagas - ocupadas(e)) : null);
 
 const pixDaInscricao = async (e, insc) => {
-  if (!e.valor || !pixPronto()) return null;
-  const cfg = pixConfig();
+  if (!e.valor || !pixProntoEvento(e)) return null;
+  const cfg = pixDoEvento(e);
   const copiaECola = pixCopiaECola({ chave: cfg.chave, nome: cfg.nome, cidade: cfg.cidade, valor: e.valor, txid: insc.txid || `${e.codigo}${String(insc._id).slice(-6)}`, descricao: e.titulo });
   const qr = await QRCode.toDataURL(copiaECola, { width: 600, margin: 2 });
   return { copiaECola, qr };
@@ -72,6 +88,7 @@ const inscreverPorWhatsApp = async ({ codigo, telefone, nome }) => {
 const resumo = (e) => ({
   id: String(e._id), titulo: e.titulo, data: formatBr(e.data), horario: e.horario, local: e.local, congregacao: e.congregacao,
   valor: e.valor, vagas: e.vagas, codigo: e.codigo, inscricoesAbertas: e.inscricoesAbertas,
+  recebedor: e.valor ? { tipo: recebeLider(e) ? 'lider' : 'igreja', texto: recebedorTexto(e), pix: pixProntoEvento(e) } : null,
   inscritos: ocupadas(e), pagos: e.inscricoes.filter((i) => i.status === 'pago').length,
   espera: e.inscricoes.filter((i) => i.status === 'espera').length, restantes: vagasRestantes(e),
 });
@@ -87,5 +104,5 @@ const promoverEspera = async (evento) => {
 };
 
 module.exports = {
-  INSCREVER_RE, criar, inscrever, inscreverPorWhatsApp, pixDaInscricao, pixPronto, resumo, vagasRestantes, promoverEspera, eventoAbertoPorCodigo, ATIVOS,
+  INSCREVER_RE, criar, inscrever, inscreverPorWhatsApp, pixDaInscricao, pixPronto, pixProntoEvento, recebedorTexto, resumo, vagasRestantes, promoverEspera, eventoAbertoPorCodigo, ATIVOS,
 };
