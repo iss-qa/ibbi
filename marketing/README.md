@@ -11,6 +11,7 @@ Material gerado a partir da landing page (`frontend/src/pages/Landing/`), com a 
 | `copy/roteiros.md` | roteiros dos vídeos e áudios, e 2 roteiros para gravar com pessoas |
 | `prompts/prompts-ia.md` | prompts de imagem, vídeo, voz, trilha e texto |
 | `src/` | fontes em HTML e scripts para regenerar tudo |
+| `campanha-quem-falta/` | campanha paga Meta/Google "Quem falta, faz falta": 3 variações em 4 formatos, 6 vídeos (ganchos A/B/C, 15s, "O Barnabé" e "Deixe as 99", em 9:16 e 4:5), peças orgânicas e guia de veiculação (ver o `README.md` da pasta) |
 
 ## Regenerar
 Rode a partir da raiz do repositório. É preciso ter Playwright com o Chromium em cache, ffmpeg e a voz `Luciana` do macOS.

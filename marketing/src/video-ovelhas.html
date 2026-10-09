@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>PastorIA · Vídeo Deixe as 99</title>
+<link rel="stylesheet" href="brand.css">
+<link rel="stylesheet" href="video.css">
+<style>
+  /* Conteúdo entre y=285 e y=1635: o corte 4:5 do feed sai do centro. */
+  .safe { padding: 300px 90px; }
+  .verse-v { font-family: var(--display); font-style: italic; font-weight: 600; font-size: 68px; line-height: 1.3; }
+  .ref { font-size: 34px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); margin-top: 50px; }
+  .trend { width: 900px; background: #fff; color: var(--navy); border-radius: 36px; padding: 44px 48px; text-align: left; box-shadow: 0 30px 70px rgba(0,0,0,.35); }
+  .trend h3 { font-size: 44px; display: flex; justify-content: space-between; align-items: center; }
+  .trend .tag { font-size: 30px; font-weight: 800; background: #fef3c7; color: #92400e; border-radius: 999px; padding: 10px 22px; }
+  .weeks { display: grid; grid-template-columns: repeat(8, 1fr); gap: 14px; margin-top: 40px; }
+  .wk { display: flex; flex-direction: column; align-items: center; gap: 12px; font-size: 24px; color: #64748b; font-weight: 600; }
+  .wk i { width: 70px; height: 70px; border-radius: 50%; display: grid; place-items: center; font-style: normal; font-size: 34px; color: #fff; font-weight: 800; }
+  .wk .p { background: #10b981; }
+  .wk .f { background: #ef4444; }
+  .split { display: flex; justify-content: space-between; margin-top: 30px; font-size: 30px; font-weight: 700; }
+  .phone .chat { font-size: 32px; text-align: left; }
+</style>
+</head>
+<body>
+<div class="stage bg-navy">
+  <div class="glow blue" style="width:800px;height:800px;top:-260px;left:-300px"></div>
+  <div class="glow gold" style="width:700px;height:700px;bottom:-260px;right:-240px"></div>
+
+  <!-- 1 · Versículo -->
+  <div class="scene" data-from="o1">
+    <div class="zoom center safe">
+      <div class="quote-mark display gold" style="font-size:220px;line-height:.6" data-in="o1+0" data-anim="fade">“</div>
+      <p class="verse-v" style="margin-top:30px" data-in="o1+0.2">Qual de vós, possuindo cem ovelhas e perdendo uma delas, não deixa as noventa e nove <span class="gold">e vai após a perdida?</span></p>
+      <p class="ref" data-in="o1+1.2" data-anim="fade">Lucas 15:4</p>
+    </div>
+  </div>
+
+  <!-- 2 · A que se afasta -->
+  <div class="scene" data-from="o2">
+    <div class="zoom center safe">
+      <div class="ill-flock" style="width:900px" data-in="o2+0" data-anim="fade"></div>
+      <h1 class="display h-md" style="margin-top:90px;font-size:92px" data-in="o2+1.2">Ninguém se afasta<br><span class="gold">de uma vez.</span></h1>
+    </div>
+  </div>
+
+  <!-- 3 · Esfriando -->
+  <div class="scene" data-from="o3">
+    <div class="zoom center safe">
+      <h1 class="display h-md" style="font-size:92px" data-in="o3+0.1">O PastorIA percebe<br><span class="gold">quem está esfriando.</span></h1>
+      <div class="trend" style="margin-top:70px" data-in="o3+0.6" data-anim="pop">
+        <h3><span>Carlos Lima</span><span class="tag" data-in="o3+3.0" data-anim="pop">📉 esfriando</span></h3>
+        <div class="weeks">
+          <div class="wk" data-in="o3+0.9" data-anim="pop"><i class="p">✓</i>ago</div>
+          <div class="wk" data-in="o3+1.05" data-anim="pop"><i class="p">✓</i>ago</div>
+          <div class="wk" data-in="o3+1.2" data-anim="pop"><i class="p">✓</i>ago</div>
+          <div class="wk" data-in="o3+1.35" data-anim="pop"><i class="p">✓</i>set</div>
+          <div class="wk" data-in="o3+1.7" data-anim="pop"><i class="f">✕</i>set</div>
+          <div class="wk" data-in="o3+1.95" data-anim="pop"><i class="p">✓</i>set</div>
+          <div class="wk" data-in="o3+2.2" data-anim="pop"><i class="f">✕</i>set</div>
+          <div class="wk" data-in="o3+2.45" data-anim="pop"><i class="f">✕</i>out</div>
+        </div>
+        <div class="split" data-in="o3+2.7" data-anim="fade"><span style="color:#059669">Antes: 4 de 4</span><span style="color:#dc2626">Agora: 1 de 4</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 · Aviso no WhatsApp -->
+  <div class="scene" data-from="o4">
+    <div class="center safe">
+      <p class="caption" data-in="o4+0.1">E avisa a liderança <span class="gold">no WhatsApp.</span></p>
+      <div class="phone" style="width:840px;margin-top:50px" data-in="o4+0.2">
+        <div class="screen">
+          <div class="head"><div class="avatar">B</div><div><div class="name">Barnabé · PastorIA</div><div class="status">online</div></div></div>
+          <div class="chat" style="height:820px;overflow:hidden;justify-content:flex-end">
+            <div class="bubble bot hl" data-in="o4+0.6" data-collapse="1">📉 <b>Carlos Lima</b> está esfriando: vinha todo domingo e agora veio 1 de 4.
+Sugestão: uma visita esta semana. Aviso o obreiro dele?<time>18:00 ✓✓</time></div>
+            <div class="bubble me" data-in="o4+2.6" data-anim="pop" data-collapse="1">sim<time>18:02 ✓✓</time></div>
+            <div class="bubble bot" data-in="o4+3.3" data-collapse="1">Avisei o Diácono Paulo ✅ Ele vai visitar o Carlos na quinta.<time>18:02 ✓✓</time></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 · A volta -->
+  <div class="scene" data-from="o5">
+    <div class="zoom center safe">
+      <div class="ill-flock" style="width:900px"></div>
+      <h1 class="display h-md" style="margin-top:90px;font-size:96px" data-in="o5+0.4">Nenhuma ovelha<br><span class="shimmer">esquecida.</span></h1>
+    </div>
+  </div>
+
+  <!-- 6 · CTA -->
+  <div class="scene" data-from="o6" data-hold="1">
+    <div class="zoom center safe">
+      <div class="logo" data-in="o6+0.1" data-anim="pop"><img src="pastoria-mark.svg" style="width:150px;height:150px"><span class="word" style="font-size:110px">Pastor<span>IA</span></span></div>
+      <h2 class="display h-md" style="margin-top:70px;font-size:96px" data-in="o6+0.4">Teste grátis<br><span class="shimmer">por 14 dias.</span></h2>
+      <span class="cta" style="margin-top:70px;font-size:46px;padding:34px 60px" data-in="o6+0.9" data-anim="pop">Quero cuidar de cada ovelha</span>
+      <p class="small" data-in="o6+1.3" data-anim="fade">Sem cartão · Sem fidelidade</p>
+      <p style="font-size:40px;font-weight:700;color:var(--gold);margin-top:40px" data-in="o6+1.5" data-anim="fade">pastoria.issqa.com.br</p>
+    </div>
+  </div>
+</div>
+<script src="illus.js"></script>
+<script src="video-engine.js"></script>
+<script>
+  // A centésima ovelha começa junto do rebanho, se afasta (cena 2) e volta (cena 5).
+  const PERTO = { x: -175, y: -140 };
+  const clamp = (v) => Math.min(1, Math.max(0, v));
+  const ease = (p) => (p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2);
+  window.onFrame = (t, at) => {
+    const sai = ease(clamp((t - at('o2+0.6')) / 2.6));
+    const volta = ease(clamp((t - at('o5+0.2')) / 2.2));
+    const longe = sai * (1 - volta); // 0 = no rebanho, 1 = afastada
+    document.querySelectorAll('.stray').forEach((g) => {
+      g.style.transform = `translate(${PERTO.x * (1 - longe)}px, ${PERTO.y * (1 - longe)}px)`;
+    });
+    document.querySelectorAll('.stray-path').forEach((p) => { p.style.opacity = longe; });
+  };
+</script>
+</body>
+</html>

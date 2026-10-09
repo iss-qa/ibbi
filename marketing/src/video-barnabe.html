@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>PastorIA · Vídeo Barnabé</title>
+<link rel="stylesheet" href="brand.css">
+<link rel="stylesheet" href="video.css">
+<style>
+  /* Conteúdo entre y=285 e y=1635: o corte 4:5 do feed sai do centro. */
+  .safe { padding: 300px 90px; }
+  .phone .chat { font-size: 32px; text-align: left; }
+  .clock { font-size: 40px; font-weight: 800; letter-spacing: .16em; text-transform: uppercase; color: var(--gold); }
+  .mstack { position: relative; width: 900px; height: 860px; margin-top: 60px; }
+  .mstack > div { position: absolute; inset: 0; display: flex; flex-direction: column; gap: 22px; }
+  .mstack .bubble { font-size: 36px; max-width: 92%; color: #1e293b; }
+  .eyebrow-v { font-size: 34px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--gold); }
+</style>
+</head>
+<body>
+<div class="stage bg-navy">
+  <div class="glow blue" style="width:800px;height:800px;top:-260px;right:-300px"></div>
+  <div class="glow gold" style="width:700px;height:700px;bottom:-260px;left:-240px"></div>
+
+  <!-- 1 · Gancho: a pergunta -->
+  <div class="scene" data-from="b1">
+    <div class="zoom center safe">
+      <p class="clock" data-in="b1+0.1" data-anim="fade">Domingo · 21:40</p>
+      <h1 class="display h-md" style="margin-top:50px;font-size:100px" data-in="b1+0.3">E se você pudesse<br><span class="gold">perguntar?</span></h1>
+      <div class="bubble me" style="font-size:40px;margin-top:80px;align-self:center;color:#1e293b;max-width:860px" data-in="b1+1.2" data-anim="pop">Barnabé, quem está faltando há 3 semanas?<time>21:40 ✓✓</time></div>
+    </div>
+  </div>
+
+  <!-- 2–3 · A conversa -->
+  <div class="scene" data-from="b2" data-to="b3">
+    <div class="center safe">
+      <p class="caption" data-in="b2+0.1">O Barnabé <span class="gold">responde na hora.</span></p>
+      <div class="phone" style="width:840px;margin-top:50px" data-in="b2+0.2">
+        <div class="screen">
+          <div class="head"><div class="avatar">B</div><div><div class="name">Barnabé · PastorIA</div><div class="status">online</div></div></div>
+          <div class="chat" style="height:880px;overflow:hidden;justify-content:flex-end">
+            <div class="bubble me" data-in="b2+0.2" data-collapse="1">Barnabé, quem está faltando há 3 semanas?<time>21:40 ✓✓</time></div>
+            <div class="typing" data-in="b2+0.6" data-out="b2+1.4" data-collapse="1"><i></i><i></i><i></i></div>
+            <div class="bubble bot" data-in="b2+1.5" data-collapse="1">Encontrei 3 pessoas 👇
+• <b>Ana Souza</b>: 3 domingos → 📞 ligar
+• <b>Carlos Lima</b>: 4 domingos → 🏠 visitar
+• <b>Júlia Reis</b>: 3 domingos → 🙏 orar
+Preparo as mensagens?<time>21:40 ✓✓</time></div>
+            <div class="bubble me" data-in="b3+0.3" data-anim="pop" data-collapse="1">sim, começa pela Ana<time>21:41 ✓✓</time></div>
+            <div class="bubble bot hl" data-in="b3+1.2" data-collapse="1">“Oi, Ana! Sentimos sua falta nesses domingos. Está tudo bem? Estamos orando por você. 💛”
+Envio?<time>21:41 ✓✓</time></div>
+            <div class="bubble me" data-in="b3+3.0" data-anim="pop" data-collapse="1">enviar<time>21:41 ✓✓</time></div>
+            <div class="bubble bot" data-in="b3+3.6" data-collapse="1">Enviado ✅<time>21:41 ✓✓</time></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4 · É só perguntar -->
+  <div class="scene" data-from="b4">
+    <div class="center safe">
+      <p class="eyebrow-v" data-in="b4+0.1" data-anim="fade">É só perguntar</p>
+      <div class="mstack">
+        <div data-in="b4+0.2" data-out="b4+1.9">
+          <div class="bubble me" style="align-self:flex-end">Quem faz aniversário esta semana?</div>
+          <div class="bubble bot" data-in="b4+0.7">🎂 Carla (qua), Pedro (sex) e Dona Lúcia (dom). Quer que eu prepare os parabéns?</div>
+        </div>
+        <div data-in="b4+2.0" data-out="b4+3.7">
+          <div class="bubble me" style="align-self:flex-end">Como foi a EBD domingo?</div>
+          <div class="bubble bot" data-in="b4+2.5">📋 87% de presença. Jovens subiu 12%. 2 retornos e 3 pessoas precisando de contato.</div>
+        </div>
+        <div data-in="b4+3.8">
+          <div class="bubble me" style="align-self:flex-end">Quem visitou pela primeira vez?</div>
+          <div class="bubble bot" data-in="b4+4.3">👋 Marcos e Renata. Os dois já receberam o “obrigado pela visita” e estão na jornada do visitante.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 5 · Frase -->
+  <div class="scene" data-from="b5">
+    <div class="zoom center safe">
+      <h1 class="display h-lg" data-in="b5+0.1">A IA avisa.</h1>
+      <h1 class="display h-lg" style="margin-top:20px" data-in="b5+0.9"><span class="shimmer">O pastor abraça.</span></h1>
+    </div>
+  </div>
+
+  <!-- 6 · CTA -->
+  <div class="scene" data-from="b6" data-hold="1">
+    <div class="zoom center safe">
+      <div class="logo" data-in="b6+0.1" data-anim="pop"><img src="pastoria-mark.svg" style="width:150px;height:150px"><span class="word" style="font-size:110px">Pastor<span>IA</span></span></div>
+      <h2 class="display h-md" style="margin-top:70px;font-size:96px" data-in="b6+0.4">Teste grátis<br><span class="shimmer">por 14 dias.</span></h2>
+      <span class="cta" style="margin-top:70px;font-size:46px;padding:34px 60px" data-in="b6+0.9" data-anim="pop">Testar o PastorIA grátis</span>
+      <p class="small" data-in="b6+1.3" data-anim="fade">Sem cartão · Sem fidelidade</p>
+      <p style="font-size:40px;font-weight:700;color:var(--gold);margin-top:40px" data-in="b6+1.5" data-anim="fade">pastoria.issqa.com.br</p>
+    </div>
+  </div>
+</div>
+<script src="video-engine.js"></script>
+</body>
+</html>

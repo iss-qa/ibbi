@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>PastorIA · Vídeo campanha Quem falta</title>
+<link rel="stylesheet" href="brand.css">
+<link rel="stylesheet" href="video.css">
+<style>
+  /* Tudo que importa fica entre y=285 e y=1635: o corte 4:5 do feed (1080×1350) é tirado do centro. */
+  .safe { padding: 300px 90px; }
+  .chips { display: flex; gap: 18px; justify-content: center; }
+  .chip { display: inline-flex; align-items: center; gap: 12px; font-size: 38px; font-weight: 700; border-radius: 999px; padding: 16px 30px;
+    background: rgba(255,255,255,.07); border: 2px solid rgba(255,255,255,.16); color: rgba(255,255,255,.9); }
+  .chip { white-space: nowrap; }
+  .chips.sm .chip { font-size: 32px; padding: 14px 22px; gap: 10px; }
+  .chip .x { color: #f87171; font-weight: 800; }
+  .sheet { width: 860px; background: #fff; border-radius: 28px; overflow: hidden; box-shadow: 0 30px 70px rgba(0,0,0,.35); color: var(--navy); text-align: left; }
+  .sheet .t { background: #1d6f42; color: #fff; font-size: 26px; font-weight: 700; padding: 18px 28px; }
+  .sheet table { width: 100%; border-collapse: collapse; font-size: 24px; }
+  .sheet td { border: 1px solid #e2e8f0; padding: 12px 14px; color: #64748b; }
+  .sheet td:first-child { color: var(--navy); font-weight: 600; }
+  .paper { width: 820px; background: #fdfaf2; border-radius: 18px; padding: 44px 50px; color: var(--navy); text-align: left; box-shadow: 0 30px 70px rgba(0,0,0,.35); transform: rotate(-2deg); }
+  .paper h4 { font-size: 34px; border-bottom: 3px solid var(--navy); padding-bottom: 14px; margin-bottom: 10px; }
+  .paper .r { display: flex; justify-content: space-between; font-size: 38px; padding: 14px 0; border-bottom: 2px dashed #cbd5e1; }
+  .paper .q { color: var(--gold); font-weight: 800; font-family: var(--display); }
+  .mstack { position: relative; width: 900px; height: 900px; margin-top: 50px; }
+  .mstack > div { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; }
+  .mlabel { font-family: var(--display); font-weight: 700; font-size: 84px; line-height: 1.05; margin-bottom: 50px; }
+  .phone .chat { font-size: 32px; }
+  .mini { width: 820px; }
+  .url { font-size: 40px; font-weight: 700; color: var(--gold); margin-top: 40px; }
+</style>
+</head>
+<body>
+<div class="stage bg-navy">
+  <div class="glow blue" style="width:800px;height:800px;top:-260px;left:-300px"></div>
+  <div class="glow gold" style="width:700px;height:700px;bottom:-260px;right:-240px"></div>
+
+  <!-- GANCHO A · 3 domingos -->
+  <div class="scene" data-from="h" data-hook="a">
+    <div class="zoom center safe">
+      <div class="chips">
+        <span class="chip" data-in="h+0.2" data-anim="pop">Dom 14 <span class="x">✕</span></span>
+        <span class="chip" data-in="h+0.7" data-anim="pop">Dom 21 <span class="x">✕</span></span>
+        <span class="chip" data-in="h+1.2" data-anim="pop">Dom 28 <span class="x">✕</span></span>
+      </div>
+      <div class="ill-seats" data-cols="6" data-rows="3" data-empty="8" style="width:880px;margin-top:70px" data-in="h+0" data-anim="fade"></div>
+      <h1 class="display h-md" style="margin-top:70px" data-in="h+1.6">3 domingos<br><span class="gold">sem vir.</span></h1>
+    </div>
+  </div>
+
+  <!-- GANCHO B · quem faltou na EBD -->
+  <div class="scene" data-from="h" data-hook="b">
+    <div class="zoom center safe">
+      <h1 class="display h-md" style="font-size:96px" data-in="h+0.1">Quem faltou na EBD <span class="gold">domingo passado?</span></h1>
+      <div class="paper" style="margin-top:80px" data-in="h+0.8" data-anim="pop">
+        <h4>Chamada · Jovens</h4>
+        <div class="r"><span>Ana Souza</span><span class="q">?</span></div>
+        <div class="r"><span>Bruno Alves</span><span class="q">?</span></div>
+        <div class="r"><span>Carla Dias</span><span class="q">?</span></div>
+        <div class="r" style="border:0"><span>Daniel Rocha</span><span class="q">?</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GANCHO C · banco vazio há um mês -->
+  <div class="scene" data-from="h" data-hook="c">
+    <div class="zoom center safe">
+      <div class="ill-seats" data-cols="5" data-rows="1" data-empty="2" style="width:900px" data-in="h+0" data-anim="fade"></div>
+      <div class="chips sm" style="margin-top:70px">
+        <span class="chip" data-in="h+0.3" data-anim="pop">Sem 1 <span class="x">✕</span></span>
+        <span class="chip" data-in="h+0.6" data-anim="pop">Sem 2 <span class="x">✕</span></span>
+        <span class="chip" data-in="h+0.9" data-anim="pop">Sem 3 <span class="x">✕</span></span>
+        <span class="chip" data-in="h+1.2" data-anim="pop">Sem 4 <span class="x">✕</span></span>
+      </div>
+      <h1 class="display h-md" style="margin-top:80px;font-size:96px" data-in="h+0.5">Esse banco ficou vazio<br><span class="gold">por um mês.</span></h1>
+    </div>
+  </div>
+
+  <!-- Ninguém percebeu (só no corte de 30s) -->
+  <div class="scene" data-from="p" data-only30>
+    <div class="zoom center safe">
+      <div class="sheet" style="transform:rotate(-3deg)" data-in="p+0" data-anim="fade">
+        <div class="t">frequencia_FINAL (3).xlsx</div>
+        <table>
+          <tr><td>Nome</td><td>07/09</td><td>14/09</td><td>21/09</td><td>28/09</td></tr>
+          <tr><td>Ana Souza</td><td>P</td><td></td><td></td><td></td></tr>
+          <tr><td>Bruno Alves</td><td>P</td><td>P</td><td>?</td><td></td></tr>
+          <tr><td>Carla Dias</td><td></td><td>P</td><td>P</td><td>?</td></tr>
+          <tr><td>Daniel Rocha</td><td>P</td><td></td><td>P</td><td></td></tr>
+        </table>
+      </div>
+      <h1 class="display h-lg" style="margin-top:90px" data-in="p+0.2">Ninguém percebeu.</h1>
+      <p class="caption" style="margin-top:50px" data-in="p+1.3">Não por falta de amor.</p>
+      <p class="caption gold" style="margin-top:10px" data-in="p+2.6">Por falta de tempo.</p>
+    </div>
+  </div>
+
+  <!-- Alerta no WhatsApp -->
+  <div class="scene" data-from="a">
+    <div class="center safe">
+      <p class="caption" data-in="a+0.1">Alerta no seu <span class="gold">WhatsApp ✅</span></p>
+      <div class="phone" style="width:840px;margin-top:50px" data-in="a+0.2">
+        <div class="screen">
+          <div class="head"><div class="avatar">B</div><div><div class="name">Barnabé · PastorIA</div><div class="status">online</div></div></div>
+          <div class="chat" style="height:860px;overflow:hidden;justify-content:flex-end">
+            <div class="bubble bot hl" data-in="a+0.6" data-collapse="1">⚠️ <b>Ana Souza</b> faltou 3 domingos seguidos. Quer que eu prepare uma mensagem de cuidado?<time>11:40 ✓✓</time></div>
+            <div class="bubble me" data-in="a+2.2" data-anim="pop" data-collapse="1">sim<time>11:41 ✓✓</time></div>
+            <div class="typing" data-in="a+2.6" data-out="a+3.3" data-collapse="1"><i></i><i></i><i></i></div>
+            <div class="bubble bot" data-in="a+3.4" data-collapse="1">Pronto 💛
+“Oi, Ana! Sentimos sua falta no domingo. Está tudo bem? Estamos orando por você.”<time>11:41 ✓✓</time></div>
+            <div class="bubble me" data-in="a+4.6" data-anim="pop" data-collapse="1">enviar<time>11:42 ✓✓</time></div>
+            <div class="bubble bot" data-in="a+5.2" data-collapse="1">Enviado ✅ Avisei a liderança.<time>11:42 ✓✓</time></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chamada · Relatório · Aniversários (só no corte de 30s) -->
+  <div class="scene" data-from="m" data-only30>
+    <div class="center safe">
+      <div class="mstack">
+        <div data-in="m+0.1" data-out="m+2.2">
+          <p class="mlabel">Chamada <span class="gold">em segundos.</span></p>
+          <div class="phone mini"><div class="screen"><div class="chat">
+            <div class="bubble bot">Quem faltou hoje na classe <b>Jovens</b>?
+1 Ana  2 Bruno  3 Carla  4 Daniel  5 Eduarda<time>11:30 ✓✓</time></div>
+            <div class="bubble me" data-in="m+0.9" data-anim="pop">2 e 4<time>11:30 ✓✓</time></div>
+            <div class="bubble bot" data-in="m+1.4">Anotado ✅ Chamada feita.<time>11:30 ✓✓</time></div>
+          </div></div></div>
+        </div>
+        <div data-in="m+2.3" data-out="m+4.4">
+          <p class="mlabel">Relatório <span class="gold">pronto.</span></p>
+          <div class="hl-card report">
+            <div style="background:var(--navy-2);color:#fff;display:flex;justify-content:space-between;padding:28px 40px;font-size:30px;font-weight:600"><span>Semana · Jovens</span><span>87% presentes</span></div>
+            <div style="display:flex;justify-content:space-between;padding:26px 40px;font-size:36px;border-bottom:1px solid #e2e8f0"><b>Retornos</b><span>2 💛</span></div>
+            <div style="display:flex;justify-content:space-between;padding:26px 40px;font-size:36px;border-bottom:1px solid #e2e8f0"><b>Precisam de contato</b><span>3 ⚠️</span></div>
+            <div style="display:flex;justify-content:space-between;padding:26px 40px;font-size:36px"><b>Esfriando</b><span>1 📉</span></div>
+          </div>
+        </div>
+        <div data-in="m+4.5">
+          <p class="mlabel">Aniversários e visitantes <span class="gold">no automático.</span></p>
+          <div class="phone mini"><div class="screen"><div class="chat">
+            <div class="bubble bot">🎂 <b>Feliz aniversário, Carla!</b> Que o Senhor continue a guiar seus passos. 🙏<time>08:00 ✓✓</time></div>
+            <div class="bubble bot" data-in="m+5.3">👋 Pedro, obrigado pela visita no domingo! Foi uma alegria ter você com a gente.<time>10:00 ✓✓</time></div>
+          </div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reencontro: a cadeira volta a ser ocupada -->
+  <div class="scene" data-from="r">
+    <div class="zoom center safe">
+      <h1 class="display h-md" data-in="r+0.1">Quem falta,<br><span class="shimmer">faz falta.</span></h1>
+      <div class="ill-seats" data-cols="6" data-rows="3" data-empty="8" data-fill="1" data-fill-in="r+0.5" style="width:880px;margin-top:70px"></div>
+      <div class="bubble me" style="font-size:34px;max-width:820px;margin-top:60px;align-self:center;text-align:left;color:#1e293b" data-in="r+1.3" data-anim="pop"><b>Ana:</b> Obrigada por lembrar de mim. Domingo estou aí! 💛<time>14:05 ✓✓</time></div>
+    </div>
+  </div>
+
+  <!-- CTA -->
+  <div class="scene" data-from="c" data-hold="1">
+    <div class="zoom center safe">
+      <div class="logo" data-in="c+0.1" data-anim="pop"><img src="pastoria-mark.svg" style="width:150px;height:150px"><span class="word" style="font-size:110px">Pastor<span>IA</span></span></div>
+      <h2 class="display h-md" style="margin-top:70px;font-size:96px" data-in="c+0.4">Teste grátis<br><span class="shimmer">por 14 dias.</span></h2>
+      <span class="cta" style="margin-top:70px;font-size:46px;padding:34px 60px" data-in="c+0.9" data-anim="pop">Começar 14 dias grátis</span>
+      <p class="small" data-in="c+1.3" data-anim="fade">Sem cartão · Sem fidelidade</p>
+      <p class="url" data-in="c+1.5" data-anim="fade">pastoria.issqa.com.br</p>
+    </div>
+  </div>
+</div>
+<script>
+  // ?hook=a|b|c escolhe o gancho; ?cut=15 remove as cenas que só existem no corte de 30s
+  (function () {
+    const q = new URLSearchParams(location.search);
+    const hook = q.get('hook') || 'a';
+    document.querySelectorAll('.scene[data-hook]').forEach((el) => { if (el.dataset.hook !== hook) el.remove(); });
+    if (q.get('cut') === '15') document.querySelectorAll('[data-only30]').forEach((el) => el.remove());
+  })();
+</script>
+<script src="illus.js"></script>
+<script src="video-engine.js"></script>
+</body>
+</html>

@@ -1,5 +1,7 @@
 // Gera os vídeos (MP4 9:16) e os spots de áudio do PastorIA.
-// Uso (da raiz do repo): node marketing/src/render-videos.js [manifesto|chamada|audios]
+// Uso (da raiz do repo): node marketing/src/render-videos.js [manifesto|chamada|audios|campanha|qf-a|qf-b|qf-c|qf-15|qf-barnabe|qf-ovelhas]
+//   campanha = os 6 vídeos da campanha "Quem falta, faz falta" (ganchos A/B/C de 30s, corte de 15s,
+//   variações "O Barnabé" e "Deixe as 99"), cada um em 9:16 (Reels/Stories) e 4:5 (feed, recortado do centro).
 // Requer: macOS `say` (voz Luciana), ffmpeg, Playwright (Chromium em cache).
 //
 // A narração aqui é um GUIA gerado por TTS do sistema. Para a versão final, grave um locutor
@@ -44,6 +46,80 @@ const VIDEOS = {
       { key: 'c7', min: 4.0, text: 'PastorIA. Quem falta, faz falta. Teste grátis por catorze dias.' },
     ],
   },
+};
+
+// Campanha "Quem falta, faz falta": mesmo vídeo, troca só o gancho (teste A/B) + corte de 15s
+const QF_HOOKS = {
+  a: 'Tem alguém que não vem à igreja há três domingos.',
+  b: 'Você sabe quem faltou na Escola Bíblica domingo passado?',
+  c: 'Esse banco ficou vazio por um mês inteiro.',
+};
+const QF_DIR = 'campanha-quem-falta/videos';
+for (const hook of Object.keys(QF_HOOKS)) {
+  VIDEOS[`qf-${hook}`] = {
+    html: 'video-quemfalta.html',
+    query: `?hook=${hook}`,
+    out: `${QF_DIR}/qf-30s-gancho-${hook}-9x16.mp4`,
+    crop45: true,
+    rate: 192,
+    pad: 0.5,
+    segments: [
+      { key: 'h', min: 3.0, text: QF_HOOKS[hook] },
+      { key: 'p', min: 4.4, text: 'Ninguém percebe. Não por falta de amor. Por falta de tempo.' },
+      { key: 'a', min: 6.6, text: 'O PastorIA avisa a liderança no WhatsApp quando alguém começa a se afastar.' },
+      { key: 'm', min: 6.8, text: 'Chamada em segundos. Relatório pronto. Aniversários e visitantes no automático.' },
+      { key: 'r', min: 4.0, text: 'E aquela pessoa volta a ser cuidada.' },
+      { key: 'c', min: 4.0, text: 'PastorIA. Teste grátis por catorze dias.' },
+    ],
+  };
+}
+VIDEOS['qf-15'] = {
+  html: 'video-quemfalta.html',
+  query: '?hook=a&cut=15',
+  out: `${QF_DIR}/qf-15s-9x16.mp4`,
+  crop45: true,
+  rate: 192,
+  pad: 0.5,
+  segments: [
+    { key: 'h', min: 2.6, text: 'Três domingos sem vir.' },
+    { key: 'a', min: 5.4, text: 'O PastorIA avisa a liderança no WhatsApp quando alguém começa a se afastar.' },
+    { key: 'r', min: 3.0, text: 'E ajuda a trazer cada um de volta.' },
+    { key: 'c', min: 3.0, text: 'PastorIA. Teste grátis por catorze dias.' },
+  ],
+};
+
+// Variação "O Barnabé" (V2): o líder pergunta, a IA responde com nomes e o que fazer
+VIDEOS['qf-barnabe'] = {
+  html: 'video-barnabe.html',
+  out: `${QF_DIR}/qf-30s-barnabe-9x16.mp4`,
+  crop45: true,
+  rate: 192,
+  pad: 0.5,
+  segments: [
+    { key: 'b1', min: 3.4, text: 'E se você pudesse perguntar quem está faltando, e ter a resposta na hora?' },
+    { key: 'b2', min: 4.6, text: 'O Barnabé, assistente do PastorIA, responde no WhatsApp com os nomes e o que fazer.' },
+    { key: 'b3', min: 4.6, text: 'Com um sim, ele prepara a mensagem de cuidado. Você revisa e envia.' },
+    { key: 'b4', min: 6.0, text: 'Aniversariantes, frequência da Escola Bíblica, visitantes. É só perguntar.' },
+    { key: 'b5', min: 3.2, text: 'A IA avisa. O pastor abraça.' },
+    { key: 'b6', min: 4.0, text: 'PastorIA. Teste grátis por catorze dias.' },
+  ],
+};
+
+// Variação "Deixe as 99" (V3): a ovelha que se afasta, o sinal de esfriamento e a volta
+VIDEOS['qf-ovelhas'] = {
+  html: 'video-ovelhas.html',
+  out: `${QF_DIR}/qf-30s-ovelhas-9x16.mp4`,
+  crop45: true,
+  rate: 186,
+  pad: 0.5,
+  segments: [
+    { key: 'o1', min: 4.6, text: 'Qual de vós, tendo cem ovelhas e perdendo uma, não deixa as noventa e nove e vai atrás da perdida?' },
+    { key: 'o2', min: 4.0, text: 'Ninguém se afasta de uma vez.' },
+    { key: 'o3', min: 5.0, text: 'O PastorIA percebe quem está esfriando: vinha todo domingo e começou a faltar.' },
+    { key: 'o4', min: 5.0, text: 'E avisa a liderança no WhatsApp, com uma sugestão do que fazer.' },
+    { key: 'o5', min: 3.6, text: 'Nenhuma ovelha esquecida.' },
+    { key: 'o6', min: 4.0, text: 'PastorIA. Teste grátis por catorze dias.' },
+  ],
 };
 
 // Spots só de áudio (rádio, WhatsApp, podcast, status)
@@ -124,6 +200,7 @@ async function renderVideo(name) {
   const dir = path.join(TMP, name);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(path.join(dir, 'frames'), { recursive: true });
+  fs.mkdirSync(path.dirname(path.join(ROOT, cfg.out)), { recursive: true });
 
   // 1) narração → linha do tempo
   const timeline = {};
@@ -131,8 +208,8 @@ async function renderVideo(name) {
   let t = 0;
   for (const seg of cfg.segments) {
     const file = path.join(dir, `${seg.key}.wav`);
-    const d = tts(seg.text, file);
-    const len = Math.max(seg.min, d + 0.9);
+    const d = tts(seg.text, file, cfg.rate);
+    const len = Math.max(seg.min, d + (cfg.pad ?? 0.9));
     timeline[seg.key] = { start: t, end: t + len };
     narrations.push({ file, at: t + 0.3 });
     t += len;
@@ -143,7 +220,7 @@ async function renderVideo(name) {
   // 2) quadros
   const browser = await chromium.launch({ executablePath: process.env.CHROME_PATH || CHROME });
   const page = await browser.newPage({ viewport: { width: 1080, height: 1920 } });
-  await page.goto('file://' + path.join(__dirname, cfg.html));
+  await page.goto('file://' + path.join(__dirname, cfg.html) + (cfg.query || ''));
   await page.evaluate(() => document.fonts.ready);
   await page.evaluate((tl) => window.setup(tl), timeline);
   const frames = Math.ceil(total * FPS);
@@ -165,7 +242,13 @@ async function renderVideo(name) {
     '-c:a', 'copy', '-shortest', path.join(ROOT, cfg.out)]);
   // versão sem narração (para usar com trilha própria / locução gravada)
   sh('ffmpeg', ['-y', '-loglevel', 'error', '-i', path.join(ROOT, cfg.out), '-an', '-c:v', 'copy', path.join(ROOT, cfg.out.replace('.mp4', '-sem-audio.mp4'))]);
-  console.log('ok', cfg.out);
+  // corte 4:5 para o feed (o layout mantém o conteúdo entre y=285 e y=1635)
+  if (cfg.crop45) {
+    const out45 = path.join(ROOT, cfg.out.replace('-9x16', '-4x5'));
+    sh('ffmpeg', ['-y', '-loglevel', 'error', '-i', path.join(ROOT, cfg.out), '-vf', 'crop=1080:1350:0:285',
+      '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-crf', '20', '-preset', 'medium', '-movflags', '+faststart', '-c:a', 'copy', out45]);
+  }
+  console.log('ok', cfg.out, total.toFixed(1) + 's');
 }
 
 function renderAudios() {
@@ -190,5 +273,7 @@ function renderAudios() {
   const which = process.argv.slice(2);
   const all = which.length === 0;
   if (all || which.includes('audios')) renderAudios();
-  for (const name of Object.keys(VIDEOS)) if (all || which.includes(name)) await renderVideo(name);
+  for (const name of Object.keys(VIDEOS)) {
+    if (all || which.includes(name) || (which.includes('campanha') && name.startsWith('qf-'))) await renderVideo(name);
+  }
 })().catch((e) => { console.error(e.stderr?.toString() || e); process.exit(1); });

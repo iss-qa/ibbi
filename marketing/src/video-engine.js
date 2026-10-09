@@ -6,6 +6,7 @@
 //   <div class="scene" data-from="seg1" data-to="seg3">   visível do início de seg1 ao fim de seg3
 //   <el data-in="seg2+0.4" data-anim="up|fade|pop|left" data-dur="0.6" data-out="seg3+1">
 //   <el class="typing" data-in=".." data-out="..">       pontinhos de "digitando…" animados
+//   window.onFrame = (t, at) => {…}                       animação própria da página (at('seg+1') → segundos)
 (function () {
   let T = {}; // { segKey: { start, end } }
   const FADE = 0.45;
@@ -58,6 +59,9 @@
     document.querySelectorAll('.glow').forEach((g, i) => {
       g.style.translate = `${Math.sin(t * 0.35 + i) * 40}px ${Math.cos(t * 0.3 + i) * 30}px`;
     });
+
+    // animação própria da página (ex.: ovelha que se afasta e volta), com o mesmo relógio
+    if (typeof window.onFrame === 'function') window.onFrame(t, at);
 
     // barra de progresso das contas (opcional)
     document.querySelectorAll('[data-count-to]').forEach((el) => {
