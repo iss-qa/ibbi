@@ -23,6 +23,9 @@ const registrarComunicacao = async (data) => {
 const triggerNovoDecididoWhatsApp = (person, userId) => {
   setImmediate(async () => {
     try {
+      // 0. Jornada de 30 dias (acolhimento até a pessoa se firmar na igreja)
+      await require('./jornada.service').iniciarJornada(person).catch((err) => console.error('[JORNADA] Falha ao iniciar:', err.message));
+
       // 1. Send welcome to the novo decidido
       if (person.celular) {
         const msg = templates.boasVindasNovoDecidido(
@@ -119,6 +122,9 @@ const triggerNovoDecididoWhatsApp = (person, userId) => {
 const triggerVisitanteWhatsApp = (person, userId) => {
   setImmediate(async () => {
     try {
+      // 0. Jornada de 30 dias (acolhimento até a pessoa se firmar na igreja)
+      await require('./jornada.service').iniciarJornada(person).catch((err) => console.error('[JORNADA] Falha ao iniciar:', err.message));
+
       // 1. Send welcome to the visitante
       if (person.celular) {
         const msg = templates.boasVindasVisitante(

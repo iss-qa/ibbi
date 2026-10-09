@@ -86,6 +86,11 @@ const computeStreaks = (sessions, labelOf) => {
       presencas: presentes,
       taxaPresenca: total ? Math.round((presentes / total) * 100) : 0,
       tendencia: tr !== null && ta !== null ? Math.round((tr - ta) * 100) : null,
+      // Esfriando: vinha bem (≥75% nos 4 anteriores) e caiu (≤50% nos 4 últimos) sem ainda
+      // acumular faltas seguidas — o alerta chega antes da ausência virar distância.
+      esfriando: total >= 6 && ta !== null && tr !== null && ta >= 0.75 && tr <= 0.5 && s.faltasConsecutivas < 2,
+      taxaRecente: tr !== null ? Math.round(tr * 100) : null,
+      taxaAnterior: ta !== null ? Math.round(ta * 100) : null,
       score,
       nivel: levelFor(s.faltasConsecutivas, semanasAlerta),
     };
@@ -140,9 +145,14 @@ const overview = async ({ congregacao } = {}) => {
       critico: emRisco.filter((s) => s.nivel === 'critico').length,
       alertasAbertos: alertas.filter((a) => a.status === 'aberto').length,
       emContato: alertas.filter((a) => a.status === 'em_contato').length,
+      esfriando: stats.filter((s) => s.esfriando).length,
       taxaMedia: stats.length ? Math.round(stats.reduce((acc, s) => acc + s.taxaPresenca, 0) / stats.length) : 0,
     },
     emRisco: emRisco.map((s) => ({ ...s, alerta: alertaPor.get(alertKey(s)) || null })),
+    // Queda de frequência sem faltas seguidas (quem já está em risco fica de fora).
+    esfriando: stats
+      .filter((s) => s.esfriando && !emRisco.some((r) => String(r.personId) === String(s.personId)))
+      .sort((a, b) => (a.tendencia ?? 0) - (b.tendencia ?? 0)),
     alertas,
   };
 };

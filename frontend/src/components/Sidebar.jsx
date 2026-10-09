@@ -53,6 +53,15 @@ const navIconMap = {
       <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2m16 0v-2a4 4 0 00-3-3.87M12 7a4 4 0 11-8 0 4 4 0 018 0zm8 2a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
   ),
+  '/jornada': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21s-6-4.35-6-10a6 6 0 1112 0c0 5.65-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></svg>
+  ),
+  '/cultos': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2v2h-2zM18 18h2v2h-2zM14 18h2M18 14h2" /></svg>
+  ),
+  '/escalas': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="2" /><path strokeLinecap="round" d="M8 3v4M16 3v4M3.5 10h17M8 14l2 2 4-4" /></svg>
+  ),
   '/cuidado': (
     <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.5l2.5-2 3 3 4-6 3 4 2.5-1.5M5 19h14" />
@@ -143,10 +152,13 @@ const navItemsByRole = (role, user, features = {}) => {
     { to: '/approvals', label: 'Aprovações' },
     { to: '/whatsapp/central', label: 'Central WhatsApp' },
     { to: '/cuidado', label: 'Cuidado Pastoral' },
+    ...(features.jornadaVisitante ? [{ to: '/jornada', label: 'Jornada do Visitante' }] : []),
     ...(features.agenteWhatsApp ? [{ to: '/assistente', label: 'Assistente IA' }] : []),
     { to: '/projeto-amigo', label: 'Projeto Amigo' },
     { to: '/ebd', label: 'EBD' },
     { to: '/encontros', label: 'Encontros' },
+    { to: '/cultos', label: 'Cultos (QR)' },
+    { to: '/escalas', label: 'Escalas' },
     { to: '/prayer', label: 'Pedidos de Oração' },
     { to: '/profile', label: 'Meu perfil' },
   ];

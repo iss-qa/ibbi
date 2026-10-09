@@ -13,7 +13,7 @@ const DestinatarioSchema = new mongoose.Schema({
 const MessageSchema = new mongoose.Schema({
   tipo: {
     type: String,
-    enum: ['aniversario', 'aviso', 'reunião', 'ata', 'documento', 'convite', 'oracao', 'personalizada', 'aviso - novo membro', 'novo cadastro', 'projeto_amigo', 'novo_decidido', 'visitante', 'ausencia', 'lideranca', 'relatorio', 'agente', 'chamada', 'resumo_encontro'],
+    enum: ['aniversario', 'aviso', 'reunião', 'ata', 'documento', 'convite', 'oracao', 'personalizada', 'aviso - novo membro', 'novo cadastro', 'projeto_amigo', 'novo_decidido', 'visitante', 'ausencia', 'lideranca', 'relatorio', 'agente', 'chamada', 'resumo_encontro', 'jornada', 'escala', 'checkin'],
     required: true,
   },
   destinatarios: [DestinatarioSchema],

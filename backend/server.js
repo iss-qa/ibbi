@@ -25,6 +25,7 @@ const { startScheduler } = require('./src/services/scheduler.service');
 const { startEvolutionMonitor } = require('./src/services/evolution-monitor.service');
 const tenantRoutes = require('./src/routes/tenant.routes');
 const careRoutes = require('./src/routes/care.routes');
+const servicoRoutes = require('./src/routes/servico.routes');
 const assistantRoutes = require('./src/routes/assistant.routes');
 const webhookRoutes = require('./src/routes/webhook.routes');
 const platformRoutes = require('./src/routes/platform.routes');
@@ -134,6 +135,7 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/images', imageRoutes);
 app.use('/api/tenant', tenantRoutes);
 app.use('/api/care', careRoutes);
+app.use('/api', servicoRoutes); // /api/cultos, /api/escalas, /api/jornadas
 app.use('/api/assistant', assistantRoutes);
 app.use('/api/webhooks', webhookRoutes);
 app.use('/api/platform', platformRoutes);
@@ -175,8 +177,13 @@ app.use((err, req, res, next) => {
 connectDb()
   .then(bootstrapTenancy)
   .then(() => {
-    startScheduler();
-    startEvolutionMonitor();
+    // DISABLE_SCHEDULER=true: sobe só a API (QA/desenvolvimento), sem automações nem monitor.
+    if (process.env.DISABLE_SCHEDULER === 'true') {
+      console.log('[server] Scheduler e monitor da Evolution DESLIGADOS (DISABLE_SCHEDULER=true).');
+    } else {
+      startScheduler();
+      startEvolutionMonitor();
+    }
     app.listen(PORT, () => {
       console.log(`Backend rodando na porta ${PORT}`);
     });

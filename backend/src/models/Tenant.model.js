@@ -133,6 +133,16 @@ const TenantSchema = new mongoose.Schema({
       incluirEncontros: { type: Boolean, default: true }, // aplica também aos encontros das uniões
       enviarEmail: { type: Boolean, default: true },
     },
+    // Jornada de 30 dias do visitante/novo decidido (services/jornada.service.js)
+    jornada: {
+      ativo: { type: Boolean, default: true },
+      hora: { type: String, default: '10:00' }, // horário local das mensagens
+      avisarLideranca: { type: Boolean, default: true }, // no dia 30: quem não voltou
+    },
+    // Escalas de voluntários: lembrete na véspera para quem confirmou
+    escalas: {
+      lembreteHora: { type: String, default: '18:00' },
+    },
     relatorioSemanal: {
       ativo: { type: Boolean, default: false },
       diaSemana: { type: Number, default: 1, min: 0, max: 6 }, // 1 = segunda

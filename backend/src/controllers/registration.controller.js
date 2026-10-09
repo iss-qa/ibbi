@@ -98,6 +98,8 @@ const approve = async (req, res) => {
 
     const person = await Person.create(personPayload);
     const credentials = await onboardMember(person, req.user._id, { context: 'approval' });
+    // Visitante/novo decidido aprovado também entra na jornada de 30 dias (no-op para os demais tipos).
+    require('../services/jornada.service').iniciarJornada(person).catch((err) => console.error('[JORNADA] Falha ao iniciar:', err.message));
 
     request.status = 'approved';
     request.reviewedAt = new Date();
