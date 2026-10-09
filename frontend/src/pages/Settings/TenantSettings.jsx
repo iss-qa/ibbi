@@ -358,6 +358,15 @@ export default function TenantSettings() {
             <Field label="Horário (domingo)"><input type="time" className={inputClass} value={a.chamadaEbd?.hora || '11:30'} onChange={(e) => set('automacoes.chamadaEbd.hora', e.target.value)} /></Field>
             {!hasFeature('agenteWhatsApp') && <p className="text-xs text-amber-700 mt-2">Disponível a partir do plano Crescer.</p>}
           </Card>
+          <Card title="🌱 Jornada do visitante" subtitle="30 dias de acolhimento: dia 3, 7, 14 e 21, e resumo à liderança no dia 30">
+            <Toggle checked={a.jornada?.ativo !== false} onChange={(v) => set('automacoes.jornada.ativo', v)} label="Acompanhar visitantes e novos convertidos" hint="Começa sozinha em todo cadastro de visitante ou novo decidido" />
+            <Toggle checked={a.jornada?.avisarLideranca !== false} onChange={(v) => set('automacoes.jornada.avisarLideranca', v)} label="No dia 30, avisar a liderança de quem ainda não voltou" />
+            <Field label="Horário das mensagens"><input type="time" className={inputClass} value={a.jornada?.hora || '10:00'} onChange={(e) => set('automacoes.jornada.hora', e.target.value)} /></Field>
+            {!hasFeature('jornadaVisitante') && <p className="text-xs text-amber-700 mt-2">Disponível a partir do plano Crescer.</p>}
+          </Card>
+          <Card title="🗓️ Escalas de voluntários" subtitle="Lembrete na véspera para quem confirmou; o responsável vê quem não respondeu">
+            <Field label="Horário do lembrete (véspera)"><input type="time" className={inputClass} value={a.escalas?.lembreteHora || '18:00'} onChange={(e) => set('automacoes.escalas.lembreteHora', e.target.value)} /></Field>
+          </Card>
           <Card title="💛 Reengajamento de ausentes" subtitle="Mensagem personalizada pela IA depois de cada chamada">
             <Toggle checked={Boolean(a.ausencia?.ativo)} onChange={(v) => set('automacoes.ausencia.ativo', v)} label="Ativar motor de reengajamento" />
             <Toggle checked={Boolean(a.ausencia?.autoEnviar)} onChange={(v) => set('automacoes.ausencia.autoEnviar', v)} label="Enviar sem aprovação" hint="Desligado: o líder da classe recebe as mensagens prontas e responde 'enviar'" />

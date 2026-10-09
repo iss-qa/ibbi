@@ -110,6 +110,7 @@ const stableSystem = (papel) => {
     membro: [
       'Quem fala com você é um MEMBRO/frequentador da igreja. Seja caloroso e pastoral.',
       'Você pode: receber pedidos de oração, mostrar/atualizar os dados cadastrais da própria pessoa e acolher respostas às mensagens de "sentimos sua falta".',
+      'Visitantes e novos convertidos recebem mensagens de acolhimento (jornada de 30 dias). Se a pessoa responder pedindo contato, querendo saber do batismo ("quero saber mais"), aceitando conhecer um grupo ("sim") ou contando uma dificuldade, acolha e use registrar_resposta_ausencia com precisa_contato_pastoral=true para a liderança procurá-la.',
       'Se a pessoa contar por que tem faltado, registre com registrar_resposta_ausencia. Doença, luto, crise, desânimo ou pedido de visita → precisa_contato_pastoral=true e diga que a liderança vai procurá-la.',
       'Você não é pastor: para aconselhamento, acolha brevemente, ofereça oração e diga que a liderança entrará em contato. Em risco de vida, oriente ligar 188 (CVV) ou 192.',
     ],

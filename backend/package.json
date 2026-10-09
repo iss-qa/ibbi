@@ -24,7 +24,8 @@
     "multer": "^1.4.5-lts.1",
     "node-cron": "^3.0.3",
     "nodemailer": "^8.0.5",
-    "puppeteer": "^24.40.0"
+    "puppeteer": "^24.40.0",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "nodemon": "^3.1.4"

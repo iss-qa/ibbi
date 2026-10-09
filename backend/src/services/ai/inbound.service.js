@@ -5,6 +5,9 @@ const usage = require('../usage.service');
 const engagement = require('../engagement.service');
 const { runTool } = require('./tools');
 const { handleFlow } = require('./flows');
+const culto = require('../culto.service');
+const escala = require('../escala.service');
+const jornada = require('../jornada.service');
 const { identifyActor, runAgent } = require('./agent.service');
 const { transcribe, isTranscriptionConfigured } = require('./transcription.service');
 const templates = require('../../templates/messages.templates');
@@ -105,6 +108,44 @@ const fastPath = async ({ text, actor, conversation }) => {
 };
 
 /**
+ * Atendimento sem IA que vale em todos os planos:
+ *  - "CHEGUEI <código>" → check-in do culto (desconhecido: pede o nome e cadastra como visitante);
+ *  - resposta "1/2" ao convite de escala de voluntários.
+ * Retorna o texto de resposta ou null (segue o fluxo normal).
+ */
+const preAtendimento = async ({ text, actor, conversation, chave }) => {
+  const tenant = getTenant();
+  const t = String(text || '').trim();
+  const st = conversation.state;
+  if (!t) return null;
+
+  const checkinMatch = t.match(culto.CHECKIN_RE);
+  if (checkinMatch && hasFeature(tenant, 'checkinCulto')) {
+    const r = await culto.checkin({ codigo: checkinMatch[1], telefone: chave });
+    if (r.status === 'invalido') return templates.checkinInvalido();
+    if (r.status === 'precisaNome') {
+      conversation.state = { tipo: 'checkin_nome', cultoId: r.cultoId };
+      return templates.checkinPedirNome();
+    }
+    return r.status === 'ok' ? templates.checkinOk(r.nome, r.titulo) : templates.checkinRepetido(r.nome);
+  }
+
+  if (st?.tipo === 'checkin_nome' && !MENU_FORCE.test(t)) {
+    const r = await culto.checkinVisitante({ cultoId: st.cultoId, nome: t, telefone: chave });
+    if (r.status === 'nomeIncompleto') return 'Pode me mandar o seu *nome e sobrenome*? 😊';
+    conversation.state = null;
+    if (r.status === 'invalido') return templates.checkinInvalido();
+    conversation.papel = 'membro';
+    return templates.checkinVisitanteOk(r.nome);
+  }
+
+  if (st?.tipo === 'escala_convite' && hasFeature(tenant, 'escalas')) {
+    return escala.responderConvite({ conversation, text: t });
+  }
+  return null;
+};
+
+/**
  * Mensagem recebida (já normalizada pelo webhook do provider).
  * msg: { from, messageId, pushName, text, media: { kind: 'image'|'audio', ref, mimetype, base64 } }
  */
@@ -114,7 +155,8 @@ const handleInbound = async (msg) => {
   if (msg.messageId && !(await AutomationRun.claim(`in:${msg.messageId}`, 'inbound'))) return; // retry do webhook
   await usage.increment({ whatsappRecebidas: 1 });
 
-  if (!tenant?.ia?.ativo || !hasFeature(tenant, 'agenteWhatsApp')) return;
+  // Check-in do culto e resposta de escala não usam IA: valem em todos os planos.
+  const iaLiberada = Boolean(tenant?.ia?.ativo && hasFeature(tenant, 'agenteWhatsApp'));
 
   const chave = whatsapp.sanitizeNumber(msg.from);
   await withLock(chave, async () => {
@@ -125,6 +167,27 @@ const handleInbound = async (msg) => {
       { upsert: true, new: true },
     );
     if (!actor.nome && msg.pushName) actor.nome = msg.pushName;
+    if (actor.personId) jornada.marcarResposta(actor.personId);
+
+    if (!msg.media) {
+      const pre = await preAtendimento({ text: msg.text || '', actor, conversation, chave }).catch((err) => {
+        console.error('[INBOUND] Pré-atendimento falhou:', err.message);
+        return null;
+      });
+      if (pre) {
+        pushTurn(conversation, 'user', msg.text || '');
+        pushTurn(conversation, 'assistant', pre);
+        conversation.markModified('state');
+        await conversation.save();
+        await reply(chave, pre);
+        return;
+      }
+    }
+    if (!iaLiberada) {
+      conversation.markModified('state');
+      await conversation.save();
+      return;
+    }
 
     let text = msg.text || '';
     let plain = text; // sem o prefixo de transcrição (menus e atalhos)

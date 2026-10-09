@@ -10,6 +10,12 @@ const CareAlert = require('../../models/CareAlert.model');
 const PedidoOracao = require('../../models/PedidoOracao.model');
 const whatsapp = require('../whatsapp.service');
 const prayer = require('../prayer.service');
+const cultoSvc = require('../culto.service');
+const escalaSvc = require('../escala.service');
+const jornadaSvc = require('../jornada.service');
+const Culto = require('../../models/Culto.model');
+const Escala = require('../../models/Escala.model');
+const { hasFeature } = require('../../config/plans');
 const { runTool, scopeFilter, gruposAcessiveis, buildFicha, sendFotoToActor, formatPhone, DIAS_PT } = require('./tools');
 const { getTenant } = require('../../tenancy/context');
 const { timezone } = require('../../tenancy/brand');
@@ -341,6 +347,12 @@ const quemEstaFaltando = async (ctx) => {
     porPessoa.set(id, atual);
   });
   const lista = [...porPessoa.values()].sort((a, b) => b.score - a.score).slice(0, 20);
+  // 📉 Esfriando: caiu a frequência, ainda sem faltas seguidas (o cuidado chega antes).
+  (ov.esfriando || []).forEach((s) => {
+    const id = String(s.personId);
+    if (lista.length >= 25 || lista.some((p) => p.personId === id)) return;
+    lista.push({ personId: id, nome: s.nome, congregacao: s.congregacao, nivel: 'esfriando', score: 0, onde: [`${s.classe}: caiu de ${s.taxaAnterior}% para ${s.taxaRecente}%`], status: s.alerta?.status ? 'em contato' : null });
+  });
   ctx.conversation.state = {
     tipo: 'faltando_lista', ids: lista.map((p) => p.personId), onde: Object.fromEntries(lista.map((p) => [p.personId, p.onde])),
     contexto: 'O líder está vendo a lista de quem está faltando.',
@@ -436,6 +448,8 @@ const aniversariantes = async (periodo, ctx) => {
 // ── Relatório da semana com avaliação ────────────────────────────────────
 const relatorioSemana = async (ctx) => {
   const r = await runTool('resumo_frequencia', {}, ctx);
+  const ov = await engagement.overview({ congregacao: ctx.actor.congregacao || ctx.actor.congregacoes });
+  const esfriando = [...new Set((ov.esfriando || []).map((s) => s.nome))];
   const pct = (p, t) => (t ? Math.round((p / t) * 100) : 0);
   const ebdItens = r.classes.filter((c) => c.total).map((c) => ({
     nome: `${c.classe}`, detalhe: c.congregacao, presentes: c.presentes, total: c.total, pct: pct(c.presentes, c.total), tema: c.tema, ausentes: c.ausentes,
@@ -452,6 +466,7 @@ const relatorioSemana = async (ctx) => {
     ebd: ebdItens,
     encontros: encItens,
     destaque: melhor && `*${melhor.nome}* (${melhor.detalhe}) com ${melhor.pct}% de presença (${melhor.presentes}/${melhor.total}). Que bênção! Vale parabenizar o grupo no próximo culto. 🙌`,
+    esfriando,
     alerta: pior && `*${pior.nome}* (${pior.detalhe}) teve só ${pior.presentes} de ${pior.total} (${pior.pct}%). *Isso preocupa:* ore e procure os ausentes esta semana.`,
   });
 };
@@ -467,6 +482,55 @@ const listarOracoes = async (dias, ctx) => {
   const pedidos = await prayer.listarPedidos({ filtroCongregacao: scopeFilter(ctx.actor, {}), dias, limite: 30 });
   ctx.conversation.state = { tipo: 'oracao_lista', ids: pedidos.map((p) => String(p._id)), dias };
   return templates.oracaoLista(pedidos.map((p) => ({ nome: p.nome, congregacao: p.congregacao, status: p.status, texto: p.texto, data: formatBr(p.createdAt) })), dias);
+};
+
+
+// ── Culto: check-in por QR Code ──────────────────────────────────────────
+const abrirCultoLider = async (congregacao, ctx) => {
+  const { culto } = await cultoSvc.abrirCulto({ congregacao, userId: ctx.actor.userId, userNome: ctx.actor.nome });
+  const qr = await cultoSvc.qrDataUrl(culto, 900);
+  if (ctx.actor.telefone) {
+    await whatsapp.sendImage(ctx.actor.telefone, qr, templates.checkinQrLegenda(culto.titulo, culto.codigo))
+      .catch((err) => console.warn('[CULTO] Falha ao enviar QR ao líder:', err.message));
+  }
+  ctx.conversation.state = { tipo: 'culto_menu', cultoId: String(culto._id) };
+  return templates.cultoLider(cultoSvc.resumo(culto));
+};
+
+const iniciarCulto = (ctx) => {
+  const congs = congregacoesDo(ctx.actor);
+  if (congs.length === 1) return abrirCultoLider(congs[0], ctx);
+  ctx.conversation.state = { tipo: 'culto_congregacao', congs };
+  return templates.opcoesNumeradas('⛪ *Culto de hoje*\nEm qual congregação?', congs);
+};
+
+// ── Jornada do visitante / novo convertido ───────────────────────────────
+const listarJornada = async (ctx) => {
+  if (!hasFeature(getTenant(), 'jornadaVisitante')) return 'A jornada de 30 dias do visitante está disponível a partir do plano *Crescer*. 🙏';
+  const lista = (await jornadaSvc.listarJornadas({ filtro: scopeFilter(ctx.actor, {}) })).slice(0, 25);
+  ctx.conversation.state = {
+    tipo: 'faltando_lista',
+    ids: lista.map((j) => String(j.personId)),
+    onde: Object.fromEntries(lista.map((j) => [String(j.personId), [`${j.tipo} · jornada dia ${j.dia}/30${j.retornou ? ' · voltou' : ' · ainda não voltou'}`]])),
+    contexto: 'O líder está vendo a lista de visitantes e novos convertidos em jornada.',
+  };
+  if (!lista.length) ctx.conversation.state = null;
+  return templates.jornadaLista(lista.map((j) => ({ nome: j.nome, tipo: j.tipo, dia: j.dia, retornou: j.retornou, onde: j.retornouOnde, respondeu: Boolean(j.respondeuEm) })));
+};
+
+// ── Escalas de voluntários ───────────────────────────────────────────────
+const listarEscalas = async (ctx) => {
+  const escalas = await escalaSvc.proximasEscalas(scopeFilter(ctx.actor, {}));
+  ctx.conversation.state = { tipo: 'escalas_lista', ids: escalas.map((e) => String(e._id)) };
+  if (!escalas.length) ctx.conversation.state = null;
+  return templates.escalasLider(escalas.map(escalaSvc.resumoEscala));
+};
+
+const detalheEscala = async (escalaId, ctx) => {
+  const e = await Escala.findOne(scopeFilter(ctx.actor, { _id: escalaId })).lean();
+  if (!e) return 'Não encontrei essa escala. Digite *menu* para recomeçar.';
+  ctx.conversation.state = { tipo: 'escala_detalhe', escalaId: String(e._id) };
+  return templates.escalaDetalhe(escalaSvc.resumoEscala(e));
 };
 
 // ── Menu principal ───────────────────────────────────────────────────────
@@ -490,6 +554,8 @@ const opcaoMenu = async (n, ctx) => {
   }
   if (n === 10) return relatorioSemana(ctx);
   if (n === 11) return menuOracao(ctx);
+  if (n === 12) return listarJornada(ctx);
+  if (n === 13) return listarEscalas(ctx);
   if (PEDIDOS[n]) return { agente: PEDIDOS[n] };
   return null;
 };
@@ -553,6 +619,7 @@ const step = async ({ text, media, audioSegundos, actor, conversation }) => {
     case 'presenca_tipo':
       if (n === 1) return iniciarEbd(ctx);
       if (n === 2) return escolherGrupo(ctx, { proximo: 'grupo_menu', titulo: '🏷️ *Uniões e grupos*\nQual grupo?' });
+      if (n === 3) return iniciarCulto(ctx);
       return null;
     case 'presenca_congregacao': {
       const cong = pick(st.congs, n);
@@ -725,6 +792,40 @@ const step = async ({ text, media, audioSegundos, actor, conversation }) => {
       }
       if (n === 2) return listarOracoes(30, ctx);
       return null;
+
+    case 'culto_congregacao': {
+      const cong = pick(st.congs, n);
+      return cong ? abrirCultoLider(cong, ctx) : null;
+    }
+    case 'culto_menu': {
+      const c = await Culto.findById(st.cultoId).lean();
+      if (!c) return null;
+      if (n === 1) return templates.cultoPresentes(c.titulo, c.presencas);
+      if (n === 2) {
+        await cultoSvc.encerrar(c._id);
+        conversation.state = null;
+        return templates.cultoEncerrado(c.titulo, c.presencas.length);
+      }
+      return null;
+    }
+
+    case 'escalas_lista': {
+      const id = pick(st.ids, n);
+      return id ? detalheEscala(id, ctx) : null;
+    }
+    case 'escala_detalhe':
+      if (n === 1) {
+        const enviados = await escalaSvc.enviarConvites(st.escalaId);
+        return templates.escalaReenviado(enviados);
+      }
+      return null;
+    case 'escala_substituto': {
+      const sug = pick(st.sugestoes || [], n);
+      if (!sug) return null;
+      const r = await escalaSvc.convidarSubstituto({ escalaId: st.escalaId, itemId: st.itemId, personId: sug.id });
+      conversation.state = null;
+      return templates.escalaSubstitutoConvidado(r.nome, r.funcao);
+    }
     default:
       return null;
   }

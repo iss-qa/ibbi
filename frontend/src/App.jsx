@@ -25,6 +25,9 @@ import Assistant from './pages/Assistant';
 import TenantSettings from './pages/Settings/TenantSettings';
 import Subscription from './pages/Billing/Subscription';
 import Pricing from './pages/Pricing';
+import Cultos from './pages/Servico/Cultos';
+import Escalas from './pages/Servico/Escalas';
+import Jornada from './pages/Servico/Jornada';
 import Landing from './pages/Landing';
 import Signup from './pages/Signup';
 import MemberWhatsApp from './pages/MemberWhatsApp';
@@ -104,6 +107,9 @@ export default function App() {
                         <Route path="/encontros/:id" element={<EncontroChamada />} />
                         <Route path="/approvals" element={<RegistrationApprovals />} />
                         <Route path="/cuidado" element={<CareDashboard />} />
+                        <Route path="/jornada" element={<Jornada />} />
+                        <Route path="/cultos" element={<Cultos />} />
+                        <Route path="/escalas" element={<Escalas />} />
                         <Route path="/whatsapp/central" element={<CommunicationHub />} />
                         {hasFeature('agenteWhatsApp') && <Route path="/assistente" element={<Assistant />} />}
                         {user?.role === 'master' && <Route path="/users" element={<UserManagement />} />}

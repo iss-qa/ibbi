@@ -10,7 +10,7 @@ const firstName = (nome) => String(nome || '').trim().split(/\s+/)[0] || '';
 const temMidia = () => { const { hasFeature } = require('../config/plans'); return hasFeature(getTenant(), 'multimodal'); };
 const ouAudio = () => (temMidia() ? ' ou áudio' : '');
 const barra = (pct) => { const n = Math.round((pct || 0) / 10); return '🟩'.repeat(n) + '⬜'.repeat(10 - n); };
-const nivelIcone = (nivel) => ({ critico: '🚨', risco: '🔴', atencao: '🟡' }[nivel] || '⚪');
+const nivelIcone = (nivel) => ({ critico: '🚨', risco: '🔴', atencao: '🟡', esfriando: '📉' }[nivel] || '⚪');
 const avaliacaoCurta = (pct) => (pct >= 90 ? '👏' : pct >= 70 ? '🙌' : pct >= 50 ? '🟡' : '⚠️');
 // Juízo de valor da presença: elogio quando cheia, preocupação em negrito quando baixa.
 const avaliacaoPresenca = (pct) => {
@@ -85,7 +85,7 @@ Qualquer dúvida, estamos aqui! 💙`,
 
   relatorioSemanalPadrao: ({ periodo, presentes, total, percentual, alertas, aniversariantes }) => `📊 *Resumo semanal — ${churchShort()}*\n_${periodo}_\n\n• EBD: ${presentes}/${total} presenças (${percentual}%)\n• Membros em alerta: ${alertas.length}${alertas.length ? `\n${lista(alertas.slice(0, 10).map((a) => `${a.nome} — ${a.faltasConsecutivas} faltas`))}` : ''}\n• Aniversariantes da semana: ${aniversariantes}\n\nAcesse o painel para mais detalhes: ${portalUrl()}`,
 
-  menuLider: (nome, assistente) => `${saudacaoAssistente({ nomeUsuario: nome, assistente, igreja: churchShort(), produto: PRODUTO })}\n\n*O que você quer fazer?*\n\n👥 *Pessoas*\n1️⃣ Pesquisar pessoa\n2️⃣ Cadastrar pessoa\n3️⃣ Editar dados de uma pessoa\n\n📋 *Encontros*\n4️⃣ Registrar presença (EBD ou uniões)\n5️⃣ Resumir um encontro (enviar aos membros)\n\n💛 *Cuidado*\n6️⃣ Grupos: frequência, ausentes e números\n7️⃣ Quem está faltando (ligar, visitar, orar)\n8️⃣ Enviar aviso para um grupo\n9️⃣ Aniversariantes\n🔟 Relatório da semana\n1️⃣1️⃣ Pedidos de oração\n\n_Criar ou editar grupos e adicionar ou remover membros: pela plataforma web._\n\nResponda com o *número* ou escreva do seu jeito.${temMidia() ? ' Também entendo *áudio* e *foto* de ficha.' : ''} Digite *menu* a qualquer momento.`,
+  menuLider: (nome, assistente) => `${saudacaoAssistente({ nomeUsuario: nome, assistente, igreja: churchShort(), produto: PRODUTO })}\n\n*O que você quer fazer?*\n\n👥 *Pessoas*\n1️⃣ Pesquisar pessoa\n2️⃣ Cadastrar pessoa\n3️⃣ Editar dados de uma pessoa\n\n📋 *Encontros*\n4️⃣ Registrar presença (EBD ou uniões)\n5️⃣ Resumir um encontro (enviar aos membros)\n\n💛 *Cuidado*\n6️⃣ Grupos: frequência, ausentes e números\n7️⃣ Quem está faltando (ligar, visitar, orar)\n8️⃣ Enviar aviso para um grupo\n9️⃣ Aniversariantes\n🔟 Relatório da semana\n1️⃣1️⃣ Pedidos de oração\n1️⃣2️⃣ Visitantes e novos convertidos (jornada)\n\n🙋 *Serviço*\n1️⃣3️⃣ Escalas de voluntários\n\n_Criar ou editar grupos e adicionar ou remover membros: pela plataforma web._\n\nResponda com o *número* ou escreva do seu jeito.${temMidia() ? ' Também entendo *áudio* e *foto* de ficha.' : ''} Digite *menu* a qualquer momento.`,
 
   // ── Fluxos guiados do líder (menu numerado) ──────────────────────────
   opcoesNumeradas: (titulo, itens, rodape = '') => `${titulo}\n\n${itens.map((t, i) => `${i + 1}. ${t}`).join('\n')}${rodape ? `\n\n${rodape}` : ''}\n\n_Responda com o número. *menu* para voltar._`,
@@ -122,7 +122,7 @@ Qualquer dúvida, estamos aqui! 💙`,
   pedirFotoPessoa: (nome) => `Envie agora a *foto* de ${firstName(nome)} (de rosto, bem iluminada) que eu atualizo o cadastro. 📷`,
   fotoAtualizada: (nome) => `✅ Foto de *${nome}* atualizada no cadastro.`,
 
-  presencaTipo: () => '📋 *Registrar presença*\n\nOnde foi o encontro?\n\n1. EBD (Escola Bíblica Dominical)\n2. Uniões e grupos\n\n_Responda com o número. *menu* para voltar._',
+  presencaTipo: () => '📋 *Registrar presença*\n\nOnde foi o encontro?\n\n1. EBD (Escola Bíblica Dominical)\n2. Uniões e grupos\n3. Culto (check-in por QR Code)\n\n_Responda com o número. *menu* para voltar._',
 
   listaChamada: ({ titulo, data, lista, visitante = true }) => `${titulo} — *${data}*\n\n${lista.join('\n')}\n\nResponda com os *números* de quem estava *presente* (ex.: 1 3 5), os *nomes*${temMidia() ? ' ou um *áudio*' : ''}. Se preferir, diga quem *faltou*.${visitante ? '\n\n🙋 _Teve visitante? Mande o nome, a idade e o sexo (ex.: "visitante Samuel, 22 anos, masculino") que eu cadastro e já marco a presença._' : ''}`,
 
@@ -176,7 +176,7 @@ Qualquer dúvida, estamos aqui! 💙`,
 
   // ── Cuidado: quem está faltando ──────────────────────────────────────
   faltandoLista: (pessoas) => (pessoas.length
-    ? `💛 *Quem está faltando* (2 ou mais seguidas)\n\n${pessoas.map((p, i) => `${i + 1}. ${nivelIcone(p.nivel)} *${p.nome}*${p.congregacao ? ` (${p.congregacao})` : ''}\n    ${p.onde.join(' · ')}${p.status ? `\n    _${p.status}_` : ''}`).join('\n')}\n\n_Responda com o número para cuidar: ligar, visitar, orar, enviar mensagem ou encaminhar a um obreiro._`
+    ? `💛 *Quem está faltando* (🚨🔴🟡 faltas seguidas · 📉 esfriando: a frequência caiu)\n\n${pessoas.map((p, i) => `${i + 1}. ${nivelIcone(p.nivel)} *${p.nome}*${p.congregacao ? ` (${p.congregacao})` : ''}\n    ${p.onde.join(' · ')}${p.status ? `\n    _${p.status}_` : ''}`).join('\n')}\n\n_Responda com o número para cuidar: ligar, visitar, orar, enviar mensagem ou encaminhar a um obreiro._`
     : '💚 Ninguém com 2 ou mais faltas seguidas. Glória a Deus!'),
 
   cuidadoAcoes: (p) => `💛 *Cuidar de ${p.nome}*${p.onde?.length ? `\n${p.onde.join(' · ')}` : ''}${p.celular ? `\n📱 ${p.celular}` : ''}${p.ultimaAcao ? `\n_Última ação: ${p.ultimaAcao}_` : ''}\n\n1. 📞 Ligar\n2. 🏠 Visitar\n3. 🙏 Orar\n4. 💬 Enviar mensagem\n5. 🤝 Encaminhar a outro obreiro\n\n_Responda com o número. *menu* para voltar._`,
@@ -210,7 +210,7 @@ Qualquer dúvida, estamos aqui! 💙`,
   ].filter((l) => l !== null).join('\n'),
 
   // ── Relatório da semana (com avaliação) ──────────────────────────────
-  relatorioSemana: ({ data, ebd, encontros, destaque, alerta }) => [
+  relatorioSemana: ({ data, ebd, encontros, destaque, alerta, esfriando }) => [
     `📊 *Relatório da semana* (EBD de ${data} e encontros)`,
     '',
     '📖 *EBD*',
@@ -218,6 +218,7 @@ Qualquer dúvida, estamos aqui! 💙`,
     '',
     '🤝 *Encontros das uniões e grupos*',
     encontros.length ? encontros.map(linhaRelatorio).join('\n\n') : '_Nenhum encontro registrado nos últimos 7 dias._',
+    esfriando?.length ? `\n📉 *Esfriando* (a frequência caiu, ainda sem faltas seguidas): ${esfriando.slice(0, 6).join(', ')}${esfriando.length > 6 ? ` e mais ${esfriando.length - 6}` : ''}. Um contato agora evita a distância.` : null,
     destaque ? `\n🌟 *Destaque da semana:* ${destaque}` : null,
     alerta ? `\n🚨 *Atenção, pastor:* ${alerta}` : null,
     '',
@@ -232,6 +233,49 @@ Qualquer dúvida, estamos aqui! 💙`,
     ? `🙏 *Pedidos de oração, últimos ${dias} dias* (${pedidos.length})\n\n${pedidos.map((p) => `${p.status === 'orado' ? '✅' : '🙏'} *${p.nome}*${p.congregacao ? ` (${p.congregacao})` : ''} · ${p.data}\n${p.texto}`).join('\n\n')}\n\n1. Marcar todos como orados\n2. Ver os últimos 30 dias\n\n_Responda com o número. *menu* para voltar._`
     : `Nenhum pedido de oração nos últimos ${dias} dias. 🙏\n\n2. Ver os últimos 30 dias`),
   oracaoMarcados: (n) => `✅ ${n} pedido(s) marcado(s) como orado(s). Que Deus responda cada um! 🙏`,
+
+  // ── Jornada do visitante / novo convertido (30 dias) ─────────────────
+  jornadaD3: (nome, tipo) => (tipo === 'novo decidido'
+    ? `Oi, ${firstName(nome)}! 😊 Aqui é da *${churchShort()}*.\n\nComo está sendo esta primeira semana caminhando com Jesus? Ficou alguma dúvida sobre a fé, a Bíblia ou a igreja? Pode me perguntar por aqui.\n\nSe quiser, mande também um *pedido de oração*: vamos orar por você. 🙏`
+    : `Oi, ${firstName(nome)}! 😊 Aqui é da *${churchShort()}*.\n\nFoi muito bom ter você conosco! Como foi a sua visita? Ficou alguma dúvida ou tem algo em que possamos ajudar?\n\nSe quiser, mande um *pedido de oração* por aqui. Vamos orar por você. 🙏`),
+  jornadaD7: (nome, grupo) => (grupo
+    ? `Oi, ${firstName(nome)}! 🙌\n\nNa ${churchShort()} ninguém caminha sozinho. Temos um grupo que é a sua cara: *${grupo.nome}*, ${grupo.dia}${grupo.horario ? ` às ${grupo.horario}` : ''}${grupo.local ? ` (${grupo.local})` : ''}.\n\nÉ um tempo de comunhão, Palavra e amizade. Quer participar? É só aparecer, vamos te receber com alegria! 💛\n\n_"Oh! quão bom e quão suave é que os irmãos vivam em união!"_ (Sl 133:1)`
+    : `Oi, ${firstName(nome)}! 🙌\n\nNa ${churchShort()} ninguém caminha sozinho. Durante a semana temos encontros das uniões e grupos: um tempo de comunhão, Palavra e amizade. Quer que alguém te apresente ao grupo certo para você? Responda *sim*! 💛`),
+  jornadaD14: (nome, tipo, classe) => (tipo === 'novo decidido'
+    ? `Oi, ${firstName(nome)}! 📖\n\nQuem decide seguir a Jesus cresce firmando os pés na Palavra. Te convidamos para a *Escola Bíblica Dominical*${classe ? `, na classe *${classe}*` : ''}: aos domingos de manhã, com estudo simples e prático.\n\nÉ o melhor lugar para dar os primeiros passos (e fazer amigos na fé). Te esperamos! 🙏\n\n_"Desejai afetuosamente, como meninos novamente nascidos, o leite racional, não falsificado, para que por ele vades crescendo."_ (1Pe 2:2)`
+    : `Oi, ${firstName(nome)}! 📖\n\nSabia que aos domingos de manhã temos a *Escola Bíblica Dominical*${classe ? `, com uma classe para a sua idade (*${classe}*)` : ''}? É um estudo leve e prático da Bíblia, cheio de gente acolhedora.\n\nQue tal vir neste domingo? Vai ser uma alegria te receber! 😊`),
+  jornadaD21: (nome, tipo) => (tipo === 'novo decidido'
+    ? `Oi, ${firstName(nome)}! 🕊️\n\nJá faz três semanas da sua decisão por Jesus. Que alegria! O próximo passo na caminhada é o *batismo*: o testemunho público da sua fé.\n\nQuer conversar com o pastor sobre isso? Responda *quero saber mais* e alguém da liderança fala com você. 🙌\n\n_"Quem crer e for batizado será salvo."_ (Mc 16:16)`
+    : `Oi, ${firstName(nome)}! 💛\n\nSentimos a sua falta por aqui! A ${churchShort()} é a sua casa também, e domingo tem lugar guardado para você.\n\nSe estiver passando por algum momento difícil, conte com a gente: responda esta mensagem e vamos orar e caminhar com você. 🙏`),
+  jornadaLideranca: (pessoas) => `🌱 *Jornada de 30 dias concluída*\n\n${pessoas.map((p) => `• *${p.nome}* (${p.tipo}${p.congregacao ? ` · ${p.congregacao}` : ''})${p.retornou ? ` ✅ voltou${p.onde ? `: ${p.onde}` : ''}` : ' ❌ *ainda não voltou*'}${p.celular ? `\n   📱 ${p.celular}` : ''}`).join('\n')}\n\n${pessoas.some((p) => !p.retornou) ? '*Quem ainda não voltou precisa de um contato pessoal esta semana: uma ligação faz toda a diferença.* Responda *menu → 12* para cuidar.' : 'Glória a Deus: todos voltaram! 🙌'}`,
+  jornadaLista: (itens) => (itens.length
+    ? `🌱 *Visitantes e novos convertidos* (jornada de 30 dias)\n\n${itens.map((j, i) => `${i + 1}. ${j.retornou ? '✅' : '⏳'} *${j.nome}* · ${j.tipo}\n    Dia ${j.dia}/30${j.retornou ? ` · voltou${j.onde ? ` (${j.onde})` : ''}` : ' · ainda não voltou'}${j.respondeu ? ' · 💬 respondeu' : ''}`).join('\n')}\n\n_Responda com o número para ligar, visitar, orar ou encaminhar a um obreiro._`
+    : '🌱 Nenhum visitante ou novo convertido em jornada agora. Os novos cadastros entram automaticamente.'),
+
+  // ── Presença no culto (check-in por QR Code) ─────────────────────────
+  checkinOk: (nome, culto) => `✅ Presença confirmada, ${firstName(nome)}! Que bom ter você no *${culto}*. Bom culto! 🙏`,
+  checkinRepetido: (nome) => `Sua presença já está registrada, ${firstName(nome)}. Bom culto! 🙌`,
+  checkinInvalido: () => 'Não encontrei esse culto aberto para check-in. Confira o código no telão ou peça ajuda à recepção. 🙏',
+  checkinPedirNome: () => `Seja muito bem-vindo(a) à *${churchName()}*! 🙌\n\nPara registrar a sua presença, qual é o seu *nome completo*?`,
+  checkinVisitanteOk: (nome) => `Que alegria ter você aqui, ${firstName(nome)}! 💛 Sua presença está registrada.\n\nSalve este número: por aqui você recebe as novidades da igreja e pode mandar pedidos de oração. Bom culto! 🙏`,
+  checkinQrLegenda: (culto, codigo) => `📲 *Check-in: ${culto}*\nAponte a câmera para o QR Code: o WhatsApp abre com a mensagem pronta. Ou envie *CHEGUEI ${codigo}* para este número.`,
+  cultoLider: ({ titulo, congregacao, data, codigo, presentes, visitantes }) => `⛪ *${titulo}* (${congregacao}) · ${data}\n\nCódigo do check-in: *${codigo}*\nPresenças registradas: *${presentes}*${visitantes ? ` (🙋 ${visitantes} visitante(s))` : ''}\n\nEnviei o QR Code acima: projete no telão ou imprima na recepção.\n\n1. Ver quem fez check-in\n2. Encerrar o check-in\n\n_Responda com o número. *menu* para voltar._`,
+  cultoPresentes: (titulo, presentes) => `⛪ *${titulo}*: ${presentes.length} presença(s)\n\n${presentes.map((p) => `• ${p.nome}${p.visitante ? ' 🙋 visitante' : ''}`).join('\n') || '_Ninguém fez check-in ainda._'}`,
+  cultoEncerrado: (titulo, n) => `🔒 Check-in de *${titulo}* encerrado: ${n} presença(s) registrada(s).`,
+
+  // ── Escala de voluntários ────────────────────────────────────────────
+  escalaConvite: (nome, e) => `Olá, ${firstName(nome)}! 🙌\n\nVocê foi escalado(a) para servir:\n\n🎵 *${e.ministerio}* · ${e.funcao}\n🗓️ ${e.data}${e.horario ? ` às ${e.horario}` : ''} · ${e.evento}${e.congregacao ? ` (${e.congregacao})` : ''}${e.observacao ? `\n📝 ${e.observacao}` : ''}\n\nPode confirmar?\n1. ✅ Confirmo\n2. ❌ Não posso\n\n_"Servi uns aos outros, cada um conforme o dom que recebeu."_ (1Pe 4:10)`,
+  escalaConfirmado: (nome) => `✅ Confirmado, ${firstName(nome)}! Obrigado por servir. Mando um lembrete na véspera. 🙏`,
+  escalaRecusadoMembro: (nome) => `Tudo bem, ${firstName(nome)}. Já avisei o responsável para buscar um substituto. Obrigado por avisar com antecedência! 🙏`,
+  escalaRecusaLider: (r) => `⚠️ *Escala: ${r.ministerio}* · ${r.data}\n\n*${r.nome}* não pode servir como *${r.funcao}*${r.motivo ? ` (_${r.motivo}_)` : ''}.\n\n${r.sugestoes.length ? `Sugestões de substituto (mesmo ministério, livres nessa data):\n${r.sugestoes.map((s, i) => `${i + 1}. ${s.nome}`).join('\n')}\n\n_Responda com o número para enviar o convite._` : '_Não encontrei substitutos livres no mesmo ministério. Escolha alguém pela plataforma web, em Escalas._'}`,
+  escalaSubstitutoConvidado: (nome, funcao) => `📤 Convite enviado para *${nome}* (${funcao}). Te aviso quando responder.`,
+  escalaRespostaLider: (r) => `${r.confirmou ? '✅' : '❌'} *${r.nome}* ${r.confirmou ? 'confirmou' : 'não pode'}: ${r.ministerio} · ${r.funcao} (${r.data}).`,
+  escalaLembrete: (nome, e) => `⏰ Lembrete, ${firstName(nome)}: *amanhã* você serve em *${e.ministerio}* (${e.funcao}), ${e.evento}${e.horario ? ` às ${e.horario}` : ''}${e.congregacao ? `, ${e.congregacao}` : ''}. Deus abençoe o seu servir! 🙌`,
+  escalasLider: (escalas) => (escalas.length
+    ? `🗓️ *Próximas escalas*\n\n${escalas.map((e, i) => `${i + 1}. *${e.ministerio}* · ${e.data}${e.horario ? ` ${e.horario}` : ''} · ${e.evento}\n    ✅ ${e.confirmados} · ⏳ ${e.pendentes} · ❌ ${e.recusados}`).join('\n')}\n\n_Responda com o número para ver a escala. Montar escalas: pela plataforma web._`
+    : '🗓️ Nenhuma escala nos próximos 14 dias. Monte as escalas pela plataforma web, em *Escalas*.'),
+  escalaDetalhe: (e) => `🗓️ *${e.ministerio}* · ${e.evento}\n${e.data}${e.horario ? ` às ${e.horario}` : ''} · ${e.congregacao}\n\n${e.itens.map((it) => `${{ confirmado: '✅', recusado: '❌', pendente: '⏳' }[it.status]} ${it.funcao}: *${it.nome}*${it.substituiu ? ` (no lugar de ${it.substituiu})` : ''}`).join('\n')}\n\n1. Reenviar convite aos pendentes\n\n_Responda com o número. *menu* para voltar._`,
+  escalaReenviado: (n) => (n ? `📤 Convite reenviado para ${n} pessoa(s).` : 'Não há convites pendentes nesta escala.'),
 
   cadastroConfirmar: (d) => `Confere os dados antes de eu cadastrar? 📋\n\n• *Nome:* ${d.nome}\n• *Tipo:* ${d.tipo}\n• *Sexo:* ${d.sexo || '—'}\n• *Nascimento/idade:* ${d.nascimento || '—'}\n• *Congregação:* ${d.congregacao}\n• *WhatsApp:* ${d.celular || '—'}${d.alertaCelular ? `\n\n⚠️ ${d.alertaCelular}` : ''}\n\nA mensagem de boas-vindas vai para o WhatsApp *${d.celular || '(sem número)'}*. Está certo? Responda *sim* ou me diga o que corrigir.`,
 

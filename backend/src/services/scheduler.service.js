@@ -407,6 +407,23 @@ const tickTenant = async (tenant, { startup = false } = {}) => {
     once(`${id}:ausencias`, runAbsenceSweep).catch((err) => console.error('[scheduler] Ausências:', err));
   }
 
+  // Jornada do visitante: 1x/dia a partir do horário da igreja (padrão 10:00).
+  if (hasFeature(tenant, 'jornadaVisitante') && a.jornada?.ativo !== false && now.hhmm >= (a.jornada?.hora || '10:00')) {
+    once(`${id}:jornada`, async () => {
+      if (!(await AutomationRun.claim(`jornada:${now.isoDate}`, 'jornada'))) return;
+      const r = await require('./jornada.service').runJornadas();
+      if (r.enviadas || r.concluidas) console.log(`[scheduler] Jornada (${tenant.slug}): ${r.enviadas} mensagem(ns), ${r.concluidas} concluída(s).`);
+    }).catch((err) => console.error('[scheduler] Jornada:', err));
+  }
+
+  // Escalas: lembrete na véspera (padrão 18:00) para quem confirmou.
+  if (hasFeature(tenant, 'escalas') && now.hhmm >= (a.escalas?.lembreteHora || '18:00')) {
+    once(`${id}:escalas`, async () => {
+      if (!(await AutomationRun.claim(`escala-lembrete:${now.isoDate}`, 'escala'))) return;
+      await require('./escala.service').runLembretes();
+    }).catch((err) => console.error('[scheduler] Escalas:', err));
+  }
+
   once(`${id}:resumos-encontro`, runResumosEncontro).catch((err) => console.error('[scheduler] Resumos de encontro:', err));
 
   if (hasFeature(tenant, 'agenteWhatsApp')) {
