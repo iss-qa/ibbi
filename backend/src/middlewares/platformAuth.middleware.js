@@ -10,7 +10,7 @@ const platformAuth = async (req, res, next) => {
 
   let payload;
   try {
-    payload = jwt.verify(token, process.env.JWT_SECRET, { audience: 'platform' });
+    payload = jwt.verify(token, process.env.JWT_SECRET, { audience: 'platform', algorithms: ['HS256'] });
   } catch {
     return res.status(401).json({ message: 'Token inválido' });
   }

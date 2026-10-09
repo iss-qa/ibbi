@@ -70,16 +70,29 @@ const generateInvoice = async (tenant, competencia = competenciaOf()) => {
   if (valor <= 0) return { invoice: null, criada: false };
   const plan = getPlan(tenant.plano);
   const ciclo = tenant.billing?.ciclo || 'mensal';
-  const invoice = await Invoice.create({
-    tenantId: tenant._id,
-    competencia,
-    plano: tenant.plano,
-    ciclo,
-    valor,
-    descricao: `Assinatura ${plan.nome} (${ciclo}) — ${competencia}`,
-    vencimento: dueDateFor(tenant, competencia),
-  });
-  await createGatewayCharge(invoice, tenant);
+  // Indicação: crédito de 1 mês → a fatura nasce paga (valor pago R$ 0), sem cobrança no gateway.
+  // Só faturas mensais consomem crédito (no anual, o desconto já é de 2 meses).
+  const credito = ciclo === 'mensal' && await require('./indicacao.service').consumirCredito(tenant._id);
+  let invoice;
+  try {
+    invoice = await Invoice.create({
+      tenantId: tenant._id,
+      competencia,
+      plano: tenant.plano,
+      ciclo,
+      valor,
+      descricao: `Assinatura ${plan.nome} (${ciclo}) — ${competencia}`,
+      vencimento: dueDateFor(tenant, competencia),
+      ...(credito ? { status: 'pago', pagoEm: new Date(), valorPago: 0, metodo: 'credito', observacao: '1 mês grátis por indicação' } : {}),
+    });
+  } catch (err) {
+    // Crédito de indicação debitado e a fatura não foi criada aqui: devolve o mês.
+    if (credito) await Tenant.updateOne({ _id: tenant._id }, { $inc: { 'indicacao.creditosMeses': 1 } }).catch(() => {});
+    // Cron e "rodar cobrança" manual ao mesmo tempo: a outra execução já criou a fatura
+    if (err.code === 11000) return { invoice: await Invoice.findOne({ tenantId: tenant._id, competencia }), criada: false };
+    throw err;
+  }
+  if (!credito) await createGatewayCharge(invoice, tenant);
   return { invoice, criada: true };
 };
 
@@ -98,6 +111,8 @@ const markPaid = async (invoice, { valorPago, metodo = 'pix', pagoEm = new Date(
   if (observacao) invoice.observacao = observacao;
   await invoice.save();
   await reactivateIfBlocked(invoice.tenantId);
+  // Indicação: 1ª fatura paga da igreja indicada → 1 mês grátis para quem indicou.
+  await require('./indicacao.service').onInvoicePaid(invoice).catch((err) => console.error('[INDICAÇÃO]', err.message));
   return invoice;
 };
 
@@ -131,26 +146,39 @@ const runBillingCycle = async () => {
   }
 
   const billables = await Tenant.find({ status: { $in: ['ativa', 'inadimplente', 'suspensa'] }, 'billing.isento': { $ne: true } }).lean();
+  // Uma igreja com erro (gateway fora, dado inválido) não interrompe o ciclo das demais
   for (const tenant of billables) {
-    if (tenant.billing?.ciclo === 'anual' && await annualAlreadyBilled(tenant)) continue;
-    const { criada } = await generateInvoice(tenant);
-    if (criada) resumo.faturasGeradas += 1;
+    try {
+      if (tenant.billing?.ciclo === 'anual' && await annualAlreadyBilled(tenant)) continue;
+      const { criada } = await generateInvoice(tenant);
+      if (criada) resumo.faturasGeradas += 1;
+    } catch (err) {
+      console.error(`[BILLING] Falha ao faturar ${tenant.slug || tenant._id}:`, err.message);
+    }
   }
 
   const vencendo = await Invoice.find({ status: 'pendente', vencimento: { $lt: now } });
   for (const inv of vencendo) {
-    inv.status = 'vencido';
-    await inv.save();
-    resumo.vencidas += 1;
-    const tenant = await Tenant.findById(inv.tenantId).lean();
-    if (tenant) await notifyOverdue(tenant, inv);
+    try {
+      inv.status = 'vencido';
+      await inv.save();
+      resumo.vencidas += 1;
+      const tenant = await Tenant.findById(inv.tenantId).lean();
+      if (tenant) await notifyOverdue(tenant, inv);
+    } catch (err) {
+      console.error(`[BILLING] Falha ao marcar fatura ${inv._id} como vencida:`, err.message);
+    }
   }
+
+  // Igreja isenta (ex.: tenant fundador) nunca fica inadimplente/suspensa por fatura antiga
+  const isentas = new Set((await Tenant.find({ 'billing.isento': true }).select('_id').lean()).map((t) => String(t._id)));
 
   const vencidas = await Invoice.aggregate([
     { $match: { status: 'vencido' } },
     { $group: { _id: '$tenantId', maisAntiga: { $min: '$vencimento' } } },
   ]);
   for (const row of vencidas) {
+    if (isentas.has(String(row._id))) continue;
     const dias = Math.floor((now - row.maisAntiga) / DAY_MS);
     let status = null;
     if (dias >= SUSPEND_AFTER_DAYS()) status = 'suspensa';

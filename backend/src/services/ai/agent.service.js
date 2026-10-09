@@ -40,13 +40,14 @@ const identifyActor = async (phone) => {
 
   if (user?.role === 'master') return { ...base, papel: 'lider', role: 'master', congregacao: null, classes: ebdClasses };
   if (user?.role === 'admin') {
-    const lista = await getUserCongregacoes(user).catch(() => (person?.congregacao ? [person.congregacao] : null));
+    // Falha ao calcular o escopo = só a congregação do cadastro, ou nenhuma (nunca a igreja inteira)
+    const lista = await getUserCongregacoes(user).catch(() => (person?.congregacao ? [person.congregacao] : []));
     return { ...base, papel: 'lider', role: 'admin', ...scopeFromList(lista), classes: ebdClasses };
   }
-  if (lideranca) return { ...base, papel: 'lider', role: 'lider', congregacao: lideranca.congregacao || null, classes: ebdClasses };
+  if (lideranca) return { ...base, papel: 'lider', role: 'lider', liderancaGeral: true, congregacao: lideranca.congregacao || null, classes: ebdClasses };
   if (ebdClasses.length || grupos.length) {
     const congs = [...new Set([...ebdClasses.map((c) => c.congregacao), ...grupos.map((g) => g.congregacao)])];
-    return { ...base, papel: 'lider', role: 'lider', congregacao: congs.length === 1 ? congs[0] : null, classes: ebdClasses };
+    return { ...base, papel: 'lider', role: 'lider', ...scopeFromList(congs.filter(Boolean)), classes: ebdClasses };
   }
   if (person) return { ...base, papel: 'membro', role: user?.role || 'user', congregacao: person.congregacao };
   return { ...base, papel: 'desconhecido', role: null, congregacao: null };
@@ -62,7 +63,7 @@ const actorFromUser = async (user) => {
     userId: user._id,
     personId: user.personId,
     telefone: person?.celular,
-    ...scopeFromList(user.role === 'master' ? null : await getUserCongregacoes(user).catch(() => (person?.congregacao ? [person.congregacao] : null))),
+    ...scopeFromList(user.role === 'master' ? null : await getUserCongregacoes(user).catch(() => (person?.congregacao ? [person.congregacao] : []))),
     classes,
   };
 };
@@ -204,15 +205,18 @@ const runAgent = async ({ actor, conversation, input, channel = 'whatsapp' }) =>
 
     messages.push({ role: 'assistant', content: response.content });
     const toolUses = response.content.filter((b) => b.type === 'tool_use');
-    const results = await Promise.all(toolUses.map(async (tu) => {
+    // Uma ferramenta por vez: envios de WhatsApp em paralelo furariam o ritmo anti-ban
+    const results = [];
+    for (const tu of toolUses) {
       try {
         const result = await runTool(tu.name, tu.input, ctx);
-        return { type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(result ?? { ok: true }) };
+        results.push({ type: 'tool_result', tool_use_id: tu.id, content: JSON.stringify(result ?? { ok: true }) });
       } catch (err) {
-        if (!err.toolError) console.error(`[AGENTE] Tool ${tu.name} falhou:`, err);
-        return { type: 'tool_result', tool_use_id: tu.id, is_error: true, content: err.toolError ? err.message : 'Erro interno ao executar a ação.' };
+        // Só a mensagem: o objeto de erro do axios carrega headers (token da Meta/Evolution)
+        if (!err.toolError) console.error(`[AGENTE] Tool ${tu.name} falhou:`, err?.message || err);
+        results.push({ type: 'tool_result', tool_use_id: tu.id, is_error: true, content: err.toolError ? err.message : 'Erro interno ao executar a ação.' });
       }
-    }));
+    }
     messages.push({ role: 'user', content: results });
   }
 

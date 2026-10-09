@@ -5,7 +5,9 @@ const User = require('../models/User.model');
 const Message = require('../models/Message.model');
 const { onboardMember } = require('../services/member.service');
 const whatsapp = require('../services/whatsapp.service');
-const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao, resolveWritableCongregacao } = require('../utils/access');
+const {
+  applyScopedCongregacaoFilter, assertPersonAccess, findAccessiblePerson, getUserCongregacao, resolveWritableCongregacao,
+} = require('../utils/access');
 const { escapeRegex, pageParams, sanitizeFotoUrl } = require('../utils/sanitize');
 const { applyPersonBusinessRules, normalizeName } = require('../utils/person-rules');
 const { importPeople, buildTemplate } = require('../services/person-import.service');
@@ -48,14 +50,18 @@ const clearFieldsByTipo = (payload) => {
   }
 };
 
-// Allowlists de campos por role para prevenir mass assignment
-const ALLOWED_FIELDS_USER = ['nome', 'celular', 'email', 'sexo', 'dataNascimento', 'estadoCivil', 'dataCasamento', 'endereco', 'fotoUrl'];
+// Allowlists de campos por role para prevenir mass assignment.
+// celular fica fora do autoatendimento: é a identidade no WhatsApp (papel de líder, conversa com a IA).
+const ALLOWED_FIELDS_USER = ['nome', 'email', 'sexo', 'dataNascimento', 'estadoCivil', 'dataCasamento', 'endereco', 'fotoUrl'];
 const ALLOWED_FIELDS_ADMIN = [
   'nome', 'celular', 'email', 'sexo', 'dataNascimento', 'estadoCivil', 'dataCasamento', 'endereco', 'fotoUrl',
   'tipo', 'grupo', 'batizado', 'dataBatismo', 'status', 'motivoInativacao', 'ministerio',
   'dataVisita', 'dataDecisao', 'acompanhadoPersonId',
 ];
-// master pode editar tudo — não precisa de allowlist
+const ALLOWED_FIELDS_MASTER = [
+  ...ALLOWED_FIELDS_ADMIN, 'congregacao', 'acompanhadoTipo', 'acompanhadoNome', 'matricula',
+  'tipoSanguineo', 'fatorRh', 'alergias', 'contatoEmergenciaNome', 'contatoEmergenciaTel',
+];
 
 const filterByAllowlist = (payload, allowlist) => {
   const filtered = {};
@@ -240,7 +246,17 @@ const update = async (req, res) => {
   } else if (req.user.role === 'admin') {
     payload = filterByAllowlist(req.body, ALLOWED_FIELDS_ADMIN);
   } else {
-    payload = { ...req.body };
+    payload = filterByAllowlist(req.body, ALLOWED_FIELDS_MASTER);
+  }
+
+  // Cadastro ligado a uma conta master/admin: só o master altera celular/status (o celular dá o
+  // papel de líder no WhatsApp — trocar o do pastor pelo próprio número seria escalar privilégio).
+  if (req.user.role === 'admin' && (payload.celular !== undefined || payload.status !== undefined)) {
+    const lider = await User.exists({ personId: existing._id, role: { $in: ['master', 'admin'] }, _id: { $ne: req.user._id } });
+    if (lider) return res.status(403).json({ message: 'Apenas o master altera celular ou status de um administrador' });
+  }
+  if (req.user.role === 'admin' && payload.acompanhadoPersonId) {
+    await findAccessiblePerson(req.user, payload.acompanhadoPersonId, 'congregacao');
   }
 
   if (payload.nome) payload.nome = normalizeName(payload.nome);

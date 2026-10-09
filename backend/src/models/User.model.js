@@ -13,6 +13,7 @@ const UserSchema = new mongoose.Schema(
     congregacoesAcesso: { type: [String], default: [] },
     ativo: { type: Boolean, default: true },
     mustChangePassword: { type: Boolean, default: false },
+    senhaTemporariaExpiraEm: { type: Date }, // validade da senha provisória (mustChangePassword)
     passwordChangedAt: { type: Date },
     failedLoginAttempts: { type: Number, default: 0 },
     lockedUntil: { type: Date },

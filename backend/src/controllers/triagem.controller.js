@@ -37,6 +37,20 @@ const sanitizeGrupoPayload = (body = {}) => ({
   ativo: body.ativo !== false,
 });
 
+// Grupo por id no escopo do usuário: admin só das suas congregações; user só grupo de que é membro.
+const findGrupoScoped = async (req) => {
+  if (req.user.role === 'master') return TriagemGrupo.findById(req.params.id);
+  if (req.user.role === 'user') {
+    return TriagemGrupo.findOne({ _id: req.params.id, 'membros.membro_id': req.user.personId });
+  }
+  return TriagemGrupo.findOne(await applyScopedCongregacaoFilter(req.user, { _id: req.params.id }));
+};
+
+// Pessoa por id no escopo do usuário (admin: suas congregações)
+const findPersonScoped = async (req, id) => Person.findOne(
+  req.user.role === 'master' ? { _id: id } : await applyScopedCongregacaoFilter(req.user, { _id: id }),
+);
+
 const list = async (req, res) => {
   try {
     const { tipo, etapa, ativo, congregacao } = req.query;
@@ -66,7 +80,7 @@ const list = async (req, res) => {
 
 const getById = async (req, res) => {
   try {
-    const grupo = await TriagemGrupo.findById(req.params.id);
+    const grupo = await findGrupoScoped(req);
     if (!grupo) return res.status(404).json({ message: 'Grupo de triagem não encontrado' });
 
     if (req.user.role === 'user') {
@@ -121,7 +135,7 @@ const create = async (req, res) => {
 
 const update = async (req, res) => {
   try {
-    const grupo = await TriagemGrupo.findById(req.params.id);
+    const grupo = await findGrupoScoped(req);
     if (!grupo) return res.status(404).json({ message: 'Grupo de triagem não encontrado' });
 
     const payload = {
@@ -171,13 +185,13 @@ const remove = async (req, res) => {
 
 const addMembro = async (req, res) => {
   try {
-    const grupo = await TriagemGrupo.findById(req.params.id);
+    const grupo = await findGrupoScoped(req);
     if (!grupo) return res.status(404).json({ message: 'Grupo de triagem não encontrado' });
 
     const { membro_id, cargo, whatsapp } = req.body;
     if (!membro_id) return res.status(400).json({ message: 'membro_id é obrigatório' });
 
-    const person = await Person.findById(membro_id);
+    const person = await findPersonScoped(req, membro_id);
     if (!person) return res.status(404).json({ message: 'Pessoa não encontrada' });
 
     if (!personMatchesGrupo(person, grupo)) {
@@ -213,7 +227,7 @@ const addMembro = async (req, res) => {
 
 const removeMembro = async (req, res) => {
   try {
-    const grupo = await TriagemGrupo.findById(req.params.id);
+    const grupo = await findGrupoScoped(req);
     if (!grupo) return res.status(404).json({ message: 'Grupo de triagem não encontrado' });
 
     const membroIndex = grupo.membros.findIndex(
@@ -291,7 +305,7 @@ const ATIVIDADES_SUGERIDAS = ATIVIDADES_POR_ETAPA.triagem;
 
 const initAtividades = async (req, res) => {
   try {
-    const grupo = await TriagemGrupo.findById(req.params.id);
+    const grupo = await findGrupoScoped(req);
     if (!grupo) return res.status(404).json({ message: 'Grupo não encontrado' });
 
     if (grupo.atividades && grupo.atividades.length > 0) {
@@ -310,7 +324,7 @@ const initAtividades = async (req, res) => {
 
 const updateAtividade = async (req, res) => {
   try {
-    const grupo = await TriagemGrupo.findById(req.params.id);
+    const grupo = await findGrupoScoped(req);
     if (!grupo) return res.status(404).json({ message: 'Grupo não encontrado' });
 
     // User role: must be a member of the group
@@ -354,7 +368,7 @@ const updateAtividade = async (req, res) => {
 
 const addAtividade = async (req, res) => {
   try {
-    const grupo = await TriagemGrupo.findById(req.params.id);
+    const grupo = await findGrupoScoped(req);
     if (!grupo) return res.status(404).json({ message: 'Grupo não encontrado' });
 
     const { titulo, descricao, categoria, responsavel_id, responsavel_nome, prazo } = req.body;
@@ -372,7 +386,7 @@ const addAtividade = async (req, res) => {
 
 const removeAtividade = async (req, res) => {
   try {
-    const grupo = await TriagemGrupo.findById(req.params.id);
+    const grupo = await findGrupoScoped(req);
     if (!grupo) return res.status(404).json({ message: 'Grupo não encontrado' });
 
     const idx = grupo.atividades.findIndex((a) => String(a._id) === req.params.atividadeId);
@@ -389,7 +403,7 @@ const removeAtividade = async (req, res) => {
 
 const sendAtividadesWhatsApp = async (req, res) => {
   try {
-    const grupo = await TriagemGrupo.findById(req.params.id);
+    const grupo = await findGrupoScoped(req);
     if (!grupo) return res.status(404).json({ message: 'Grupo não encontrado' });
 
     const { membro_id } = req.body;
@@ -444,13 +458,13 @@ const sendAtividadesWhatsApp = async (req, res) => {
 
 const addAcompanhado = async (req, res) => {
   try {
-    const grupo = await TriagemGrupo.findById(req.params.id);
+    const grupo = await findGrupoScoped(req);
     if (!grupo) return res.status(404).json({ message: 'Grupo não encontrado' });
 
     const { person_id } = req.body;
     if (!person_id) return res.status(400).json({ message: 'person_id é obrigatório' });
 
-    const person = await Person.findById(person_id);
+    const person = await findPersonScoped(req, person_id);
     if (!person) return res.status(404).json({ message: 'Pessoa não encontrada' });
 
     const jaExiste = grupo.acompanhados?.some((a) => String(a.person_id) === String(person_id));
@@ -474,7 +488,7 @@ const addAcompanhado = async (req, res) => {
 
 const removeAcompanhado = async (req, res) => {
   try {
-    const grupo = await TriagemGrupo.findById(req.params.id);
+    const grupo = await findGrupoScoped(req);
     if (!grupo) return res.status(404).json({ message: 'Grupo não encontrado' });
 
     const idx = grupo.acompanhados.findIndex((a) => String(a._id) === req.params.acompanhadoId);

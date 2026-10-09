@@ -98,7 +98,9 @@ const update = async (req, res) => {
   await assertPersonAccess(req.user, { congregacao: aula.congregacao });
   if (!canEditAula(aula, req.user)) return res.status(403).json({ message: 'Edição bloqueada' });
 
-  const updates = { ...req.body };
+  // Só os campos editáveis da aula (presenças têm rota própria; origem/registradoPor/foto são internos)
+  const EDITABLE = ['data', 'tema', 'descricao', 'professor', 'classe', 'congregacao', 'resumo'];
+  const updates = Object.fromEntries(EDITABLE.filter((k) => req.body?.[k] !== undefined).map((k) => [k, req.body[k]]));
   if (updates.data) {
     try {
       updates.data = ensureSunday(updates.data);
@@ -110,7 +112,7 @@ const update = async (req, res) => {
     updates.congregacao = await resolveWritableCongregacao(req.user, updates.congregacao || aula.congregacao);
   }
 
-  const updated = await EbdAula.findByIdAndUpdate(req.params.id, updates, { new: true });
+  const updated = await EbdAula.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
   res.json(updated);
 };
 

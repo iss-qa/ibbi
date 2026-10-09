@@ -71,7 +71,11 @@ function AssistenteField({ value, onChange }) {
 
 export default function TenantSettings() {
   const { tenant, refresh, hasFeature } = useTenant();
-  const [tab, setTab] = useState('igreja');
+  // ?aba=whatsapp abre direto na aba (links do checklist de primeiros passos)
+  const [tab, setTab] = useState(() => {
+    const aba = new URLSearchParams(window.location.search).get('aba');
+    return TABS.some((t) => t.id === aba) ? aba : 'igreja';
+  });
   const [form, setForm] = useState(null);
   const [secrets, setSecrets] = useState({ evolutionApiKey: '', cloudToken: '' });
   const [saving, setSaving] = useState(false);
@@ -133,6 +137,10 @@ export default function TenantSettings() {
       email: form.email,
       telefone: form.telefone,
       responsavel: form.responsavel,
+      cidade: form.cidade,
+      uf: form.uf,
+      pix: form.pix,
+      cultosProgramados: form.cultosProgramados,
       timezone: form.timezone,
       programacaoSemanal: form.programacaoSemanal,
       congregacoes: form.congregacoes,
@@ -211,7 +219,17 @@ export default function TenantSettings() {
               <Field label="Telefone"><input className={inputClass} value={form.telefone || ''} onChange={(e) => set('telefone', e.target.value)} /></Field>
               <Field label="Responsável"><input className={inputClass} value={form.responsavel || ''} onChange={(e) => set('responsavel', e.target.value)} /></Field>
               <Field label="Fuso horário"><input className={inputClass} value={form.timezone || ''} onChange={(e) => set('timezone', e.target.value)} placeholder="America/Bahia" /></Field>
+              <Field label="Cidade"><input className={inputClass} value={form.cidade || ''} onChange={(e) => set('cidade', e.target.value)} /></Field>
+              <Field label="UF"><input className={inputClass} maxLength={2} value={form.uf || ''} onChange={(e) => set('uf', e.target.value.toUpperCase())} /></Field>
             </div>
+          </Card>
+          <Card title="💰 Pix da igreja" subtitle="Para eventos pagos: cada inscrito recebe o Pix copia e cola com o valor e um QR Code">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div className="sm:col-span-2"><Field label="Chave Pix" hint="CNPJ, email, celular (+55…) ou chave aleatória"><input className={inputClass} value={form.pix?.chave || ''} onChange={(e) => set('pix.chave', e.target.value)} /></Field></div>
+              <Field label="Nome do recebedor" hint="Como aparece no banco (até 25 letras)"><input className={inputClass} maxLength={25} value={form.pix?.nome || ''} onChange={(e) => set('pix.nome', e.target.value)} /></Field>
+              <Field label="Cidade" hint="Até 15 letras"><input className={inputClass} maxLength={15} value={form.pix?.cidade || ''} onChange={(e) => set('pix.cidade', e.target.value)} /></Field>
+            </div>
+            <p className="text-[11px] text-slate-400 mt-2">O dinheiro cai direto na conta da igreja. A confirmação do pagamento é feita pela liderança em Eventos.</p>
           </Card>
           <Card title="Identidade visual" subtitle="Aparece no login, menu e mensagens">
             <div className="space-y-3">
@@ -333,6 +351,23 @@ export default function TenantSettings() {
                 <div>
                   <p className="font-medium text-slate-700">Evolution API → Webhook (evento MESSAGES_UPSERT, "Webhook Base64" ligado)</p>
                   <code className="block bg-slate-50 rounded p-2 mt-1 break-all">{hooks.evolution || 'salve as configurações para gerar'}</code>
+                  {hooks.evolution && (
+                    <button
+                      type="button"
+                      className="text-xs text-red-600 hover:underline mt-1"
+                      onClick={async () => {
+                        if (!confirm('Gerar um novo token? A URL atual para de funcionar e precisa ser atualizada na Evolution API.')) return;
+                        try {
+                          const { data } = await api.post('/tenant/webhook-info/rotate');
+                          setHooks(data);
+                        } catch (err) {
+                          alert(err?.response?.data?.message || 'Erro ao gerar novo token.');
+                        }
+                      }}
+                    >
+                      Gerar novo token
+                    </button>
+                  )}
                 </div>
                 <div>
                   <p className="font-medium text-slate-700">WhatsApp Cloud API → Callback URL (campo "messages")</p>
@@ -363,6 +398,26 @@ export default function TenantSettings() {
             <Toggle checked={a.jornada?.avisarLideranca !== false} onChange={(v) => set('automacoes.jornada.avisarLideranca', v)} label="No dia 30, avisar a liderança de quem ainda não voltou" />
             <Field label="Horário das mensagens"><input type="time" className={inputClass} value={a.jornada?.hora || '10:00'} onChange={(e) => set('automacoes.jornada.hora', e.target.value)} /></Field>
             {!hasFeature('jornadaVisitante') && <p className="text-xs text-amber-700 mt-2">Disponível a partir do plano Crescer.</p>}
+          </Card>
+          <Card title="⛪ Agenda de cultos e lembretes" subtitle='Quem envia "LEMBRETE" no WhatsApp recebe um aviso antes de cada culto (com o link da transmissão)'>
+            <div className="space-y-3">
+              {(form.cultosProgramados || []).map((c, i) => {
+                const upd = (k, v) => set('cultosProgramados', (form.cultosProgramados || []).map((x, j) => (j === i ? { ...x, [k]: v } : x)));
+                return (
+                  <div key={c._id || i} className="rounded-lg border border-slate-100 p-3 grid grid-cols-2 sm:grid-cols-6 gap-2 items-end">
+                    <div className="col-span-2"><Field label="Culto"><input className={inputClass} value={c.titulo || ''} onChange={(e) => upd('titulo', e.target.value)} /></Field></div>
+                    <Field label="Dia"><select className={inputClass} value={c.diaSemana} onChange={(e) => upd('diaSemana', Number(e.target.value))}>{['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((d, k) => <option key={d} value={k}>{d}</option>)}</select></Field>
+                    <Field label="Horário"><input type="time" className={inputClass} value={c.horario || ''} onChange={(e) => upd('horario', e.target.value)} /></Field>
+                    <Field label="Avisar antes"><select className={inputClass} value={c.lembreteMin || 180} onChange={(e) => upd('lembreteMin', Number(e.target.value))}>{[60, 120, 180, 240, 360, 720].map((m) => <option key={m} value={m}>{m / 60}h</option>)}</select></Field>
+                    <Field label="Congregação"><select className={inputClass} value={c.congregacao || ''} onChange={(e) => upd('congregacao', e.target.value)}><option value="">Todas</option>{CONGREGACOES.map((x) => <option key={x}>{x}</option>)}</select></Field>
+                    <div className="col-span-2 sm:col-span-5"><Field label="Link da transmissão (opcional)"><input className={inputClass} value={c.liveUrl || ''} onChange={(e) => upd('liveUrl', e.target.value)} placeholder="https://youtube.com/..." /></Field></div>
+                    <button type="button" className="text-xs text-red-600 justify-self-end" onClick={() => set('cultosProgramados', (form.cultosProgramados || []).filter((_, j) => j !== i))}>remover</button>
+                  </div>
+                );
+              })}
+              <Button variant="outline" onClick={() => set('cultosProgramados', [...(form.cultosProgramados || []), { titulo: 'Culto', diaSemana: 0, horario: '19:00', lembreteMin: 180, ativo: true }])}>+ Adicionar culto</Button>
+              <p className="text-[11px] text-slate-400">O envio é gradual (~50 por hora); com muitos inscritos, use 3h ou mais de antecedência.</p>
+            </div>
           </Card>
           <Card title="🗓️ Escalas de voluntários" subtitle="Lembrete na véspera para quem confirmou; o responsável vê quem não respondeu">
             <Field label="Horário do lembrete (véspera)"><input type="time" className={inputClass} value={a.escalas?.lembreteHora || '18:00'} onChange={(e) => set('automacoes.escalas.lembreteHora', e.target.value)} /></Field>

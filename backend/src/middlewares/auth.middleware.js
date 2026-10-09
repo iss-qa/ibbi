@@ -17,7 +17,7 @@ const authMiddleware = async (req, res, next) => {
 
   let payload;
   try {
-    payload = jwt.verify(token, process.env.JWT_SECRET);
+    payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
   } catch (err) {
     return res.status(401).json({ message: 'Token inválido' });
   }
@@ -55,6 +55,10 @@ const authMiddleware = async (req, res, next) => {
     }
     req.user = user;
     req.tenant = tenant;
+    // Igreja demonstração: somente leitura, decidido pela igreja (não pelo token) — vale para qualquer login nela.
+    if (tenant.demo && !['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+      return res.status(403).json({ code: 'DEMO_READONLY', message: 'Igreja demonstração: somente leitura. Cadastre a sua igreja para usar de verdade (14 dias grátis).' });
+    }
     return next();
   });
 };

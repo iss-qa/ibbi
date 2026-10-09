@@ -7,7 +7,11 @@ const { getTenant } = require('../tenancy/context');
 const { serializePublic } = require('../tenancy/tenant.service');
 const { getUserCongregacoes } = require('../utils/access');
 
+const bcrypt = require('bcryptjs');
+const { LEGACY_DEFAULT_PASSWORDS } = require('../config/defaults');
+
 const MAX_FAILED_ATTEMPTS = 5;
+const DUMMY_HASH = bcrypt.hashSync('dummy-password-for-timing', 10);
 const LOCK_TIME_MS = 15 * 60 * 1000; // 15 minutos
 
 const serializeUser = async (user) => {
@@ -50,28 +54,41 @@ const login = async (req, res) => {
   try {
     const user = await User.findOne({ login: loginInput }).select('+senha +failedLoginAttempts +lockedUntil');
     if (!user) {
+      // bcrypt mesmo sem usuário: o tempo de resposta não revela quais logins existem
+      await bcrypt.compare(senha, DUMMY_HASH);
       return res.status(401).json({ message: 'Credenciais inválidas' });
     }
 
-    // Verificar bloqueio temporário
+    // Bloqueio temporário: mesma resposta de senha errada (não confirma que a conta existe)
     if (user.lockedUntil && user.lockedUntil > new Date()) {
-      const minutesLeft = Math.ceil((user.lockedUntil - new Date()) / 60000);
-      return res.status(423).json({
-        message: `Conta bloqueada temporariamente. Tente novamente em ${minutesLeft} minuto(s).`,
-      });
+      return res.status(401).json({ message: 'Credenciais inválidas ou conta temporariamente bloqueada. Tente mais tarde.' });
     }
 
     const match = await user.comparePassword(senha);
     if (!match) {
-      // Incrementar tentativas falhas
-      const attempts = (user.failedLoginAttempts || 0) + 1;
-      const update = { failedLoginAttempts: attempts };
-      if (attempts >= MAX_FAILED_ATTEMPTS) {
-        update.lockedUntil = new Date(Date.now() + LOCK_TIME_MS);
-        update.failedLoginAttempts = 0;
+      // Incremento atômico: tentativas em paralelo não leem contador desatualizado
+      const updated = await User.findOneAndUpdate(
+        { _id: user._id },
+        { $inc: { failedLoginAttempts: 1 } },
+        { new: true, projection: { failedLoginAttempts: 1 } },
+      );
+      if ((updated?.failedLoginAttempts || 0) >= MAX_FAILED_ATTEMPTS) {
+        await User.updateOne({ _id: user._id }, { failedLoginAttempts: 0, lockedUntil: new Date(Date.now() + LOCK_TIME_MS) });
       }
-      await User.updateOne({ _id: user._id }, update);
       return res.status(401).json({ message: 'Credenciais inválidas' });
+    }
+
+    // Senha provisória vencida, ou a antiga senha padrão compartilhada (conhecida por todos os membros)
+    if (user.mustChangePassword) {
+      const expirada = user.senhaTemporariaExpiraEm
+        ? user.senhaTemporariaExpiraEm < new Date()
+        : LEGACY_DEFAULT_PASSWORDS.includes(senha);
+      if (expirada) {
+        return res.status(401).json({
+          code: 'TEMP_PASSWORD_EXPIRED',
+          message: 'Sua senha provisória expirou. Peça a um líder da igreja para gerar uma nova.',
+        });
+      }
     }
 
     // Só revela "inativo" para quem acertou a senha (não enumera contas)

@@ -6,8 +6,8 @@ const PLANS = {
     id: 'semente',
     nome: 'Semente',
     descricao: 'Para igrejas que querem sair da planilha e nunca mais esquecer um aniversário.',
-    precoMensal: 97,
-    precoAnual: 970, // 2 meses grátis
+    precoMensal: 47,
+    precoAnual: 470, // 2 meses grátis
     limites: {
       pessoas: 150,
       whatsappMensagensMes: 1500,
@@ -32,8 +32,8 @@ const PLANS = {
     id: 'crescer',
     nome: 'Crescer',
     descricao: 'Agente de IA no WhatsApp da liderança + motor de reengajamento de ausentes.',
-    precoMensal: 197,
-    precoAnual: 1970,
+    precoMensal: 99,
+    precoAnual: 990,
     destaque: true,
     limites: {
       pessoas: 500,
@@ -59,8 +59,8 @@ const PLANS = {
     id: 'multiplicar',
     nome: 'Multiplicar',
     descricao: 'IA multimodal (áudio e foto de ficha), WhatsApp Oficial e alto volume.',
-    precoMensal: 397,
-    precoAnual: 3970,
+    precoMensal: 197,
+    precoAnual: 1970,
     limites: {
       pessoas: 2000,
       whatsappMensagensMes: 15000,

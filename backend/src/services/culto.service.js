@@ -63,8 +63,14 @@ const cultoPorCodigo = (codigo) => Culto.findOne({
 
 const registrarPresenca = async (culto, person, { via = 'qr', visitante = false } = {}) => {
   if (culto.presencas.some((p) => String(p.personId) === String(person._id))) return false;
-  culto.presencas.push({ personId: person._id, nome: person.nome, via, visitante });
-  await culto.save();
+  // Atômico: QR e recepção (web) marcando a mesma pessoa ao mesmo tempo não duplicam a presença
+  const presenca = { personId: person._id, nome: person.nome, via, visitante, em: new Date() };
+  const r = await Culto.updateOne(
+    { _id: culto._id, 'presencas.personId': { $ne: person._id } },
+    { $push: { presencas: presenca } },
+  );
+  if (!r.modifiedCount) return false;
+  culto.presencas.push(presenca);
   // Retorno do visitante/novo decidido (jornada) — import tardio evita ciclo de módulos.
   await require('./jornada.service').marcarRetorno(person._id, `${culto.titulo} ${formatBr(culto.data)}`).catch(() => {});
   return true;

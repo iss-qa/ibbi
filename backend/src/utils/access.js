@@ -79,7 +79,18 @@ const assertPersonAccess = async (user, person) => {
   }
 };
 
+// Busca a pessoa por id e garante que o usuário pode acessá-la (404 se não existe, 403 se fora do escopo).
+const findAccessiblePerson = async (user, id, select) => {
+  const query = Person.findById(id);
+  if (select) query.select(select);
+  const person = await query;
+  if (!person) throw Object.assign(new Error('Pessoa não encontrada'), { status: 404 });
+  await assertPersonAccess(user, person);
+  return person;
+};
+
 module.exports = {
+  findAccessiblePerson,
   getUserCongregacoes,
   getUserCongregacao,
   canAccessCongregacao,

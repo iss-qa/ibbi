@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import useAuth from '../../hooks/useAuth';
+import { capturarRef } from '../../utils/indicacao';
 import Nav from './Nav';
 import Hero from './Hero';
 import Plans from './Plans';
@@ -8,6 +9,7 @@ import { Problem, Verse, HowItWorks, Features, AttendanceShowcase, Origin, Faq, 
 // Landing page pública do PastorIA (rota "/").
 export default function Landing() {
   const { user } = useAuth();
+  useEffect(() => { capturarRef(window.location.search); }, []);
 
   useEffect(() => {
     const prev = document.title;

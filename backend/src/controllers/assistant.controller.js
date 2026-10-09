@@ -14,8 +14,8 @@ const findConversation = (userId) => Conversation.findOneAndUpdate(
 
 // Assistente no painel web: o mesmo agente do WhatsApp, para líderes que abrem o sistema.
 const chat = async (req, res) => {
-  if (!isAiConfigured()) return res.status(503).json({ message: 'IA não configurada no servidor (GEMINI_API_KEY ou ANTHROPIC_API_KEY).' });
   if (!hasFeature(req.tenant, 'agenteWhatsApp')) return res.status(403).json({ message: 'Assistente de IA disponível a partir do plano Crescer.' });
+  if (!isAiConfigured()) return res.status(503).json({ message: 'IA não configurada no servidor (GEMINI_API_KEY ou ANTHROPIC_API_KEY).' });
 
   const mensagem = String(req.body?.mensagem || '').trim();
   const imagem = req.body?.imagem;
@@ -42,7 +42,7 @@ const chat = async (req, res) => {
     return res.json({ resposta });
   } catch (err) {
     if (err.code === 'PLAN_LIMIT') return res.status(429).json({ message: err.message });
-    console.error('[ASSISTENTE] Erro:', err);
+    console.error('[ASSISTENTE] Erro:', err?.message || err);
     return res.status(502).json({ message: 'O assistente não conseguiu responder agora. Tente novamente.' });
   }
 };

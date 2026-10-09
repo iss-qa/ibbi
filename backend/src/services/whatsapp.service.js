@@ -37,6 +37,20 @@ const resolveRecipient = (input) => {
   return sanitizeNumber(input);
 };
 
+// ── Descadastro ("SAIR") ─────────────────────────────────────────────
+// Regra de ouro: quem pediu para sair NÃO recebe nada até reativar. Toda função de envio
+// passa aqui antes do provedor. `ignorarOptOut` só para a confirmação do próprio SAIR.
+class OptOutError extends Error {
+  constructor(numero) {
+    super(`Número ${numero} pediu para não receber mensagens (SAIR). Envio bloqueado.`);
+    this.code = 'OPT_OUT';
+  }
+}
+const guardaOptOut = async (number, { ignorarOptOut = false } = {}) => {
+  if (ignorarOptOut || isGroupJid(number)) return;
+  if (await require('./optout.service').bloqueado(number)) throw new OptOutError(number);
+};
+
 // ── Provider por tenant ──────────────────────────────────────────────
 const providerCache = new Map(); // tenantId -> { key, provider }
 
@@ -66,6 +80,7 @@ const buildProvider = (tenant) => {
       instance: process.env.EVOLUTION_INSTANCE,
       apiKey: process.env.EVOLUTION_API_KEY,
       allowSelfSigned,
+      trusted: true,
     });
   }
   throw new Error('WhatsApp não configurado para esta igreja');
@@ -123,7 +138,8 @@ const isOwnEcho = ({ to, text, id }) => {
   return [id && `id|${id}`, echoKey(to, text)].some((k) => k && echoes.get(k) > now);
 };
 
-const sendText = async (number, text, { bulk = false } = {}) => {
+const sendText = async (number, text, { bulk = false, ignorarOptOut = false } = {}) => {
+  await guardaOptOut(number, { ignorarOptOut });
   const to = resolveRecipient(number);
   if (bulk) {
     if (antiban.isDuplicate(to, text)) {
@@ -141,6 +157,7 @@ const sendText = async (number, text, { bulk = false } = {}) => {
 // Imagens também ecoam no chat consigo mesmo: marca o envio por alguns segundos e guarda o id.
 const IMAGE_ECHO_MS = 20e3;
 const sendImage = async (number, media, caption = '') => {
+  await guardaOptOut(number);
   const to = resolveRecipient(number);
   echoes.set(`img|${sanitizeNumber(to)}`, Date.now() + IMAGE_ECHO_MS);
   if (caption) rememberEcho(echoKey(to, caption));
@@ -149,10 +166,19 @@ const sendImage = async (number, media, caption = '') => {
   return result;
 };
 const isOwnImageEcho = (to) => echoes.get(`img|${sanitizeNumber(to)}`) > Date.now();
-const sendAudio = (number, media) => metered((p) => p.sendAudio(resolveRecipient(number), media));
-const sendButtons = (number, text, buttons) => metered((p) => p.sendButtons(resolveRecipient(number), text, buttons));
+const sendAudio = async (number, media) => {
+  await guardaOptOut(number);
+  return metered((p) => p.sendAudio(resolveRecipient(number), media));
+};
+const sendButtons = async (number, text, buttons) => {
+  await guardaOptOut(number);
+  return metered((p) => p.sendButtons(resolveRecipient(number), text, buttons));
+};
 
-const sendContact = (number, contato) => metered((p) => (p.sendContact ? p.sendContact(resolveRecipient(number), contato) : null));
+const sendContact = async (number, contato) => {
+  await guardaOptOut(number);
+  return metered((p) => (p.sendContact ? p.sendContact(resolveRecipient(number), contato) : null));
+};
 
 // Assinatura legada: sendMedia(numero, legenda, url|base64)
 const sendMedia = (number, caption, media) => sendImage(number, media, caption);
@@ -163,6 +189,7 @@ const sendMedia = (number, caption, media) => sendImage(number, media, caption);
  * whatsapp.cloud.templates[templateKey] com `templateParams` como variáveis do corpo.
  */
 const sendProactive = async ({ number, text, templateKey, templateParams = [], lastInboundAt }) => {
+  await guardaOptOut(number);
   const provider = getProvider();
   const inWindow = lastInboundAt && Date.now() - new Date(lastInboundAt).getTime() < 23 * 60 * 60 * 1000;
   const templateName = provider.templates?.[templateKey];
@@ -201,6 +228,7 @@ class WhatsAppQueue {
     this.queue = [];
     this.isProcessing = false;
     this.canceled = false;
+    this.generation = 0; // muda a cada cancelamento: o laço em andamento para no próximo job
     this.total = 0;
     this.sent = 0;
     this.errors = 0;
@@ -218,29 +246,45 @@ class WhatsAppQueue {
   }
 
   cancel() {
+    const descartados = this.queue;
     this.queue = [];
     this.canceled = true;
-    this.isProcessing = false;
+    this.generation += 1;
+    // Quem estava na fila recebe onError: logs/estados não ficam "enviando" para sempre
+    const motivo = new Error('Envio cancelado');
+    const notificar = async () => {
+      for (const job of descartados) {
+        try { if (job.onError) await job.onError(motivo); } catch (err) { console.error('[WHATSAPP] onError (cancelamento):', err.message); }
+      }
+    };
+    (this.tenant ? runWithTenant(this.tenant, notificar) : notificar()).catch(() => {});
   }
 
   async runJob(job) {
     const exec = async () => {
       try {
+        // Descadastrado: falha na hora, sem gastar o intervalo anti-ban da fila.
+        if (job.number) await guardaOptOut(job.number);
         if (job.onStart) await job.onStart();
+        let result;
         if (job.send) {
           await antiban.paceBulk();
-          await job.send();
+          result = await job.send();
         } else {
-          await sendText(job.number, job.text, { bulk: true });
+          result = await sendText(job.number, job.text, { bulk: true });
         }
+        // Duplicada barrada pelo anti-ban: nada saiu — não conta nem registra como enviada
+        if (result?.skipped) throw new Error('Mensagem idêntica enviada há pouco para este número (bloqueada pelo anti-ban)');
         this.sent += 1;
         this.lastSentAt = Date.now();
-        if (job.onSuccess) await job.onSuccess();
       } catch (err) {
         this.errors += 1;
         this.lastSentAt = Date.now();
-        if (job.onError) await job.onError(err);
+        // Falha dentro do onError (ex.: Mongo fora) não pode travar a fila da igreja
+        try { if (job.onError) await job.onError(err); } catch (e) { console.error('[WHATSAPP] onError falhou:', e.message); }
+        return;
       }
+      try { if (job.onSuccess) await job.onSuccess(); } catch (e) { console.error('[WHATSAPP] onSuccess falhou:', e.message); }
     };
     return this.tenant ? runWithTenant(this.tenant, exec) : exec();
   }
@@ -249,17 +293,20 @@ class WhatsAppQueue {
     if (this.isProcessing || this.queue.length === 0) return;
     this.isProcessing = true;
     this.canceled = false;
+    const gen = this.generation;
 
-    while (this.queue.length > 0) {
-      if (this.canceled) {
-        this.isProcessing = false;
-        return;
+    try {
+      while (this.queue.length > 0 && gen === this.generation) {
+        const job = this.queue.shift();
+        // O ritmo (intervalo aleatório, horário, limites) é aplicado em runJob pelo antiban.
+        await this.runJob(job);
       }
-      const job = this.queue.shift();
-      // O ritmo (intervalo aleatório, horário, limites) é aplicado em runJob pelo antiban.
-      await this.runJob(job);
+    } finally {
+      // Sempre libera a fila (erro inesperado não pode deixá-la "enviando" até reiniciar)
+      this.isProcessing = false;
     }
-    this.isProcessing = false;
+    // Jobs enfileirados depois de um cancelamento, enquanto o laço antigo terminava o job em curso
+    if (this.queue.length > 0) await this.processNext();
   }
 
   enqueueBatch(jobs) {
@@ -327,6 +374,7 @@ module.exports = {
   sendProactive,
   sendContact,
   isOwnEcho,
+  OptOutError,
   isOwnImageEcho,
   paceBulk,
   antibanStats,

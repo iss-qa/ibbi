@@ -221,6 +221,7 @@ const processSession = async (sessao, ctx, { force = false } = {}) => {
     : { origem: { $ne: 'encontro' } };
 
   const resumo = { ausentes: ausentes.length, enviadas: 0, pendentes: 0, alertas: 0, escaladas: 0, retornos: [] };
+  const versaoLida = sessao.updatedAt; // o processamento leva minutos (IA + ritmo anti-ban)
 
   // 1) Quem voltou: fecha alertas abertos desta origem.
   const voltaram = await CareAlert.find({ ...escopoAlerta, personId: { $in: presentesIds }, status: { $in: ['aberto', 'em_contato'] } });
@@ -234,7 +235,8 @@ const processSession = async (sessao, ctx, { force = false } = {}) => {
   }
 
   // 2) Ausentes.
-  const persons = await Person.find({ _id: { $in: ausentes.map((a) => a.personId) } }).select('nome celular email').lean();
+  // Só ativos: quem foi inativado (ex.: falecimento) depois da chamada não recebe "sentimos sua falta"
+  const persons = await Person.find({ _id: { $in: ausentes.map((a) => a.personId) }, status: 'ativo' }).select('nome celular email').lean();
   const personById = new Map(persons.map((p) => [String(p._id), p]));
   if (podeMensagem && !sessao.resumo && (sessao.tema || sessao.descricao) && ctx.origem === 'ebd') {
     sessao.resumo = await generators.resumoAula(sessao);
@@ -271,7 +273,7 @@ const processSession = async (sessao, ctx, { force = false } = {}) => {
         // O ritmo anti-ban (intervalo aleatório ≥30s, horário, limites) é aplicado no envio.
         if (await sendAbsenceMessage({ person, mensagem, aula: sessao, alert, faltas })) resumo.enviadas += 1;
       } else {
-        pendentes.push({ personId: id, nome: person.nome, celular: person.celular, email: person.email, faltas, mensagem });
+        pendentes.push({ personId: id, sessaoId: String(sessao._id), nome: person.nome, celular: person.celular, email: person.email, faltas, mensagem });
         if (alert) {
           alert.mensagemSugerida = mensagem;
           await alert.save();
@@ -323,6 +325,10 @@ const processSession = async (sessao, ctx, { force = false } = {}) => {
     }
   }
 
+  // Se o líder corrigiu a chamada enquanto processávamos, não grava por cima: a correção limpou
+  // ausenciasProcessadasEm e a sessão será reprocessada com as presenças novas.
+  const atual = versaoLida ? await sessao.constructor.findById(sessao._id).select('updatedAt').lean() : null;
+  if (versaoLida && atual && String(atual.updatedAt) !== String(versaoLida)) return resumo;
   sessao.ausenciasProcessadasEm = new Date();
   await sessao.save();
   return resumo;
@@ -371,6 +377,9 @@ const sendApproved = async (itens, indices = []) => {
   let enviadas = 0;
   for (const item of escolhidos) {
     const alert = await CareAlert.findOne({ personId: item.personId, status: { $in: ['aberto', 'em_contato'] } });
+    // A mesma lista vai para todos os líderes: só a primeira aprovação envia
+    if (item.sessaoId && !(await AutomationRun.claim(`ausencia-aprovada:${item.sessaoId}:${item.personId}`, 'ausencia'))) continue;
+    if (!item.sessaoId && alert?.mensagemEnviadaEm && Date.now() - alert.mensagemEnviadaEm.getTime() < 864e5) continue;
     if (await sendAbsenceMessage({ person: item, mensagem: item.mensagem, aula: null, alert, faltas: item.faltas })) enviadas += 1;
   }
   return { enviadas, total: escolhidos.length };

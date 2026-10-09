@@ -424,6 +424,31 @@ const tickTenant = async (tenant, { startup = false } = {}) => {
     }).catch((err) => console.error('[scheduler] Escalas:', err));
   }
 
+  if (startup) require('./campanha.service').recuperarInterrompidas().catch(() => {});
+  // Impacto do mês anterior para a liderança: dia 1º, a partir das 09:00.
+  if (now.day === 1 && now.hhmm >= '09:00') {
+    once(`${id}:impacto`, async () => {
+      if (!(await AutomationRun.claim(`impacto:${now.isoDate.slice(0, 7)}`, 'impacto'))) return;
+      const imp = require('./impacto.service');
+      const mes = imp.mesAnterior(now.isoDate.slice(0, 7));
+      const r = await imp.calcular(mes);
+      const [y, m] = mes.split('-');
+      const nomeMes = `${['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'][Number(m) - 1]}/${y}`;
+      await notifyLeadership({ tipo: 'relatorio', texto: templates.impactoMes(r, nomeMes, tenant.nomeCurto || tenant.nome), emailSubject: `Impacto do PastorIA em ${nomeMes}` });
+    }).catch((err) => console.error('[scheduler] Impacto:', err));
+  }
+
+  // Lembrete dos cultos (agenda semanal) e acompanhamento dos pedidos de oração (7 dias).
+  once(`${id}:lembretes-culto`, () => require('./lembrete.service').runLembretes(now)).catch((err) => console.error('[scheduler] Lembretes:', err));
+  if (now.hhmm >= '10:00') {
+    once(`${id}:oracao-acompanhamento`, async () => {
+      if (!(await AutomationRun.claim(`oracao-acompanhamento:${now.isoDate}`, 'oracao'))) return;
+      await require('./prayer.service').runAcompanhamentos();
+    }).catch((err) => console.error('[scheduler] Oração:', err));
+  }
+  // Campanhas (sermão, eventos, lembretes, avisos): um lote por vez pela fila anti-ban.
+  once(`${id}:campanhas`, () => require('./campanha.service').runCampanhas()).catch((err) => console.error('[scheduler] Campanhas:', err));
+
   once(`${id}:resumos-encontro`, runResumosEncontro).catch((err) => console.error('[scheduler] Resumos de encontro:', err));
 
   if (hasFeature(tenant, 'agenteWhatsApp')) {

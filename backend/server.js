@@ -102,8 +102,13 @@ app.use(express.json({
 app.use(require('./src/utils/sanitize').sanitizeQuery);
 
 // A igreja vem sempre do contexto (JWT/slug), nunca do corpo: evita mass assignment de tenantId.
+// Chaves "$…" no topo do corpo viram operadores do Mongo em updates que repassam o corpo
+// (ex.: { "$min": { "tenantId": … } }): também são removidas.
 app.use((req, res, next) => {
-  if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) delete req.body.tenantId;
+  if (req.body && typeof req.body === 'object' && !Array.isArray(req.body) && !req.originalUrl.startsWith('/api/webhooks/')) {
+    delete req.body.tenantId;
+    Object.keys(req.body).forEach((k) => { if (k.startsWith('$')) delete req.body[k]; });
+  }
   next();
 });
 
@@ -118,7 +123,9 @@ app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
 app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
-app.use('/api/auth', authLimiter, authRoutes);
+// Limite só no login: /api/auth/me é chamado a cada carregamento e esgotava a cota de quem só navega
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth', authRoutes);
 app.use('/api/persons', personRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/messages', messageRoutes);

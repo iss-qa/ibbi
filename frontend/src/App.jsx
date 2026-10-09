@@ -28,6 +28,14 @@ import Pricing from './pages/Pricing';
 import Cultos from './pages/Servico/Cultos';
 import Escalas from './pages/Servico/Escalas';
 import Jornada from './pages/Servico/Jornada';
+import Onboarding from './pages/Onboarding';
+import DemoEntrar from './pages/Demo/DemoEntrar';
+import DemoBanner from './components/DemoBanner';
+import Campanhas from './pages/Engajamento/Campanhas';
+import Eventos from './pages/Engajamento/Eventos';
+import Celulas from './pages/Engajamento/Celulas';
+import Impacto from './pages/Engajamento/Impacto';
+import { Termos, Privacidade } from './pages/Legal/Legal';
 import Landing from './pages/Landing';
 import Signup from './pages/Signup';
 import MemberWhatsApp from './pages/MemberWhatsApp';
@@ -54,6 +62,9 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Landing />} />
         <Route path="/cadastro" element={<Signup />} />
+        <Route path="/demo" element={<DemoEntrar />} />
+        <Route path="/termos" element={<Termos />} />
+        <Route path="/privacidade" element={<Privacidade />} />
         <Route path="/login" element={<Login />} />
         <Route path="/external/:token" element={<ExternalMemberForm />} />
         <Route path="/planos" element={<Pricing />} />
@@ -87,6 +98,7 @@ export default function App() {
                       <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 6h16M4 12h16M4 18h16" /></svg>
                     </button>
                   </div>
+                  <DemoBanner />
                   {!tenantLoaded ? (
                     <p className="text-sm text-slate-500 pt-16 md:pt-0">Carregando...</p>
                   ) : (
@@ -110,11 +122,16 @@ export default function App() {
                         <Route path="/jornada" element={<Jornada />} />
                         <Route path="/cultos" element={<Cultos />} />
                         <Route path="/escalas" element={<Escalas />} />
+                        <Route path="/campanhas" element={<Campanhas />} />
+                        <Route path="/eventos" element={<Eventos />} />
+                        <Route path="/celulas" element={<Celulas />} />
+                        <Route path="/impacto" element={<Impacto />} />
                         <Route path="/whatsapp/central" element={<CommunicationHub />} />
                         {hasFeature('agenteWhatsApp') && <Route path="/assistente" element={<Assistant />} />}
                         {user?.role === 'master' && <Route path="/users" element={<UserManagement />} />}
                         {user?.role === 'master' && <Route path="/configuracoes" element={<TenantSettings />} />}
                         {user?.role === 'master' && <Route path="/assinatura" element={<Subscription />} />}
+                        {user?.role === 'master' && <Route path="/primeiros-passos" element={<Onboarding />} />}
                       </>
                     )}
                     {user?.role === 'user' && user?.inTriagemGrupo && (

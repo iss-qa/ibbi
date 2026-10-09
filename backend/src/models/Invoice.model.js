@@ -18,7 +18,7 @@ const InvoiceSchema = new mongoose.Schema({
   },
   pagoEm: { type: Date },
   valorPago: { type: Number },
-  metodo: { type: String, enum: ['pix', 'boleto', 'cartao', 'transferencia', 'dinheiro', 'outro'] },
+  metodo: { type: String, enum: ['pix', 'boleto', 'cartao', 'transferencia', 'dinheiro', 'outro', 'credito'] }, // credito = mês grátis por indicação
   observacao: { type: String, trim: true },
   gateway: {
     provider: { type: String },

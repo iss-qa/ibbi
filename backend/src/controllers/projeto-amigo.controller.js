@@ -1,11 +1,16 @@
 const ProjetoAmigoAcao = require('../models/ProjetoAmigoAcao.model');
 const Person = require('../models/Person.model');
 const TriagemGrupo = require('../models/TriagemGrupo.model');
-const { applyScopedCongregacaoFilter } = require('../utils/access');
+const { applyScopedCongregacaoFilter, findAccessiblePerson } = require('../utils/access');
+
+const EDITABLE = ['tipo_acao', 'descricao', 'data_agendada', 'data_realizada', 'status', 'observacoes', 'responsavel_id'];
+const pickEditable = (body = {}) => Object.fromEntries(EDITABLE.filter((k) => body[k] !== undefined).map((k) => [k, body[k]]));
 
 const listByReferencia = async (req, res) => {
   try {
     const { referencia_tipo, referencia_id } = req.params;
+    // Só de pessoas que o usuário pode ver (user: a própria ficha; admin: suas congregações)
+    await findAccessiblePerson(req.user, referencia_id, 'congregacao');
 
     const acoes = await ProjetoAmigoAcao.find({
       referencia_tipo,
@@ -23,8 +28,11 @@ const listByReferencia = async (req, res) => {
 
 const create = async (req, res) => {
   try {
-    const payload = { ...req.body };
-    payload.created_by = req.user._id;
+    const { referencia_id, referencia_tipo, grupo_triagem_id } = req.body || {};
+    await findAccessiblePerson(req.user, referencia_id, 'congregacao');
+    const payload = {
+      ...pickEditable(req.body), referencia_id, referencia_tipo, grupo_triagem_id, created_by: req.user._id,
+    };
 
     const acao = await ProjetoAmigoAcao.create(payload);
     return res.status(201).json(acao);
@@ -37,8 +45,9 @@ const update = async (req, res) => {
   try {
     const acao = await ProjetoAmigoAcao.findById(req.params.id);
     if (!acao) return res.status(404).json({ message: 'Ação não encontrada' });
+    await findAccessiblePerson(req.user, acao.referencia_id, 'congregacao');
 
-    const payload = { ...req.body, updated_at: new Date() };
+    const payload = { ...pickEditable(req.body), updated_at: new Date() };
 
     const updated = await ProjetoAmigoAcao.findByIdAndUpdate(req.params.id, payload, {
       new: true,
@@ -52,6 +61,9 @@ const update = async (req, res) => {
 
 const remove = async (req, res) => {
   try {
+    const existente = await ProjetoAmigoAcao.findById(req.params.id);
+    if (!existente) return res.status(404).json({ message: 'Ação não encontrada' });
+    await findAccessiblePerson(req.user, existente.referencia_id, 'congregacao');
     const acao = await ProjetoAmigoAcao.findByIdAndDelete(req.params.id);
     if (!acao) return res.status(404).json({ message: 'Ação não encontrada' });
     return res.json({ message: 'Ação removida' });

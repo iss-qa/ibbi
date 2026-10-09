@@ -279,8 +279,11 @@ export function Footer() {
         <nav className="text-sm space-y-2">
           <p className="font-semibold text-white">Acesso</p>
           <Link to="/cadastro" className="block hover:text-white">Cadastrar igreja</Link>
+          {import.meta.env.VITE_DEMO_ENABLED === 'true' && <Link to="/demo" className="block hover:text-white">Ver demonstração</Link>}
           <Link to="/login" className="block hover:text-white">Entrar</Link>
           <Link to="/platform/login" className="block hover:text-white text-white/40">Plataforma</Link>
+          <Link to="/termos" className="block hover:text-white">Termos de Uso</Link>
+          <Link to="/privacidade" className="block hover:text-white">Privacidade</Link>
         </nav>
       </div>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 mt-10 pt-6 border-t border-white/10 text-xs text-white/40 flex flex-col sm:flex-row justify-between gap-2">

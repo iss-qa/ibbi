@@ -16,6 +16,11 @@ const jornadaSvc = require('../jornada.service');
 const Culto = require('../../models/Culto.model');
 const Escala = require('../../models/Escala.model');
 const { hasFeature } = require('../../config/plans');
+const campanhaSvc = require('../campanha.service');
+const sermaoSvc = require('../sermao.service');
+const eventoSvc = require('../evento.service');
+const impactoSvc = require('../impacto.service');
+const Evento = require('../../models/Evento.model');
 const { runTool, scopeFilter, gruposAcessiveis, buildFicha, sendFotoToActor, formatPhone, DIAS_PT } = require('./tools');
 const { getTenant } = require('../../tenancy/context');
 const { timezone } = require('../../tenancy/brand');
@@ -533,6 +538,80 @@ const detalheEscala = async (escalaId, ctx) => {
   return templates.escalaDetalhe(escalaSvc.resumoEscala(e));
 };
 
+
+// ── Resumo do sermão (campanha para a igreja) ────────────────────────────
+const SERMAO_MAX_AUDIO_SEG = 320; // 5 min + tolerância
+const iniciarSermao = (ctx) => {
+  const congs = congregacoesDo(ctx.actor);
+  if (congs.length === 1) return pedirSermao(congs[0], ctx);
+  const opcoes = [...(ctx.actor.congregacao || ctx.actor.congregacoes ? [] : ['Todas as congregações']), ...congs];
+  ctx.conversation.state = { tipo: 'sermao_publico', opcoes };
+  return templates.sermaoPublico(opcoes);
+};
+const pedirSermao = (congregacao, ctx) => {
+  ctx.conversation.state = { tipo: 'sermao_relato', congregacao: congregacao === 'Todas as congregações' ? null : congregacao };
+  return templates.sermaoPedirRelato(congregacao || 'toda a igreja');
+};
+const publicoSermao = (st, ctx) => ({
+  congregacao: st.congregacao || undefined,
+  congregacoes: st.congregacao ? undefined : (ctx.actor.congregacoes || undefined),
+  tipos: sermaoSvc.PUBLICO_TIPOS,
+});
+const previaSermao = async (st, relato, ctx) => {
+  const texto = await sermaoSvc.organizarSermao(relato, { pregador: ctx.actor.nome, data: formatBr(new Date()) });
+  const publico = await campanhaSvc.montarPublico(publicoSermao(st, ctx));
+  const n = publico.filter((d) => d.status === 'pendente').length;
+  ctx.conversation.state = { tipo: 'sermao_previa', congregacao: st.congregacao, texto, relato: relato.slice(0, 6000), n };
+  return templates.sermaoPrevia(texto, n, Math.max(1, Math.ceil(n / 350)));
+};
+const agendarSermao = async (st, quando, ctx) => {
+  const agora = zonedParts(timezone());
+  const enviarApos = quando === 'amanha' ? new Date(`${addDaysIso(agora.isoDate, 1)}T09:00:00`) : new Date(Date.now() + 3600e3);
+  const c = await campanhaSvc.criar({
+    tipo: 'sermao', titulo: `Sermão ${formatBr(new Date())}`, texto: templates.sermaoMembro(st.texto),
+    publico: { ...publicoSermao(st, ctx), descricao: st.congregacao || 'toda a igreja' },
+    enviarApos, user: { _id: ctx.actor.userId, nome: ctx.actor.nome }, avisarCelular: ctx.actor.telefone,
+  });
+  ctx.conversation.state = null;
+  const r = campanhaSvc.resumo(c);
+  return templates.sermaoAgendado(r.pendentes, quando === 'amanha' ? 'amanhã a partir das 9h' : 'daqui a 1 hora');
+};
+
+
+// ── Eventos (inscrições pelo WhatsApp) ───────────────────────────────────
+const listarEventos = async (ctx) => {
+  const eventos = await Evento.find(scopeFilter(ctx.actor, { cancelado: { $ne: true }, data: { $gte: new Date(Date.now() - 864e5) } })).sort({ data: 1 }).limit(15);
+  ctx.conversation.state = { tipo: 'eventos_lista', ids: eventos.map((e) => String(e._id)) };
+  if (!eventos.length) ctx.conversation.state = null;
+  return templates.eventosLider(eventos.map(eventoSvc.resumo));
+};
+const detalheEvento = async (id, ctx) => {
+  const e = await Evento.findOne(scopeFilter(ctx.actor, { _id: id }));
+  if (!e) return 'Não encontrei esse evento. Digite *menu* para recomeçar.';
+  ctx.conversation.state = { tipo: 'evento_detalhe', eventoId: String(e._id) };
+  return templates.eventoDetalheLider(eventoSvc.resumo(e), e.inscricoes.filter((i) => i.status !== 'cancelado'));
+};
+const divulgarEvento = async (eventoId, ctx) => {
+  const e = await Evento.findOne(scopeFilter(ctx.actor, { _id: eventoId }));
+  if (!e) return null;
+  const c = await campanhaSvc.criar({
+    tipo: 'evento', titulo: `Divulgação: ${e.titulo}`, texto: templates.eventoDivulgacao(eventoSvc.resumo(e)), eventoId: e._id,
+    publico: { congregacao: e.congregacao || ctx.actor.congregacao || undefined, congregacoes: e.congregacao ? undefined : ctx.actor.congregacoes, tipos: sermaoSvc.PUBLICO_TIPOS, descricao: e.congregacao || 'toda a igreja' },
+    user: { _id: ctx.actor.userId, nome: ctx.actor.nome }, avisarCelular: ctx.actor.telefone,
+  });
+  ctx.conversation.state = null;
+  return templates.eventoDivulgacaoAgendada(campanhaSvc.resumo(c).pendentes);
+};
+
+// ── Impacto do mês ───────────────────────────────────────────────────────
+const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+const impactoDoMes = async (ctx) => {
+  const r = await impactoSvc.calcular(undefined, scopeFilter(ctx.actor, {}));
+  const [y, m] = r.mes.split('-');
+  ctx.conversation.state = { tipo: 'contexto', contexto: 'O líder acabou de ver o impacto do mês.' };
+  return templates.impactoMes(r, `${MESES[Number(m) - 1]}/${y} (até hoje)`, getTenant()?.nomeCurto);
+};
+
 // ── Menu principal ───────────────────────────────────────────────────────
 const opcaoMenu = async (n, ctx) => {
   ctx.conversation.state = null;
@@ -556,6 +635,9 @@ const opcaoMenu = async (n, ctx) => {
   if (n === 11) return menuOracao(ctx);
   if (n === 12) return listarJornada(ctx);
   if (n === 13) return listarEscalas(ctx);
+  if (n === 14) return iniciarSermao(ctx);
+  if (n === 15) return listarEventos(ctx);
+  if (n === 16) return impactoDoMes(ctx);
   if (PEDIDOS[n]) return { agente: PEDIDOS[n] };
   return null;
 };
@@ -777,13 +859,19 @@ const step = async ({ text, media, audioSegundos, actor, conversation }) => {
       return null;
     case 'oracao_texto':
       if (!text || text.length < 3) return templates.oracaoPedirTexto();
+      conversation.state = { tipo: 'oracao_conf', texto: text.trim() };
+      return templates.oracaoPerguntaConfidencial();
+    case 'oracao_conf': {
+      if (n !== 1 && n !== 2) return templates.oracaoPerguntaConfidencial();
+      const { texto: textoPedido } = st;
       if (await prayer.pedidoRecente({ userId: actor.userId, personId: actor.personId, nome: actor.nome })) {
         conversation.state = null;
         return 'Você já fez um pedido na última hora. A liderança já está orando. 🙏';
       }
-      await prayer.registrarPedido({ nome: actor.nome, personId: actor.personId, userId: actor.userId, celular: actor.telefone, congregacao: actor.congregacao || '', texto: text.trim(), origem: 'whatsapp', enviadoPor: actor.userId });
+      await prayer.registrarPedido({ nome: actor.nome, personId: actor.personId, userId: actor.userId, celular: actor.telefone, congregacao: actor.congregacao || '', texto: textoPedido, origem: 'whatsapp', enviadoPor: actor.userId, confidencial: n === 2 });
       conversation.state = null;
       return templates.oracaoRegistrada();
+    }
     case 'oracao_lista':
       if (n === 1 && st.ids?.length) {
         const r = await PedidoOracao.updateMany({ _id: { $in: st.ids }, status: 'novo' }, { $set: { status: 'orado', oradoEm: new Date(), oradoPor: actor.nome } });
@@ -826,6 +914,30 @@ const step = async ({ text, media, audioSegundos, actor, conversation }) => {
       conversation.state = null;
       return templates.escalaSubstitutoConvidado(r.nome, r.funcao);
     }
+
+    case 'sermao_publico': {
+      const op = pick(st.opcoes, n);
+      return op ? pedirSermao(op, ctx) : null;
+    }
+    case 'sermao_relato':
+      if (audioSegundos && audioSegundos > SERMAO_MAX_AUDIO_SEG) return templates.sermaoAudioLongo(audioSegundos);
+      if (!text || text.length < 30) return 'Conte um pouco mais do sermão (texto ou áudio de até 5 minutos). 🙏';
+      return previaSermao(st, text, ctx);
+    case 'sermao_previa':
+      if (n === 1) return agendarSermao(st, 'amanha', ctx);
+      if (n === 2) return agendarSermao(st, '1h', ctx);
+      if (n === 3) { conversation.state = { tipo: 'sermao_relato', congregacao: st.congregacao }; return 'Ok! Mande o novo relato do sermão (texto ou áudio).'; }
+      if (n === 4) { conversation.state = null; return 'Resumo do sermão descartado. Nada foi enviado. 👍'; }
+      if (audioSegundos && audioSegundos > SERMAO_MAX_AUDIO_SEG) return templates.sermaoAudioLongo(audioSegundos);
+      return text && text.length >= 30 ? previaSermao(st, text, ctx) : null;
+
+    case 'eventos_lista': {
+      const id = pick(st.ids, n);
+      return id ? detalheEvento(id, ctx) : null;
+    }
+    case 'evento_detalhe':
+      if (n === 1) return divulgarEvento(st.eventoId, ctx);
+      return null;
     default:
       return null;
   }

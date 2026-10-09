@@ -24,9 +24,11 @@ const pageParams = (query, defaultLimit = 20) => {
 // Qualquer outra coisa vira SSRF/injeção de HTML no Puppeteer que renderiza os cards.
 const DATA_IMAGE_RE = /^data:image\/(png|jpe?g|webp|gif);base64,[A-Za-z0-9+/=\s]+$/;
 const UPLOAD_PATH_RE = /^\/uploads\/[A-Za-z0-9._-]+$/;
+// ~5 MB de imagem em base64 (o upload já limita o arquivo a 5 MB)
+const MAX_DATA_URI_LENGTH = 7 * 1024 * 1024;
 const sanitizeFotoUrl = (url) => {
   if (url === null || url === '') return url;
-  if (typeof url !== 'string') return undefined;
+  if (typeof url !== 'string' || url.length > MAX_DATA_URI_LENGTH) return undefined;
   if (DATA_IMAGE_RE.test(url)) return url;
   if (UPLOAD_PATH_RE.test(url) && !url.includes('..')) return url;
   return undefined;

@@ -134,3 +134,10 @@ module.exports = {
   boasVindasVisitante,
   notificacaoTriagemVisitante,
 };
+
+// Boas-vindas são o primeiro contato proativo: avisam como deixar de receber mensagens.
+const RODAPE_SAIR = '\n\n_Para não receber mais mensagens, responda SAIR._';
+['boasVindasNovoDecidido', 'boasVindasVisitante'].forEach((k) => {
+  const original = module.exports[k];
+  module.exports[k] = (...args) => `${original(...args)}${RODAPE_SAIR}`;
+});

@@ -163,7 +163,44 @@ const TenantSchema = new mongoose.Schema({
 
   onboarding: {
     concluido: { type: Boolean, default: false },
+    concluidoEm: { type: Date },
     origem: { type: String, trim: true },
+    dispensado: { type: Boolean, default: false }, // "pular por enquanto" no checklist
+    etapasConfirmadas: { type: [String], default: [] }, // etapas marcadas à mão (ex.: congregações revisadas)
+  },
+  // Igreja demonstração (services/demo.service.js): somente leitura, WhatsApp desligado
+  demo: { type: Boolean, default: false },
+  demoAtualizadoEm: { type: Date },
+  // Programa de indicação (services/indicacao.service.js)
+  indicacao: {
+    indicadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant' },
+    recompensaConcedida: { type: Boolean, default: false }, // quem indicou já ganhou o mês por esta igreja
+    creditosMeses: { type: Number, default: 0, min: 0 }, // meses grátis a consumir nas próximas faturas
+    concedidos: [{ tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant' }, nome: String, em: Date, _id: false }],
+  },
+  // Agenda semanal de cultos (lembretes para quem enviou "LEMBRETE" e/ou para um grupo de WhatsApp)
+  cultosProgramados: [{
+    titulo: { type: String, trim: true, default: 'Culto' },
+    diaSemana: { type: Number, min: 0, max: 6, required: true },
+    horario: { type: String, trim: true, required: true }, // HH:MM
+    congregacao: { type: String, trim: true }, // vazio = todas
+    liveUrl: { type: String, trim: true },
+    lembreteMin: { type: Number, default: 180, min: 30, max: 1440 }, // antecedência do aviso
+    grupoJid: { type: String, trim: true }, // opcional: grupo de avisos (Evolution) — 1 mensagem só
+    ativo: { type: Boolean, default: true },
+  }],
+  // Pix da igreja (eventos pagos): copia-e-cola estático gerado localmente (utils/pix.js)
+  pix: {
+    chave: { type: String, trim: true },
+    nome: { type: String, trim: true, maxlength: 25 }, // nome do recebedor (como no banco)
+    cidade: { type: String, trim: true, maxlength: 15 },
+  },
+  // Aceite dos Termos de Uso e da Política de Privacidade (config/legal.js → TERMOS_VERSAO)
+  termos: {
+    versao: { type: String, trim: true },
+    aceitoEm: { type: Date },
+    aceitoPor: { type: String, trim: true },
+    ip: { type: String, trim: true },
   },
 }, { timestamps: true });
 

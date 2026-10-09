@@ -1,4 +1,6 @@
 const { PLANS, TRIAL_DAYS, TRIAL_PLAN } = require('../config/plans');
+const { TERMOS_VERSAO } = require('../config/legal');
+const { runAsPlatform } = require('../tenancy/context');
 const { provisionTenant, ProvisionError, slugify, slugExists, availableSlug } = require('../tenancy/provision.service');
 const { sendEmail } = require('../services/email.service');
 const { welcomeEmailSubject, welcomeEmailHtml, signupAlertHtml } = require('../templates/welcome-email.template');
@@ -39,6 +41,9 @@ const signup = async (req, res) => {
   if (!b.aceite) return res.status(400).json({ message: 'É preciso aceitar os termos de uso' });
 
   const slug = b.slug ? slugify(b.slug) : await availableSlug(nome);
+  // Indicação (?ref=): a igreja indicada ganha +7 dias de teste; quem indicou ganha 1 mês na 1ª fatura paga.
+  const indicacaoSvc = require('../services/indicacao.service');
+  const indicador = b.ref ? await runAsPlatform(() => indicacaoSvc.resolverIndicador(b.ref, slug)) : null;
   if (slug.length < 2) return res.status(400).json({ message: 'Código da igreja inválido' });
 
   let tenant;
@@ -55,6 +60,9 @@ const signup = async (req, res) => {
       uf: uf || undefined,
       plano,
       master: { nome: responsavel, email, celular },
+      trialDias: indicador ? TRIAL_DAYS + indicacaoSvc.BONUS_TRIAL_DIAS : undefined,
+      indicacao: indicador ? { indicadoPor: indicador._id } : undefined,
+      termos: { versao: TERMOS_VERSAO, aceitoEm: new Date(), aceitoPor: responsavel, ip: String(req.ip || '').slice(0, 64) },
     }, { origem: 'landing' }));
   } catch (err) {
     if (err instanceof ProvisionError) return res.status(err.status).json({ message: err.message, sugestao: err.sugestao });
@@ -68,7 +76,7 @@ const signup = async (req, res) => {
     login: credenciais.login,
     senhaTemporaria: credenciais.senhaTemporaria,
     loginUrl,
-    trialDias: TRIAL_DAYS,
+    trialDias: indicador ? TRIAL_DAYS + indicacaoSvc.BONUS_TRIAL_DIAS : TRIAL_DAYS,
   };
 
   // Emails são best-effort: a igreja já foi criada e as credenciais voltam na resposta.

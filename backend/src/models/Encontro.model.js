@@ -25,6 +25,12 @@ const EncontroSchema = new mongoose.Schema({
   registradoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   ausenciasProcessadasEm: { type: Date },
   ebdAulaId: { type: mongoose.Schema.Types.ObjectId, ref: 'EbdAula' }, // espelho de uma aula da EBD
+  // Relatório de célula (pequeno grupo): visitantes e decisões por Jesus no encontro.
+  relatorio: {
+    visitantes: { type: Number, min: 0 },
+    decisoes: { type: Number, min: 0 },
+    observacao: { type: String, trim: true, maxlength: 500 },
+  },
   // Resumo do encontro (texto ou áudio do líder, organizado pela IA) enviado aos membros 1h depois.
   resumo: {
     texto: { type: String, trim: true, maxlength: 4000 },

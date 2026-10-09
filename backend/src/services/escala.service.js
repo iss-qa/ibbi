@@ -28,12 +28,21 @@ const dadosConvite = (e, item) => ({
 });
 const chaveDe = (celular) => whatsapp.sanitizeNumber(celular);
 
-// Deixa a conversa do voluntário pronta para o "1/2" (sem IA).
-const prepararConversa = (celular, nome, escalaId, itemId) => Conversation.findOneAndUpdate(
-  { canal: 'whatsapp', chave: chaveDe(celular) },
-  { $setOnInsert: { canal: 'whatsapp', chave: chaveDe(celular) }, $set: { nome, state: { tipo: 'escala_convite', escalaId: String(escalaId), itemId: String(itemId) } } },
-  { upsert: true },
-);
+// Deixa a conversa do voluntário pronta para o "1/2" (sem IA) — sem atropelar outro fluxo em
+// andamento (ex.: líder com aviso/aprovação pendente). Nesse caso o convite fica pendente na
+// escala e é retomado depois da próxima resposta de escala (responderConvite → "outra").
+const prepararConversa = async (celular, nome, escalaId, itemId) => {
+  const chave = chaveDe(celular);
+  await Conversation.findOneAndUpdate(
+    { canal: 'whatsapp', chave },
+    { $setOnInsert: { canal: 'whatsapp', chave, nome } },
+    { upsert: true },
+  );
+  return Conversation.updateOne(
+    { canal: 'whatsapp', chave, $or: [{ state: null }, { 'state.tipo': 'escala_convite' }] },
+    { $set: { nome, state: { tipo: 'escala_convite', escalaId: String(escalaId), itemId: String(itemId) } } },
+  );
+};
 
 const enviarConvites = async (escalaId, { itemIds } = {}) => {
   const escala = await Escala.findById(escalaId).lean();
@@ -96,8 +105,11 @@ const avisarResponsavel = async (escala, texto, state) => {
   return true;
 };
 
-const CONFIRMA_RE = /^\s*(1|sim|confirmo|confirmado|confirmada|pode contar|estarei|ok|✅)\b/i;
-const RECUSA_RE = /^\s*(2|n[aã]o( posso)?|nao posso|não vou|nao vou|❌)\b/i;
+// Resposta inteira/inequívoca: "Ok, mas não posso" e "Não sei ainda" não contam (seguem o fluxo normal).
+// Emoji não tem \b: usa lookahead para fim/pontuação.
+const CONFIRMA_RE = /^\s*(1|sim|confirmo|confirmad[oa]|pode contar|estarei|ok|✅|👍)(?=$|[\s.,!🙏])/iu;
+const RECUSA_RE = /^\s*(?:(2|❌)(?=$|[\s.,!])|n[aã]o\s*(?:posso|vou|poderei|consigo|d[aá])\b|n[aã]o\s*[.!]*\s*$)/iu;
+const NEGA_RE = /\bn[aã]o\b|\bmas\b/iu;
 
 /**
  * Resposta do voluntário (estado `escala_convite`). Retorna o texto de resposta ou null
@@ -105,12 +117,15 @@ const RECUSA_RE = /^\s*(2|n[aã]o( posso)?|nao posso|não vou|nao vou|❌)\b/i;
  */
 const responderConvite = async ({ conversation, text }) => {
   const st = conversation.state;
-  const confirmou = CONFIRMA_RE.test(text);
+  const confirmou = CONFIRMA_RE.test(text) && !NEGA_RE.test(text);
   const recusou = !confirmou && RECUSA_RE.test(text);
   if (!confirmou && !recusou) return null;
   const escala = await Escala.findById(st.escalaId);
   const item = escala?.itens.id(st.itemId);
   conversation.state = null;
+  // Convite de escala que já passou: o "sim/ok" é sobre outra coisa — segue o fluxo normal
+  const diaEscala = escala?.data ? new Date(escala.data).toISOString().slice(0, 10) : null;
+  if (diaEscala && diaEscala < zonedParts(timezone()).isoDate) return null;
   if (!escala || !item || escala.cancelada) return 'Essa escala não está mais ativa. Obrigado! 🙏';
   item.status = confirmou ? 'confirmado' : 'recusado';
   item.respondidoEm = new Date();
@@ -123,6 +138,11 @@ const responderConvite = async ({ conversation, text }) => {
       ministerio: escala.ministerio, data: dataExtenso(escala.data), nome: item.nome, funcao: item.funcao, motivo: item.motivoRecusa, sugestoes,
     }), sugestoes.length ? { tipo: 'escala_substituto', escalaId: String(escala._id), itemId: String(item._id), sugestoes } : null)
       .catch((err) => console.error('[ESCALA] Falha ao avisar responsável:', err.message));
+  } else if (item.substituiu) {
+    // Substituto convidado pelo líder ("Te aviso quando responder"): avisa a confirmação.
+    await avisarResponsavel(escala, templates.escalaRespostaLider({
+      confirmou: true, nome: item.nome, ministerio: escala.ministerio, funcao: item.funcao, data: dataExtenso(escala.data),
+    })).catch((err) => console.error('[ESCALA] Falha ao avisar responsável:', err.message));
   }
   // Há outro convite pendente para esta pessoa? Deixa a conversa pronta para ele.
   const outra = await Escala.findOne({

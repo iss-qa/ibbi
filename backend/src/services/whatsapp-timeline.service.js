@@ -59,7 +59,15 @@ const buildTimeline = async (person, { userId, incluirInternas = false } = {}) =
   const [enviadas, pedidos, conversa] = await Promise.all([
     Message.find({ 'destinatarios.celular': { $in: variants }, tipo: { $nin: ocultos } }).sort({ criadoEm: -1 }).limit(300).lean(),
     userId ? Message.find({ tipo: 'oracao', enviadoPor: userId }).sort({ criadoEm: -1 }).limit(50).lean() : [],
-    Conversation.findOne({ canal: 'whatsapp', chave: { $in: variants.map(sanitizeNumber) } }).lean(),
+    // A conversa precisa ser desta pessoa: o número sozinho não basta (outro cadastro com o mesmo
+    // celular — ou um celular trocado para o do pastor — não pode ler a conversa de outra pessoa com a IA).
+    Conversation.findOne({
+      canal: 'whatsapp',
+      chave: { $in: variants.map(sanitizeNumber) },
+      $or: outros.length
+        ? [{ personId: person._id }]
+        : [{ personId: person._id }, { personId: null }],
+    }).lean(),
   ]);
 
   const itens = [];

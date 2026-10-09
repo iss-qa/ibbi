@@ -16,11 +16,24 @@ const QUERY_OPS = [
   'updateOne',
 ];
 
+const crossTenantError = () => Object.assign(new Error('Atualização de tenantId não permitida'), { status: 403 });
+
+// tenantId nunca muda por update: $set/$unset são limpos; qualquer outro operador que toque o
+// campo ($min, $max, $inc, $rename, $currentDate…) ou pipeline de update é recusado.
 const stripTenantFromUpdate = (update) => {
-  if (!update || typeof update !== 'object') return;
+  if (!update) return;
+  if (Array.isArray(update)) throw crossTenantError();
+  if (typeof update !== 'object') return;
   delete update.tenantId;
   ['$set', '$setOnInsert', '$unset'].forEach((op) => {
     if (update[op]) delete update[op].tenantId;
+  });
+  Object.keys(update).forEach((op) => {
+    if (!op.startsWith('$')) return;
+    const fields = update[op];
+    if (!fields || typeof fields !== 'object') return;
+    if (Object.prototype.hasOwnProperty.call(fields, 'tenantId')) throw crossTenantError();
+    if (op === '$rename' && Object.values(fields).includes('tenantId')) throw crossTenantError();
   });
 };
 
@@ -32,7 +45,9 @@ const stripTenantFromUpdate = (update) => {
  */
 module.exports = function tenantPlugin(schema) {
   schema.add({
-    tenantId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true, index: true },
+    tenantId: {
+      type: mongoose.Schema.Types.ObjectId, ref: 'Tenant', required: true, index: true, immutable: true,
+    },
   });
 
   // Hooks síncronos (sem `next`): no estilo callback o Mongoose executa o hook fora do

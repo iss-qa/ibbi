@@ -4,7 +4,7 @@ const EbdAula = require('../models/EbdAula.model');
 const Person = require('../models/Person.model');
 const engagement = require('../services/engagement.service');
 const generators = require('../services/ai/generators');
-const { getUserCongregacoes, canAccessCongregacao } = require('../utils/access');
+const { getUserCongregacoes, canAccessCongregacao, findAccessiblePerson } = require('../utils/access');
 
 // null = todas; string = uma; array = as congregações liberadas ao admin.
 const scopeCongregacao = async (req) => {
@@ -74,12 +74,18 @@ const sendMessage = async (req, res) => {
 };
 
 const processAula = async (req, res) => {
+  const aula = await EbdAula.findById(req.params.id).select('congregacao').lean();
+  if (!aula) return res.status(404).json({ message: 'Aula não encontrada' });
+  if (!(await canAccessCongregacao(req.user, aula.congregacao))) {
+    return res.status(403).json({ message: 'Aula de outra congregação' });
+  }
   const resumo = await engagement.processAula(req.params.id, { force: true });
   if (!resumo) return res.status(404).json({ message: 'Aula não encontrada' });
   return res.json(resumo);
 };
 
 const personHistory = async (req, res) => {
+  await findAccessiblePerson(req.user, req.params.id, 'congregacao');
   const aulas = await EbdAula.find({ 'presencas.personId': req.params.id }).sort({ data: -1 }).limit(26)
     .select('data classe congregacao tema presencas').lean();
   const historico = aulas.map((a) => ({
