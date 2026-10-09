@@ -1,3 +1,4 @@
+const mongoose = require('mongoose');
 const Campanha = require('../models/Campanha.model');
 const Evento = require('../models/Evento.model');
 const Person = require('../models/Person.model');
@@ -8,6 +9,7 @@ const celulaSvc = require('../services/celula.service');
 const impactoSvc = require('../services/impacto.service');
 const templates = require('../templates/messages.templates');
 const whatsapp = require('../services/whatsapp.service');
+const { normalizarChavePix, TIPOS_CHAVE } = require('../utils/pix');
 const { applyScopedCongregacaoFilter, resolveWritableCongregacao } = require('../utils/access');
 const { toLocal } = require('../utils/phone');
 
@@ -62,6 +64,21 @@ const organizarSermao = async (req, res) => {
 };
 
 // ── Eventos ─────────────────────────────────────────────────────────────
+// Quem recebe: Pix da igreja ou líder/departamento com a própria chave (validada pelo tipo).
+const dadosRecebedor = (r) => {
+  if (!r || r.tipo !== 'lider') return { tipo: 'igreja' };
+  const nome = String(r.nome || '').trim().slice(0, 60);
+  if (!nome) throw Object.assign(new Error('Informe o nome de quem recebe o pagamento'), { status: 400 });
+  if (!TIPOS_CHAVE.includes(r.chaveTipo)) throw Object.assign(new Error('Escolha o tipo da chave Pix'), { status: 400 });
+  const chave = normalizarChavePix(r.chaveTipo, r.chave);
+  if (!chave) throw Object.assign(new Error('Chave Pix inválida para o tipo escolhido'), { status: 400 });
+  return {
+    tipo: 'lider', nome, chaveTipo: r.chaveTipo, chave,
+    departamento: String(r.departamento || '').trim().slice(0, 60) || undefined,
+    personId: r.personId && mongoose.isValidObjectId(r.personId) ? r.personId : undefined,
+  };
+};
+
 const dadosEvento = async (req, b) => {
   const data = isoDia(b.data);
   if (!b.titulo || !data) throw Object.assign(new Error('Informe o título e a data'), { status: 400 });
@@ -71,6 +88,7 @@ const dadosEvento = async (req, b) => {
     congregacao: b.congregacao ? await resolveWritableCongregacao(req.user, b.congregacao) : undefined,
     vagas: Number(b.vagas) > 0 ? Math.floor(Number(b.vagas)) : undefined,
     valor: Number(b.valor) > 0 ? Math.round(Number(b.valor) * 100) / 100 : 0,
+    recebedor: Number(b.valor) > 0 ? dadosRecebedor(b.recebedor) : { tipo: 'igreja' },
     inscricoesAbertas: b.inscricoesAbertas !== false,
   };
 };
@@ -97,7 +115,10 @@ const atualizarEvento = async (req, res) => {
 const detalheEvento = async (req, res) => {
   const e = await findEvento(req);
   if (!e) return res.status(404).json({ message: 'Evento não encontrado' });
-  res.json({ ...eventoSvc.resumo(e), descricao: e.descricao, inscricoes: e.inscricoes.filter((i) => i.status !== 'cancelado') });
+  res.json({
+    ...eventoSvc.resumo(e), descricao: e.descricao, recebedorDados: e.recebedor || { tipo: 'igreja' },
+    inscricoes: e.inscricoes.filter((i) => i.status !== 'cancelado'),
+  });
 };
 const inscreverWeb = async (req, res) => {
   const e = await findEvento(req);
@@ -117,6 +138,7 @@ const atualizarInscricao = async (req, res) => {
   const antes = insc.status;
   insc.status = status;
   if (status === 'pago') { insc.pagoEm = new Date(); insc.confirmadoPor = req.user.nome; }
+  if (antes === 'pago' && status !== 'pago') { insc.pagoEm = undefined; insc.confirmadoPor = undefined; } // switch desligado
   await e.save();
   if (status === 'pago' && antes !== 'pago' && insc.celular) {
     whatsapp.sendText(insc.celular, templates.eventoPagamentoConfirmado(insc.nome, e.titulo)).catch(() => {});
@@ -142,7 +164,11 @@ const pixPreview = async (req, res) => {
   const e = await findEvento(req);
   if (!e) return res.status(404).json({ message: 'Evento não encontrado' });
   if (!e.valor) return res.json({ pix: null, motivo: 'Evento gratuito' });
-  if (!eventoSvc.pixPronto()) return res.json({ pix: null, motivo: 'Configure a chave Pix, o nome do recebedor e a cidade da igreja em Configurações → Igreja' });
+  if (!eventoSvc.pixProntoEvento(e)) {
+    return res.json({ pix: null, motivo: e.recebedor?.tipo === 'lider'
+      ? 'Falta a cidade da igreja (Configurações → Igreja) para gerar o Pix do recebedor'
+      : 'Configure a chave Pix, o nome do recebedor e a cidade da igreja em Configurações → Igreja' });
+  }
   res.json({ pix: await eventoSvc.pixDaInscricao(e, { _id: e._id, txid: `${e.codigo}TESTE` }) });
 };
 

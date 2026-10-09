@@ -101,3 +101,52 @@ test.describe.serial('Eventos e inscrições', () => {
     expect(r.text).toContain(pago.codigo);
   });
 });
+
+test.describe.serial('Evento pago com recebedor (líder/departamento)', () => {
+  let evento;
+  const fone = '00000001410';
+
+  test('chave Pix do líder é validada pelo tipo', async ({ request }) => {
+    const a = await cliente(request);
+    const base = { titulo: 'Acampamento E2E', data: diaIso(12), valor: 80 };
+    const invalida = await a.post('/eventos', { ...base, recebedor: { tipo: 'lider', nome: 'João Tesoureiro', chaveTipo: 'cpf', chave: '123' } });
+    expect(invalida.status()).toBe(400);
+    expect((await invalida.json()).message).toMatch(/Chave Pix inválida/);
+    const ok = await a.post('/eventos', { ...base, recebedor: { tipo: 'lider', nome: 'João Tesoureiro', departamento: 'Tesouraria dos Jovens', chaveTipo: 'celular', chave: '(71) 99999-8888' } });
+    expect(ok.status(), await ok.text()).toBe(201);
+    evento = await ok.json();
+    expect(evento.recebedor).toMatchObject({ tipo: 'lider', texto: 'João Tesoureiro · Tesouraria dos Jovens' });
+  });
+
+  test('Pix vai para a chave do líder', async ({ request }) => {
+    const a = await cliente(request);
+    const { pix } = await (await a.get(`/eventos/${evento.id}/pix`)).json();
+    expect(pixValido(pix.copiaECola)).toBe(true);
+    expect(pix.copiaECola).toContain('+5571999998888');
+    expect(pix.copiaECola).toContain('JOAO TESOUREIRO');
+    expect(pix.copiaECola).not.toContain('pix@e2e.test');
+  });
+
+  test('inscrição pelo WhatsApp informa quem recebe', async ({ request }) => {
+    await conversar(request, fone, `INSCREVER ${evento.codigo}`, /nome completo/);
+    const r = await conversar(request, fone, 'Carla Recebedor Teste', /Inscrição confirmada/);
+    expect(r.text).toMatch(/Pagamento para: \*João Tesoureiro · Tesouraria dos Jovens\*/);
+  });
+
+  test('switch Pago: liga e desliga, registrando quem marcou', async ({ request }) => {
+    const a = await cliente(request);
+    const insc = (await (await a.get(`/eventos/${evento.id}`)).json()).inscricoes.find((i) => i.nome === 'Carla Recebedor Teste');
+    await a.put(`/eventos/${evento.id}/inscricoes/${insc._id}`, { status: 'pago' });
+    let det = await (await a.get(`/eventos/${evento.id}`)).json();
+    let i = det.inscricoes.find((x) => x._id === insc._id);
+    expect(i.status).toBe('pago');
+    expect(i.confirmadoPor).toBeTruthy();
+    expect(det.pagos).toBe(1);
+    await a.put(`/eventos/${evento.id}/inscricoes/${insc._id}`, { status: 'inscrito' });
+    det = await (await a.get(`/eventos/${evento.id}`)).json();
+    i = det.inscricoes.find((x) => x._id === insc._id);
+    expect(i.status).toBe('inscrito');
+    expect(i.confirmadoPor).toBeUndefined();
+    expect(det.pagos).toBe(0);
+  });
+});
