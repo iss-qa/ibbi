@@ -48,7 +48,7 @@ test.describe('Evolution API Health Check', () => {
 
     if (!isHealthy) {
       const alertMsg =
-        `🚨 *ALERTA IBBI — WhatsApp OFFLINE*\n\n` +
+        `🚨 *ALERTA PastorIA — WhatsApp OFFLINE*\n\n` +
         `A Evolution API está fora do ar ou desconectada.\n\n` +
         `Erro: ${errorMsg}\n` +
         `Instância: ${EVOLUTION_INSTANCE}\n` +

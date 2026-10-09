@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Header from '../../components/Header';
 import api from '../../services/api';
 import useAuth from '../../hooks/useAuth';
+import { useTenant } from '../../context/TenantContext';
 import { formatPhoneBR } from '../../utils/phoneMask';
 import useCongregacaoScope from '../../hooks/useCongregacaoScope';
 
@@ -162,6 +163,7 @@ const getRecipientProgress = (msg) => {
 
 export default function CommunicationPanel({ embedded = false }) {
   const { user } = useAuth();
+  const { tenant } = useTenant();
   const { locked: lockedCongregacao, options: congregacaoOptions } = useCongregacaoScope();
   const [activeTab, setActiveTab] = useState('grupo');
   const [grupo, setGrupo] = useState('');
@@ -712,7 +714,7 @@ export default function CommunicationPanel({ embedded = false }) {
                 <SendTab label="Por grupo" icon="👥" active={activeTab === 'grupo'} onClick={() => setActiveTab('grupo')} />
                 <SendTab label="Congregação" icon="🏛️" active={activeTab === 'congregacao'} onClick={() => setActiveTab('congregacao')} />
                 <SendTab label="Individual" icon="💬" active={activeTab === 'individual'} onClick={() => setActiveTab('individual')} />
-                <SendTab label="Falhas" icon="⚠️" active={activeTab === 'falhas'} onClick={() => { setActiveTab('falhas'); setMensagemFalhas(`Shalom amado(a) irmão(ã) {nome}, encontramos uma pendência no seu cadastro.\n\n* PROBLEMA -> Cadastro sem foto *\n\nAcesse nosso portal:\n🔗 Portal: https://ibbi.issqa.com.br/login\n👤 Usuário: {login}\n🔑 Senha: {senha}\n\nE atualize seu cadastro! Escolha a foto que preferir, porém insira uma foto no estilo 3x4, evite fotos abertas de paisagem, na qual não consiga identificar seu rosto.\n\n_Igreja Batista Bíblica Israel_`); }} />
+                <SendTab label="Falhas" icon="⚠️" active={activeTab === 'falhas'} onClick={() => { setActiveTab('falhas'); setMensagemFalhas(`Shalom amado(a) irmão(ã) {nome}, encontramos uma pendência no seu cadastro.\n\n* PROBLEMA -> Cadastro sem foto *\n\nAcesse nosso portal:\n🔗 Portal: ${window.location.origin}/login\n👤 Usuário: {login}\n🔑 Senha: {senha}\n\nE atualize seu cadastro! Escolha a foto que preferir, porém insira uma foto no estilo 3x4, evite fotos abertas de paisagem, na qual não consiga identificar seu rosto.\n\n_${tenant?.nome || ''}_`); }} />
               </div>
 
               <div className="flex flex-col gap-3">
