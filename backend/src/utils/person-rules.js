@@ -45,6 +45,52 @@ const determineGroup = (age) => {
 
 const determineGroupFromBirthDate = (birthday) => determineGroup(calculateAge(birthday));
 
+// Datas digitadas: ISO (aaaa-mm-dd…), dd/mm/aaaa, dd-mm-aaaa, dd.mm.aaaa e aaaa/mm/dd.
+// Retorna Date (UTC) ou null para data impossível (31/02, mês 13) ou fora de 1900–2100.
+const toDate = (y, mo, d) => {
+  const year = Number(y);
+  if (year < 1900 || year > 2100) return null;
+  const date = new Date(Date.UTC(year, Number(mo) - 1, Number(d)));
+  return Number.isNaN(date.getTime()) || date.getUTCMonth() !== Number(mo) - 1 ? null : date;
+};
+const parseDate = (value) => {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
+  const s = String(value || '').trim();
+  if (!s) return null;
+  let m = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if (m) return toDate(m[1], m[2], m[3]);
+  m = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{2,4})$/);
+  if (m) return toDate(m[3].length === 2 ? `19${m[3]}` : m[3], m[2], m[1]);
+  return null; // sem fallback para new Date(): ele aceita "12/05/" como 05/12/2001
+};
+
+const PERSON_DATE_FIELDS = {
+  dataNascimento: 'Data de nascimento',
+  dataBatismo: 'Data de batismo',
+  dataCasamento: 'Data de casamento',
+  dataVisita: 'Data da visita',
+  dataDecisao: 'Data da decisão',
+};
+
+// Normaliza as datas do cadastro para aaaa-mm-dd. Vazio continua vazio (o update usa '' para limpar);
+// data que não dá para entender é removida do payload. Retorna os rótulos das que foram removidas.
+const normalizePersonDates = (target) => {
+  const invalidas = [];
+  if (!target || typeof target !== 'object') return invalidas;
+  Object.entries(PERSON_DATE_FIELDS).forEach(([field, label]) => {
+    const value = target[field];
+    if (value === undefined || value === null || value === '') return;
+    const date = parseDate(value);
+    if (date) {
+      target[field] = date.toISOString().slice(0, 10);
+    } else {
+      delete target[field];
+      invalidas.push(label);
+    }
+  });
+  return invalidas;
+};
+
 const applyPersonBusinessRules = (target) => {
   if (!target || typeof target !== 'object') return target;
 
@@ -82,4 +128,6 @@ module.exports = {
   determineGroup,
   determineGroupFromBirthDate,
   normalizeName,
+  normalizePersonDates,
+  parseDate,
 };

@@ -121,6 +121,7 @@ export default function RegistrationApprovals() {
       const personData = request ? normalizeSubmittedData(request) : undefined;
       const { data } = await api.put(`/registrations/${id}/approve`, personData ? { personData } : undefined);
       showToast(`Aprovado! Login criado: ${data.credentials?.login || 'N/A'}`);
+      if (data.avisos?.length) alert(`Cadastro aprovado.\n\n${data.avisos.join('\n')}`);
       setSelected(null);
       load();
     } catch (err) {

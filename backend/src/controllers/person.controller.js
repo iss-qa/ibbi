@@ -9,7 +9,7 @@ const {
   applyScopedCongregacaoFilter, assertPersonAccess, findAccessiblePerson, getUserCongregacao, resolveWritableCongregacao,
 } = require('../utils/access');
 const { escapeRegex, pageParams, sanitizeFotoUrl } = require('../utils/sanitize');
-const { applyPersonBusinessRules, normalizeName } = require('../utils/person-rules');
+const { applyPersonBusinessRules, normalizeName, normalizePersonDates } = require('../utils/person-rules');
 const { importPeople, buildTemplate } = require('../services/person-import.service');
 const { toLocal } = require('../utils/phone');
 
@@ -62,6 +62,12 @@ const ALLOWED_FIELDS_MASTER = [
   ...ALLOWED_FIELDS_ADMIN, 'congregacao', 'acompanhadoTipo', 'acompanhadoNome', 'matricula',
   'tipoSanguineo', 'fatorRh', 'alergias', 'contatoEmergenciaNome', 'contatoEmergenciaTel',
 ];
+
+// Data impossível (ex.: 45/13/2020) vira 400 com o nome do campo, não 500 de cast do Mongo.
+const invalidDatesMessage = (payload) => {
+  const invalidas = normalizePersonDates(payload);
+  return invalidas.length ? `${invalidas.join(', ')} inválida. Use o formato dd/mm/aaaa ou deixe em branco.` : null;
+};
 
 const filterByAllowlist = (payload, allowlist) => {
   const filtered = {};
@@ -187,6 +193,8 @@ const create = async (req, res) => {
   if (payload.celular) payload.celular = normalizePhone(payload.celular);
   if (payload.status !== 'inativo') delete payload.motivoInativacao;
   if (payload.motivoInativacao === '') delete payload.motivoInativacao;
+  const datasInvalidas = invalidDatesMessage(payload);
+  if (datasInvalidas) return res.status(400).json({ message: datasInvalidas });
   cleanEmptyEnums(payload);
   clearFieldsByTipo(payload);
   applyPersonBusinessRules(payload);
@@ -263,6 +271,8 @@ const update = async (req, res) => {
   if (payload.celular) payload.celular = normalizePhone(payload.celular);
   if (payload.status !== 'inativo') delete payload.motivoInativacao;
   if (payload.motivoInativacao === '') delete payload.motivoInativacao;
+  const datasInvalidas = invalidDatesMessage(payload);
+  if (datasInvalidas) return res.status(400).json({ message: datasInvalidas });
   cleanEmptyEnums(payload);
   clearFieldsByTipo(payload);
   applyPersonBusinessRules(payload);

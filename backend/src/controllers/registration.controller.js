@@ -6,7 +6,7 @@ const {
   escapeRegex, sanitizeFotoUrl, PUBLIC_PERSON_FIELDS, pickFields, pageParams,
 } = require('../utils/sanitize');
 const { toLocal } = require('../utils/phone');
-const { applyPersonBusinessRules } = require('../utils/person-rules');
+const { applyPersonBusinessRules, normalizePersonDates } = require('../utils/person-rules');
 
 const sendError = (res, error) => res.status(error.status || 500).json({
   message: error.message || 'Erro interno no servidor',
@@ -90,6 +90,10 @@ const approve = async (req, res) => {
       status: 'ativo',
     };
 
+    // Datas são opcionais: a que não der para entender (pedidos antigos, campo de data como texto
+    // no celular) é descartada com aviso, em vez de travar a aprovação com erro de cast do Mongo.
+    const datasIgnoradas = normalizePersonDates(personPayload);
+
     // Limpar campos vazios
     Object.keys(personPayload).forEach((key) => {
       if (personPayload[key] === '' || personPayload[key] === undefined) delete personPayload[key];
@@ -115,6 +119,7 @@ const approve = async (req, res) => {
       message: 'Solicitação aprovada com sucesso',
       person: person.toJSON(),
       credentials: credentials ? { login: credentials.login } : null,
+      avisos: datasIgnoradas.map((label) => `${label} inválida foi ignorada; corrija no cadastro da pessoa.`),
     });
   } catch (error) {
     sendError(res, error);
