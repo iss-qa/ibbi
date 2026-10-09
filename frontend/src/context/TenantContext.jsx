@@ -6,6 +6,15 @@ import { setCongregacoes } from '../constants/congregacoes';
 
 const TenantContext = createContext(null);
 
+// Fundo das telas internas escolhido pela igreja (#rrggbb → "r g b" para o token `app` do Tailwind).
+const applyCorFundo = (hex) => {
+  const root = document.documentElement;
+  const m = /^#([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) { root.style.removeProperty('--app-bg-rgb'); return; }
+  const n = parseInt(m[1], 16);
+  root.style.setProperty('--app-bg-rgb', `${n >> 16} ${(n >> 8) & 255} ${n & 255}`);
+};
+
 // Dados da igreja logada: marca, congregações, plano/recursos e consumo.
 export function TenantProvider({ children }) {
   const { user } = useAuth();
@@ -36,6 +45,8 @@ export function TenantProvider({ children }) {
     refresh();
   }, [user?._id, refresh]);
 
+  useEffect(() => { applyCorFundo(tenant?.branding?.corFundo); }, [tenant?.branding?.corFundo]);
+
   useEffect(() => {
     const onSuspended = () => navigate('/assinatura', { replace: true });
     window.addEventListener('tenant-suspended', onSuspended);
@@ -46,6 +57,7 @@ export function TenantProvider({ children }) {
     tenant,
     loaded,
     refresh,
+    previewCorFundo: applyCorFundo,
     features: tenant?.planoInfo?.features || {},
     hasFeature: (f) => Boolean(tenant?.planoInfo?.features?.[f]),
   }), [tenant, loaded, refresh]);

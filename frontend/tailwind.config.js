@@ -13,6 +13,8 @@ export default {
         brandNavy: '#0a1f44',
         brandCream: '#f7f3ea',
         whats: '#25d366',
+        // Fundo das telas internas: personalizável por igreja (TenantContext define --app-bg-rgb).
+        app: 'rgb(var(--app-bg-rgb) / <alpha-value>)',
       },
       fontFamily: {
         display: ['"Playfair Display"', 'serif'],

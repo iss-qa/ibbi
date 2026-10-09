@@ -259,8 +259,8 @@ const matchesRoute = (to, pathname) => {
   return pathname === to || pathname.startsWith(`${to}/`);
 };
 
-const itemClass = (active, nested) => `px-3 ${nested ? 'py-1.5 text-[15px]' : 'py-2'} rounded-lg transition flex items-center gap-3 ${
-  active ? 'bg-ibbiGold text-ibbiNavy font-semibold' : 'hover:bg-white/10'
+const itemClass = (active, nested) => `px-3 ${nested ? 'py-1.5 text-[15px]' : 'py-2'} rounded-xl transition flex items-center gap-3 min-w-0 ${
+  active ? 'bg-ibbiGold text-ibbiNavy font-semibold shadow-sm' : 'text-white/90 hover:bg-white/10 hover:text-white'
 }`;
 
 export default function Sidebar({ user, isOpen, onClose }) {
@@ -302,7 +302,7 @@ export default function Sidebar({ user, isOpen, onClose }) {
       onClick={onClose}
     >
       {navIconMap[item.to] || navIconMap['/dashboard']}
-      <span>{item.label}</span>
+      <span className="truncate">{item.label}</span>
     </NavLink>
   );
 
@@ -314,22 +314,29 @@ export default function Sidebar({ user, isOpen, onClose }) {
   return (
     <>
       <aside
-        className={`fixed md:static inset-y-0 left-0 z-40 w-72 md:w-64 bg-ibbiNavy text-white min-h-screen px-4 py-8 overflow-y-auto md:max-h-screen md:sticky md:top-0 transform transition-transform duration-200 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+        aria-label="Menu principal"
+        className={`fixed inset-y-0 left-0 z-40 w-[min(18rem,85vw)] rounded-r-3xl md:rounded-3xl bg-ibbiNavy text-white flex flex-col shadow-2xl md:shadow-soft transform transition-transform duration-200 ease-out md:sticky md:top-3 md:m-3 md:mr-0 md:w-64 md:h-[calc(100dvh-1.5rem)] md:translate-x-0 shrink-0 ${
+          isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="flex items-center gap-3 mb-8">
+        <div className="px-4 pt-6 pb-4 flex items-center gap-3">
           <TenantLogo tenant={brand} fallback={logo} />
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="font-display text-lg leading-tight truncate" title={brand?.nome}>{brand?.nomeCurto || 'Igreja'}</p>
-            <p className="text-xs text-ibbiGold">Gestão de Pessoas</p>
+            <p className="text-xs text-ibbiGold truncate">Olá, {user?.nome?.split(' ')[0] || 'Visitante'}</p>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="md:hidden w-9 h-9 -mr-1 rounded-full flex items-center justify-center text-white/70 hover:bg-white/10"
+            aria-label="Fechar menu"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
         </div>
 
-        <div className="text-sm text-white/70 mb-4">Olá, {user?.nome || 'Visitante'}</div>
-
-        <nav className="flex flex-col gap-2">
-          <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/35">Menu</div>
+        <nav className="flex-1 min-h-0 overflow-y-auto scrollbar-thin px-3 pb-3 flex flex-col gap-1">
+          <div className="px-3 pt-1 pb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/35">Menu</div>
           {entries.map((entry) => {
             if (!entry.items) return renderItem(entry);
             const open = openKeys.includes(entry.key);
@@ -341,37 +348,36 @@ export default function Sidebar({ user, isOpen, onClose }) {
                   onClick={() => toggleSection(entry.key)}
                   aria-expanded={open}
                   aria-controls={`nav-${entry.key}`}
-                  className={`w-full px-3 py-2 rounded-lg transition flex items-center gap-3 text-left hover:bg-white/10 ${
+                  className={`w-full px-3 py-2 rounded-xl transition flex items-center gap-3 text-left hover:bg-white/10 ${
                     hasActive && !open ? 'text-ibbiGold font-semibold' : ''
                   }`}
                 >
                   {navIconMap[entry.icon]}
-                  <span>{entry.label}</span>
+                  <span className="truncate">{entry.label}</span>
                   {chevronIcon(open)}
                 </button>
                 {open && (
-                  <div id={`nav-${entry.key}`} className="mt-1 ml-[18px] pl-3 border-l border-white/10 flex flex-col gap-1">
+                  <div id={`nav-${entry.key}`} className="mt-1 mb-1 ml-[18px] pl-3 border-l border-white/10 flex flex-col gap-0.5">
                     {entry.items.map((item) => renderItem(item, true))}
                   </div>
                 )}
               </div>
             );
           })}
+        </nav>
 
-          {user?.role !== 'user' && (
-            <div className="mt-3 pt-3 border-t border-white/10 flex flex-col gap-2">
-              {renderItem({ to: '/profile', label: 'Meu perfil' })}
-            </div>
-          )}
+        <div className="px-3 pt-3 border-t border-white/10 flex flex-col gap-1 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          {user?.role !== 'user' && renderItem({ to: '/profile', label: 'Meu perfil' })}
           <InstalarApp />
           <button
+            type="button"
             onClick={() => { setShowLogoutModal(true); onClose(); }}
-            className="px-3 py-2 rounded-lg transition hover:bg-white/10 text-left text-red-300 hover:text-red-200 flex items-center gap-3"
+            className="px-3 py-2 rounded-xl transition hover:bg-white/10 text-left text-red-300 hover:text-red-200 flex items-center gap-3"
           >
             {logoutIcon}
             <span>Sair</span>
           </button>
-        </nav>
+        </div>
       </aside>
 
       {showLogoutModal && (
