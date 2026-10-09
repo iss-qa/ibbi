@@ -3,6 +3,7 @@ import Header from '../../components/Header';
 import api from '../../services/api';
 import { useTenant } from '../../context/TenantContext';
 import PlanCards from '../../components/PlanCards';
+import IndiqueGanhe from '../../components/IndiqueGanhe';
 import { Badge, Card, KpiCard, brl, fmtDate } from '../../components/ui';
 
 const STATUS_FATURA = {
@@ -70,6 +71,7 @@ export default function Subscription() {
   return (
     <div>
       <Header title="Assinatura" subtitle={tenant.nome} action={<Badge color={st.color}>{st.label}</Badge>} />
+      <IndiqueGanhe />
       {['suspensa', 'inadimplente'].includes(data.status) && (
         <div className="mb-4 rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-900">
           Há faturas em atraso. {data.status === 'suspensa' ? 'O acesso ao sistema e as automações estão suspensos' : 'Após 15 dias de atraso o acesso é suspenso'} — regularize abaixo.

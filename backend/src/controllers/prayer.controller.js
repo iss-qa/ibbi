@@ -19,6 +19,7 @@ const sendPrayer = async (req, res) => {
     celular: person?.celular,
     congregacao: person?.congregacao || '',
     texto: String(mensagem).trim(),
+    confidencial: req.body.confidencial !== false, // padrão: só pastores; compartilha só com "false" explícito
     origem: 'web',
     enviadoPor: req.user._id,
   });
@@ -37,7 +38,8 @@ const listPrayers = async (req, res) => {
 const updateStatus = async (req, res) => {
   const { status } = req.body || {};
   if (!['novo', 'orado', 'arquivado'].includes(status)) return res.status(400).json({ message: 'Status inválido' });
-  const pedido = await prayer.marcarStatus(req.params.id, status, req.user.nome);
+  const filtroCongregacao = await applyScopedCongregacaoFilter(req.user, {});
+  const pedido = await prayer.marcarStatus(req.params.id, status, req.user.nome, filtroCongregacao);
   if (!pedido) return res.status(404).json({ message: 'Pedido não encontrado' });
   return res.json(pedido);
 };

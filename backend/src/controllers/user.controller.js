@@ -4,11 +4,21 @@ const Person = require('../models/Person.model');
 const { buildUniqueLogin } = require('../utils/login');
 const { getUserCongregacoes, canAccessCongregacao } = require('../utils/access');
 const { getTenant } = require('../tenancy/context');
-const { DEFAULT_USER_PASSWORD } = require('../config/defaults');
+const { applyTempPassword, LEGACY_DEFAULT_PASSWORDS } = require('../config/defaults');
 const { signUserToken } = require('../utils/token');
 
 // Admin só gerencia contas comuns (user) da própria congregação; demais papéis: apenas master.
 const adminCannotManage = (req, target) => req.user.role !== 'master' && target.role !== 'user';
+
+// A igreja nunca pode ficar sem um master ativo (rebaixar/inativar/excluir a si mesmo ou o último).
+const wouldRemoveLastMaster = async (target, { role, ativo, remove } = {}) => {
+  if (target.role !== 'master' || !target.ativo) return false;
+  const deixaDeSerMaster = remove || ativo === false || (role && role !== 'master');
+  if (!deixaDeSerMaster) return false;
+  const outros = await User.countDocuments({ _id: { $ne: target._id }, role: 'master', ativo: true });
+  return outros === 0;
+};
+const isSelf = (req, target) => String(req.user._id) === String(target._id);
 
 const list = async (req, res) => {
   const { page = 1, limit = 10, search = '' } = req.query;
@@ -61,21 +71,26 @@ const createUser = async (req, res) => {
     }
   }
 
-  const userLogin = login || (await buildUniqueLogin(person.nome));
+  // Uma conta por pessoa: outra conta no mesmo cadastro herdaria o celular (identidade no WhatsApp)
+  if (await User.exists({ personId: person._id })) {
+    return res.status(409).json({ message: 'Este membro já possui um usuário' });
+  }
+  const userLogin = typeof login === 'string' && login.trim() ? login.trim() : await buildUniqueLogin(person.nome);
   const existing = await User.findOne({ login: userLogin });
   if (existing) return res.status(409).json({ message: 'Login já existe' });
 
-  const user = await User.create({
+  const user = new User({
     nome: person.nome,
     login: userLogin,
-    senha: DEFAULT_USER_PASSWORD,
     role,
     personId: person._id,
     ativo: true,
-    mustChangePassword: true,
   });
+  const senhaTemporaria = applyTempPassword(user);
+  await user.save();
 
-  res.status(201).json(user.toJSON());
+  // Senha provisória exibida uma única vez para quem criou a conta repassar ao membro
+  res.status(201).json({ ...user.toJSON(), senhaTemporaria });
 };
 
 const updateRole = async (req, res) => {
@@ -96,6 +111,13 @@ const updateRole = async (req, res) => {
     if (!(await canAccessCongregacao(req.user, target.personId?.congregacao))) {
       return res.status(403).json({ message: 'Você só pode alterar usuários da sua congregação' });
     }
+  }
+
+  if (isSelf(req, target) && role !== target.role) {
+    return res.status(400).json({ message: 'Você não pode alterar o seu próprio papel' });
+  }
+  if (await wouldRemoveLastMaster(target, { role })) {
+    return res.status(400).json({ message: 'A igreja precisa de ao menos um master ativo' });
   }
 
   const user = await User.findByIdAndUpdate(req.params.id, { role }, { new: true });
@@ -119,6 +141,13 @@ const updateStatus = async (req, res) => {
     }
   }
 
+  if (isSelf(req, target) && ativo === false) {
+    return res.status(400).json({ message: 'Você não pode inativar a sua própria conta' });
+  }
+  if (await wouldRemoveLastMaster(target, { ativo })) {
+    return res.status(400).json({ message: 'A igreja precisa de ao menos um master ativo' });
+  }
+
   const user = await User.findByIdAndUpdate(req.params.id, { ativo }, { new: true });
   if (!user) return res.status(404).json({ message: 'Usuário não encontrado' });
   return res.json(user.toJSON());
@@ -134,6 +163,11 @@ const remove = async (req, res) => {
     if (!(await canAccessCongregacao(req.user, target.personId?.congregacao))) {
       return res.status(403).json({ message: 'Você só pode excluir usuários da sua congregação' });
     }
+  }
+
+  if (isSelf(req, target)) return res.status(400).json({ message: 'Você não pode excluir a sua própria conta' });
+  if (await wouldRemoveLastMaster(target, { remove: true })) {
+    return res.status(400).json({ message: 'A igreja precisa de ao menos um master ativo' });
   }
 
   const user = await User.findByIdAndDelete(req.params.id);
@@ -163,12 +197,13 @@ const updateMyPassword = async (req, res) => {
   if (typeof senhaNova !== 'string' || senhaNova.length < 6) {
     return res.status(400).json({ message: 'A nova senha deve ter ao menos 6 caracteres' });
   }
-  if (senhaNova === DEFAULT_USER_PASSWORD) {
-    return res.status(400).json({ message: 'Escolha uma senha diferente da senha padrão' });
+  if (LEGACY_DEFAULT_PASSWORDS.includes(senhaNova) || (senhaAtual && senhaNova === senhaAtual)) {
+    return res.status(400).json({ message: 'Escolha uma senha diferente da senha provisória' });
   }
 
   user.senha = senhaNova;
   user.mustChangePassword = false;
+  user.senhaTemporariaExpiraEm = undefined;
   user.passwordChangedAt = new Date();
   await user.save(); // Dispara o pre-save do hash
 
@@ -189,12 +224,11 @@ const resetPassword = async (req, res) => {
     }
   }
 
-  target.senha = DEFAULT_USER_PASSWORD;
-  target.mustChangePassword = true;
-  target.passwordChangedAt = new Date(); // derruba as sessões abertas da conta resetada
+  // Senha provisória aleatória (válida por 7 dias); derruba as sessões abertas da conta
+  const senhaTemporaria = applyTempPassword(target);
   await target.save(); // Dispara o pre-save do hash
 
-  return res.json({ message: 'Senha resetada para o padrão com sucesso' });
+  return res.json({ message: 'Senha provisória gerada com sucesso', senhaTemporaria });
 };
 
 // Gestão de acesso (somente master): papel + congregações que o administrador gere.

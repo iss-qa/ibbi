@@ -5,6 +5,7 @@ import api from '../services/api';
 import useAuth from '../hooks/useAuth';
 import useStaleQuery from '../hooks/useStaleQuery';
 import AniversarianteModal from './AniversarianteModal';
+import OnboardingBanner from '../components/OnboardingBanner';
 import useCongregacaoScope from '../hooks/useCongregacaoScope';
 
 const ChartsSection = lazy(() => import('../components/dashboard/ChartsSection'));
@@ -276,6 +277,7 @@ export default function Dashboard() {
 
   return (
     <div className="animate-fade-in pb-10">
+      <OnboardingBanner />
       <Header
         title={
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">

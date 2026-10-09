@@ -54,7 +54,7 @@ const encerrar = async (req, res) => {
 const addPresenca = async (req, res) => {
   const c = await findScoped(req);
   if (!c) return res.status(404).json({ message: 'Culto não encontrado' });
-  const person = await Person.findById(req.body?.personId).lean();
+  const person = await Person.findOne(await applyScopedCongregacaoFilter(req.user, { _id: String(req.body?.personId || '') })).lean();
   if (!person) return res.status(404).json({ message: 'Pessoa não encontrada' });
   await cultoSvc.registrarPresenca(c, person, { via: 'web' });
   return res.json(await detalhe(c));

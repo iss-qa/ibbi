@@ -10,7 +10,7 @@ const { buildUniqueLogin } = require('../utils/login');
 dotenv.config({ path: path.join(__dirname, '..', '..', '..', '.env') });
 const { runInTenant } = require('./tenant-script');
 
-const { DEFAULT_USER_PASSWORD, SEED_MASTER_PASSWORD } = require('../config/defaults');
+const { applyTempPassword, SEED_MASTER_PASSWORD } = require('../config/defaults');
 
 const CSV_PATH = path.join(__dirname, '..', '..', '..', 'docs', 'churchcrm-export-20260315-222627.csv');
 
@@ -124,15 +124,16 @@ const ensureAdminUser = async () => {
     });
   }
 
-  const admin = await User.create({
+  const admin = new User({
     nome: 'Elisa Ribeiro',
     login,
-    senha: DEFAULT_USER_PASSWORD,
     role: 'admin',
     personId: person._id,
     ativo: true,
-    mustChangePassword: true,
   });
+  const senhaTemporaria = applyTempPassword(admin);
+  await admin.save();
+  console.log(`[SEED] Admin ${login} criado — senha provisória (7 dias): ${senhaTemporaria}`);
 
   return admin;
 };
@@ -200,15 +201,16 @@ const main = async () => {
     const generatedLogin = await buildUniqueLogin(nome);
     const loginExists = await User.findOne({ login: generatedLogin });
     if (!loginExists) {
-      await User.create({
+      // Senha provisória individual; o membro recebe o acesso pelo envio de acesso/reset do líder
+      const user = new User({
         nome,
         login: generatedLogin,
-        senha: DEFAULT_USER_PASSWORD,
         role: 'user',
         personId: person._id,
         ativo: true,
-        mustChangePassword: true,
       });
+      applyTempPassword(user);
+      await user.save();
     }
 
     created += 1;

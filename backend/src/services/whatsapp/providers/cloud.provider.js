@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { fetchRemoteMedia } = require('../../../utils/url-guard');
 
 // WhatsApp Business Platform — Cloud API oficial da Meta.
 // Fora da janela de 24h desde a última mensagem do contato, só templates aprovados são entregues.
@@ -28,9 +29,9 @@ const createCloudProvider = ({ phoneNumberId, accessToken, templates = {} }) => 
     let buffer;
     let mime = fallbackMime;
     if (String(media).startsWith('http')) {
-      const res = await axios.get(media, { responseType: 'arraybuffer', timeout: 20000 });
-      buffer = Buffer.from(res.data);
-      mime = res.headers['content-type'] || mime;
+      const remote = await fetchRemoteMedia(media);
+      buffer = remote.buffer;
+      mime = remote.mime || mime;
     } else {
       const match = String(media).match(/^data:([a-z]+\/[a-z0-9.+-]+);base64,/i);
       if (match) mime = match[1];
@@ -102,9 +103,17 @@ const createCloudProvider = ({ phoneNumberId, accessToken, templates = {} }) => 
     }),
 
     getMediaBase64: async (mediaId) => {
-      const { data: meta } = await axios.get(`${base}/${mediaId}`, { headers: auth, timeout: 15000 });
-      const res = await axios.get(meta.url, { headers: auth, responseType: 'arraybuffer', timeout: 30000 });
-      return { base64: Buffer.from(res.data).toString('base64'), mimetype: meta.mime_type };
+      try {
+        const { data: meta } = await axios.get(`${base}/${encodeURIComponent(mediaId)}`, { headers: auth, timeout: 15000 });
+        const res = await axios.get(meta.url, {
+          headers: auth, responseType: 'arraybuffer', timeout: 30000, maxContentLength: 25 * 1024 * 1024,
+        });
+        return { base64: Buffer.from(res.data).toString('base64'), mimetype: meta.mime_type };
+      } catch (err) {
+        // Erro limpo: o erro do axios traz config.headers.Authorization (token da Meta) e iria para os logs
+        const e = err?.response?.data?.error;
+        throw new Error(`Falha ao baixar mídia do WhatsApp: ${e?.message || err.message}`);
+      }
     },
 
     connectionState: async () => {

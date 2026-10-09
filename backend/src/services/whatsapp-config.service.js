@@ -2,6 +2,7 @@ const Tenant = require('../models/Tenant.model');
 const whatsapp = require('./whatsapp.service');
 const { apresentarNumero } = require('./leadership.service');
 const { encrypt } = require('../utils/crypto');
+const { assertOutboundUrl } = require('../utils/url-guard');
 const { invalidateTenant, getTenantById } = require('../tenancy/tenant.service');
 const { runWithTenant } = require('../tenancy/context');
 const { hasFeature } = require('../config/plans');
@@ -26,7 +27,11 @@ const applyWhatsappConfig = (tenant, w = {}) => {
     tenant.whatsapp.numeroInstancia = n && !n.startsWith('55') && n.length <= 11 ? `55${n}` : n;
   }
   if (w.evolution) {
-    if (w.evolution.url !== undefined) tenant.whatsapp.evolution.url = String(w.evolution.url).trim().replace(/\/$/, '');
+    if (w.evolution.url !== undefined) {
+      const url = String(w.evolution.url).trim().replace(/\/$/, '');
+      if (url) assertOutboundUrl(url); // SSRF: só https para host público
+      tenant.whatsapp.evolution.url = url;
+    }
     if (w.evolution.instance !== undefined) tenant.whatsapp.evolution.instance = String(w.evolution.instance).trim();
     if (w.evolution.apiKey && !w.evolution.apiKey.includes('••')) tenant.whatsapp.evolution.apiKeyEnc = encrypt(w.evolution.apiKey.trim());
   }

@@ -21,8 +21,13 @@ const pedidoRecente = ({ userId, personId, nome }) => {
  * Registra o pedido (lista da liderança) e, se a igreja configurou um número, repassa no WhatsApp.
  * O pedido fica salvo mesmo sem número configurado ou se o envio falhar.
  */
-const registrarPedido = async ({ nome, personId, userId, celular, congregacao, texto, origem = 'web', enviadoPor }) => {
-  const pedido = await PedidoOracao.create({ nome, personId, userId, celular, congregacao, texto, origem });
+// `confidencial` não informado (ex.: pedido feito conversando com a IA) = confidencial:
+// só vai para a rede de intercessores quando a pessoa autorizou explicitamente.
+const registrarPedido = async ({ nome, personId, userId, celular, congregacao, texto, origem = 'web', enviadoPor, confidencial }) => {
+  const pedido = await PedidoOracao.create({ nome, personId, userId, celular, congregacao, texto, origem, confidencial: confidencial === undefined ? true : Boolean(confidencial) });
+  // Rede de intercessores (não confidenciais) + "estamos orando por você" para quem pediu.
+  // Sem await: o lote segue o ritmo anti-ban (minutos, com fila cheia) e não pode segurar a resposta.
+  avisarIntercessores(pedido).catch((err) => console.error('[ORAÇÃO] Intercessores:', err.message));
   const numero = churchNumber();
   if (!numero) return { pedido, encaminhado: false };
   const conteudo = templates.pedidoOracao(nome, texto, congregacao || '');
@@ -42,14 +47,55 @@ const registrarPedido = async ({ nome, personId, userId, celular, congregacao, t
   return { pedido, encaminhado: status === 'concluido' };
 };
 
+// ── Rede de intercessores ─────────────────────────────────────────────
+// Pessoas marcadas como intercessoras (Person.intercessor) recebem os pedidos NÃO confidenciais,
+// só com o primeiro nome de quem pediu. Quem pediu recebe a confirmação de que estão orando.
+const intercessoresDa = (congregacao) => {
+  const Person = require('../models/Person.model');
+  const filtro = { intercessor: true, status: 'ativo', celular: { $nin: [null, ''] } };
+  return Person.find(filtro).select('nome celular congregacao').lean()
+    .then((lista) => lista.filter((p) => !congregacao || !p.congregacao || p.congregacao === congregacao || lista.length <= 15));
+};
+
+const avisarIntercessores = async (pedido) => {
+  if (pedido.confidencial) return 0;
+  const intercessores = (await intercessoresDa(pedido.congregacao))
+    .filter((p) => !pedido.personId || String(p._id) !== String(pedido.personId));
+  if (!intercessores.length) return 0;
+  const texto = templates.intercessaoPedido(pedido.nome, pedido.texto);
+  await whatsapp.sendBatch(intercessores.map((p) => ({ nome: p.nome, celular: p.celular })), texto, {
+    onError: (d, err) => console.warn(`[ORAÇÃO] Intercessor ${d.nome}: ${err.message}`),
+  });
+  await PedidoOracao.updateOne({ _id: pedido._id }, { $set: { intercessoresAvisados: intercessores.length } });
+  if (pedido.celular) {
+    await whatsapp.sendText(pedido.celular, templates.intercessaoConfirmacao(pedido.nome, intercessores.length), { bulk: true })
+      .catch((err) => console.warn('[ORAÇÃO] Confirmação ao solicitante:', err.message));
+  }
+  return intercessores.length;
+};
+
+// 7 dias depois: "como está o seu pedido?" (1x por pedido, só com celular e não confidencial).
+const runAcompanhamentos = async () => {
+  const fim = new Date(Date.now() - 7 * 864e5);
+  const inicio = new Date(Date.now() - 10 * 864e5);
+  const pedidos = await PedidoOracao.find({ createdAt: { $gte: inicio, $lte: fim }, acompanhamentoEm: null, celular: { $nin: [null, ''] }, status: { $ne: 'arquivado' } }).limit(50).lean();
+  if (!pedidos.length) return 0;
+  await whatsapp.sendBatch(pedidos.map((p) => ({ nome: p.nome, celular: p.celular, id: p._id })), (d) => templates.intercessaoAcompanhamento(d.nome), {
+    onSuccess: (d) => PedidoOracao.updateOne({ _id: d.id }, { $set: { acompanhamentoEm: new Date() } }),
+    onError: (d) => PedidoOracao.updateOne({ _id: d.id }, { $set: { acompanhamentoEm: new Date() } }), // não insiste (inclui SAIR)
+  });
+  return pedidos.length;
+};
+
 const listarPedidos = ({ filtroCongregacao = {}, dias = 30, status, limite = 200 } = {}) => {
   const filter = { ...filtroCongregacao, createdAt: { $gte: new Date(Date.now() - dias * 864e5) } };
   if (status) filter.status = status;
   return PedidoOracao.find(filter).sort({ createdAt: -1 }).limit(limite).lean();
 };
 
-const marcarStatus = (id, status, por) => PedidoOracao.findOneAndUpdate(
-  { _id: id },
+// filtroCongregacao: escopo do admin (só pedidos das congregações que ele gere)
+const marcarStatus = (id, status, por, filtroCongregacao = {}) => PedidoOracao.findOneAndUpdate(
+  { ...filtroCongregacao, _id: id },
   { $set: { status, ...(status === 'orado' ? { oradoEm: new Date(), oradoPor: por } : {}) } },
   { new: true },
 ).lean();
@@ -75,4 +121,6 @@ const importarPedidosAntigos = async () => {
   return n;
 };
 
-module.exports = { churchNumber, pedidoRecente, registrarPedido, listarPedidos, marcarStatus, importarPedidosAntigos };
+module.exports = {
+  avisarIntercessores,
+  runAcompanhamentos, churchNumber, pedidoRecente, registrarPedido, listarPedidos, marcarStatus, importarPedidosAntigos };

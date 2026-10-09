@@ -8,6 +8,10 @@ const { handleFlow } = require('./flows');
 const culto = require('../culto.service');
 const escala = require('../escala.service');
 const jornada = require('../jornada.service');
+const optout = require('../optout.service');
+const eventos = require('../evento.service');
+const Person = require('../../models/Person.model');
+const { phoneVariants } = require('../../utils/phone');
 const { identifyActor, runAgent } = require('./agent.service');
 const { transcribe, isTranscriptionConfigured } = require('./transcription.service');
 const templates = require('../../templates/messages.templates');
@@ -53,7 +57,7 @@ const MENU = {
 const MENU_FORCE = /^(menu|op[cç][oõ]es|ajuda|in[ií]cio|voltar)[!.\s]*$/i;
 const MENU_GREETING = /^(oi|ol[aá]|bom dia|boa tarde|boa noite)[!.\s]*$/i;
 // Estados conduzidos pelo agente/atalhos (não são passos de menu).
-const AGENT_STATES = ['chamada', 'chamada_encontro', 'aprovacao_ausencia', 'contexto'];
+const AGENT_STATES = ['chamada', 'chamada_encontro', 'aprovacao_ausencia', 'contexto', 'celula_relatorio'];
 
 const menuFor = (actor) => {
   const tenant = getTenant();
@@ -78,11 +82,24 @@ const fastPath = async ({ text, actor, conversation }) => {
   }
   if (actor.papel !== 'lider' || !st) return null;
 
+  if (st.tipo === 'celula_relatorio') {
+    const nums = t.match(/\d+/g);
+    if (!nums) return null;
+    const [visitantes = 0, decisoes = 0] = nums.map(Number);
+    await require('../../models/Encontro.model').updateOne({ _id: st.encontroId }, { $set: { 'relatorio.visitantes': visitantes, 'relatorio.decisoes': decisoes } });
+    conversation.state = null;
+    return templates.celulaRelatorioSalvo(visitantes, decisoes);
+  }
+
   if (st.tipo === 'chamada_encontro' && /^[\d\s,;.e]+$/.test(t)) {
     const numeros = t.split(/[^\d]+/).filter(Boolean);
     const r = await runTool('registrar_chamada_encontro', { pessoas: numeros, modo: 'lista_de_presentes' }, { actor, conversation });
     if (!r.salvo) return null;
-    return `✅ Frequência salva — *${r.grupo}* (${r.data}): ${r.presentes}/${r.total} presentes.${r.ausentes.length ? `\nAusentes: ${r.ausentes.join(', ')}.` : ''}${r.naoEncontrados.length ? `\nNão encontrei: ${r.naoEncontrados.join(', ')}.` : ''}`;
+    // Célula: pede visitantes e decisões logo depois da chamada.
+    const celula = await require('../../models/GrupoEncontro.model').findOne({ _id: st.grupoId, tipo: 'celula' }).select('_id').lean();
+    const enc = celula && await require('../../models/Encontro.model').findOne({ grupoId: st.grupoId }).sort({ updatedAt: -1 }).select('_id').lean();
+    if (enc) conversation.state = { tipo: 'celula_relatorio', encontroId: String(enc._id) };
+    return `✅ Frequência salva — *${r.grupo}* (${r.data}): ${r.presentes}/${r.total} presentes.${r.ausentes.length ? `\nAusentes: ${r.ausentes.join(', ')}.` : ''}${r.naoEncontrados.length ? `\nNão encontrei: ${r.naoEncontrados.join(', ')}.` : ''}${enc ? templates.celulaPerguntarRelatorio() : ''}`;
   }
 
   if (st.tipo === 'chamada' && /^[\d\s,;.e]+$/.test(t)) {
@@ -139,10 +156,52 @@ const preAtendimento = async ({ text, actor, conversation, chave }) => {
     return templates.checkinVisitanteOk(r.nome);
   }
 
+  // Eventos: "INSCREVER ABC12" (sem IA)
+  const inscreverMatch = t.match(eventos.INSCREVER_RE);
+  if (inscreverMatch) {
+    const r = await eventos.inscreverPorWhatsApp({ codigo: inscreverMatch[1], telefone: chave });
+    if (r.status === 'precisaNome') {
+      conversation.state = { tipo: 'evento_nome', codigo: inscreverMatch[1].toUpperCase() };
+      return templates.eventoPedirNome(r.titulo);
+    }
+    return respostaInscricao(r, chave);
+  }
+  if (st?.tipo === 'evento_nome' && !MENU_FORCE.test(t)) {
+    if (t.split(/\s+/).filter((p) => p.length > 1).length < 2) return 'Pode me mandar o seu *nome e sobrenome*? 😊';
+    conversation.state = null;
+    const r = await eventos.inscreverPorWhatsApp({ codigo: st.codigo, telefone: chave, nome: t });
+    return respostaInscricao(r, chave);
+  }
+
+  // Lembrete dos cultos (opt-in)
+  if (/^\s*(parar|sem|desativar|cancelar)\s+lembretes?\s*[.!]*$/i.test(t)) {
+    await Person.updateMany({ celular: { $in: phoneVariants(chave) } }, { $set: { lembreteCulto: false } });
+    return templates.lembreteDesativado();
+  }
+  if (/^\s*(lembrete|lembretes|quero lembrete|ativar lembretes?)\s*[.!]*$/i.test(t)) {
+    const r = await Person.updateMany({ celular: { $in: phoneVariants(chave) } }, { $set: { lembreteCulto: true } });
+    if (!r.matchedCount) return 'Para receber os lembretes, primeiro precisamos do seu cadastro. Fale com a recepção da igreja ou envie *menu*. 🙏';
+    return templates.lembreteAtivado(actor.nome);
+  }
+
   if (st?.tipo === 'escala_convite' && hasFeature(tenant, 'escalas')) {
     return escala.responderConvite({ conversation, text: t });
   }
   return null;
+};
+
+// Resposta da inscrição; evento pago manda o Pix copia-e-cola e o QR logo depois.
+const respostaInscricao = async (r, chave) => {
+  if (r.status === 'invalido') return templates.eventoInvalido();
+  const e = eventos.resumo(r.evento);
+  if (r.status === 'ja') return templates.eventoJaInscrito(r.nome, e.titulo, r.inscricao.status);
+  if (r.status === 'espera') return templates.eventoEspera(r.nome, e.titulo);
+  if (r.pix) {
+    setTimeout(() => {
+      whatsapp.sendText(chave, r.pix.copiaECola).then(() => whatsapp.sendImage(chave, r.pix.qr, `Pix: ${e.titulo}`)).catch((err) => console.warn('[EVENTO] Pix:', err.message));
+    }, 1500);
+  }
+  return templates.eventoInscrito(r.nome, e, r.pix);
 };
 
 /**
@@ -167,6 +226,34 @@ const handleInbound = async (msg) => {
       { upsert: true, new: true },
     );
     if (!actor.nome && msg.pushName) actor.nome = msg.pushName;
+
+    // ── Descadastro: vem antes de tudo (menus, IA, check-in, escalas) ──
+    const textoCru = String(msg.text || '').trim();
+    if (!msg.media && optout.SAIR_RE.test(textoCru)) {
+      await optout.sair(chave, { detalhe: textoCru });
+      conversation.state = null;
+      pushTurn(conversation, 'user', textoCru);
+      pushTurn(conversation, 'assistant', '[descadastrado: SAIR]');
+      conversation.markModified('state');
+      await conversation.save();
+      // Única mensagem após o SAIR: a confirmação de como voltar.
+      await whatsapp.sendText(chave, templates.optoutConfirmado(actor.nome), { ignorarOptOut: true }).catch((err) => console.error('[OPTOUT] Confirmação:', err.message));
+      return;
+    }
+    if (await optout.bloqueado(chave)) {
+      if (!msg.media && optout.VOLTAR_RE.test(textoCru)) {
+        await optout.voltar(chave, { detalhe: textoCru });
+        pushTurn(conversation, 'user', textoCru);
+        pushTurn(conversation, 'assistant', templates.optoutVoltou(actor.nome));
+        await conversation.save();
+        await reply(chave, templates.optoutVoltou(actor.nome));
+        return;
+      }
+      // Descadastrado: registra que escreveu, mas não responde nada (nem IA).
+      pushTurn(conversation, 'user', msg.media ? `[${msg.media.kind}] ${textoCru}` : textoCru);
+      await conversation.save();
+      return;
+    }
     if (actor.personId) jornada.marcarResposta(actor.personId);
 
     if (!msg.media) {
@@ -257,7 +344,7 @@ const handleInbound = async (msg) => {
       await conversation.save();
       await reply(chave, resposta);
     } catch (err) {
-      console.error('[INBOUND] Erro ao processar mensagem:', err);
+      console.error('[INBOUND] Erro ao processar mensagem:', err?.stack || err?.message || err);
       const texto = err.code === 'PLAN_LIMIT' ? templates.agenteLimitePlano() : templates.agenteIndisponivel();
       conversation.markModified('state');
       await conversation.save().catch(() => {});

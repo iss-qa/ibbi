@@ -3,6 +3,7 @@ import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import useAuth from '../hooks/useAuth';
 import logo from '../assets/logo-ibbi.jpeg';
 import TenantLogo from './TenantLogo';
+import InstalarApp from './InstalarApp';
 import { useTenant } from '../context/TenantContext';
 
 const iconClass = 'w-[18px] h-[18px] shrink-0';
@@ -52,6 +53,21 @@ const navIconMap = {
     <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 00-4-4H7a4 4 0 00-4 4v2m16 0v-2a4 4 0 00-3-3.87M12 7a4 4 0 11-8 0 4 4 0 018 0zm8 2a3 3 0 11-6 0 3 3 0 016 0z" />
     </svg>
+  ),
+  '/primeiros-passos': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 11l3 3 8-8M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2V6a2 2 0 012-2h9" /></svg>
+  ),
+  '/impacto': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 19V5M4 19h16M8 15l3-4 3 2 5-6" /></svg>
+  ),
+  '/celulas': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 11l9-7 9 7M5 10v9h14v-9M10 19v-5h4v5" /></svg>
+  ),
+  '/eventos': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 8a2 2 0 012-2h12a2 2 0 012 2v2a2 2 0 000 4v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2a2 2 0 000-4V8zM14 6v12" /></svg>
+  ),
+  '/campanhas': (
+    <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.9" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 10v4h3l6 4V6L7 10H4zM16 9a4 4 0 010 6M18.5 6.5a8 8 0 010 11" /></svg>
   ),
   '/jornada': (
     <svg className={iconClass} fill="none" stroke="currentColor" strokeWidth="1.8" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 21s-6-4.35-6-10a6 6 0 1112 0c0 5.65-6 10-6 10z" /><circle cx="12" cy="11" r="2.2" /></svg>
@@ -120,7 +136,7 @@ const logoutIcon = (
   </svg>
 );
 
-const navItemsByRole = (role, user, features = {}) => {
+const navItemsByRole = (role, user, features = {}, tenant = null) => {
   if (role === 'user') {
     const items = [
       { to: '/profile', label: 'Meu perfil' },
@@ -148,6 +164,7 @@ const navItemsByRole = (role, user, features = {}) => {
 
   const items = [
     { to: '/dashboard', label: 'Dashboard' },
+    { to: '/impacto', label: 'Impacto do mês' },
     { to: '/members', label: 'Pessoas' },
     { to: '/approvals', label: 'Aprovações' },
     { to: '/whatsapp/central', label: 'Central WhatsApp' },
@@ -159,6 +176,9 @@ const navItemsByRole = (role, user, features = {}) => {
     { to: '/encontros', label: 'Encontros' },
     { to: '/cultos', label: 'Cultos (QR)' },
     { to: '/escalas', label: 'Escalas' },
+    { to: '/celulas', label: 'Células' },
+    { to: '/eventos', label: 'Eventos' },
+    { to: '/campanhas', label: 'Campanhas' },
     { to: '/prayer', label: 'Pedidos de Oração' },
     { to: '/profile', label: 'Meu perfil' },
   ];
@@ -168,6 +188,7 @@ const navItemsByRole = (role, user, features = {}) => {
       { to: '/users', label: 'Usuários' },
       { to: '/configuracoes', label: 'Configurações' },
       { to: '/assinatura', label: 'Assinatura' });
+    if (!tenant?.onboarding?.concluido) items.unshift({ to: '/primeiros-passos', label: 'Primeiros passos 🌱' });
   }
 
   return items;
@@ -241,7 +262,7 @@ export default function Sidebar({ user, isOpen, onClose }) {
 
         <nav className="flex flex-col gap-2">
           <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-white/35">Menu</div>
-          {navItemsByRole(user?.role, user, features).map((item) => (
+          {navItemsByRole(user?.role, user, features, brand).map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
@@ -257,6 +278,7 @@ export default function Sidebar({ user, isOpen, onClose }) {
               <span>{item.label}</span>
             </NavLink>
           ))}
+          <InstalarApp />
           <button
             onClick={() => { setShowLogoutModal(true); onClose(); }}
             className="px-3 py-2 rounded-lg transition hover:bg-white/10 text-left text-red-300 hover:text-red-200 flex items-center gap-3"

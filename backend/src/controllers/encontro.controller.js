@@ -96,7 +96,8 @@ const syncMembros = async (req, res) => {
 const addMembro = async (req, res) => {
   const grupo = await loadGrupo(req, res);
   if (!grupo) return undefined;
-  const person = await Person.findById(req.body?.personId).select('nome celular congregacao').lean();
+  const person = await Person.findOne(await applyScopedCongregacaoFilter(req.user, { _id: String(req.body?.personId || '') }))
+    .select('nome celular congregacao').lean();
   if (!person) return res.status(404).json({ message: 'Pessoa não encontrada' });
   if (!grupo.membros.some((m) => String(m.personId) === String(person._id))) {
     grupo.membros.push({ personId: person._id, nome: person.nome, celular: person.celular });

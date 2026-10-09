@@ -34,6 +34,21 @@ router.get('/invitations/:token/tenant', controller.invitationTenant);
 const inviteSubmitLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false });
 router.post('/invitations/:token/submit', inviteSubmitLimiter, controller.submitInvitation);
 
+// Igreja demonstração: token de 2h do master demo (somente leitura, ver auth.middleware). Sem senha.
+const demoLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 30, standardHeaders: true, legacyHeaders: false });
+router.post('/demo', demoLimiter, async (req, res) => {
+  const jwt = require('jsonwebtoken');
+  const { garantirDemo } = require('../services/demo.service');
+  const { runAsPlatform } = require('../tenancy/context');
+  const User = require('../models/User.model');
+  const tenant = await garantirDemo();
+  if (!tenant) return res.status(404).json({ message: 'Demonstração indisponível no momento' });
+  const user = await runAsPlatform(() => User.findOne({ tenantId: tenant._id, role: 'master', login: 'demo', ativo: true }).lean());
+  if (!user) return res.status(503).json({ message: 'Demonstração sendo preparada. Tente em instantes.' });
+  const token = jwt.sign({ id: user._id, tid: String(tenant._id), role: user.role, demo: true }, process.env.JWT_SECRET, { expiresIn: '2h' });
+  return res.json({ token, igreja: tenant.slug });
+});
+
 // Cadastro de igreja pela landing page — cria tenant em trial. Limite baixo por IP contra abuso.
 const signupLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 5, standardHeaders: true, legacyHeaders: false });
 router.get('/signup/slug/:slug', signup.checkSlug);

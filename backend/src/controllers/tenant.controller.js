@@ -8,7 +8,7 @@ const { PLANS, hasFeature, getPlan } = require('../config/plans');
 const { randomToken } = require('../utils/crypto');
 const { applyWhatsappConfig, assertCloudNumberFree, apresentarSeConectado } = require('../services/whatsapp-config.service');
 const { apresentarNumero } = require('../services/leadership.service');
-const { invalidateTenant, getTenantById, serializeForTenantAdmin } = require('../tenancy/tenant.service');
+const { invalidateTenant, getTenantById, serializeForTenantAdmin, serializeForMember } = require('../tenancy/tenant.service');
 const { runWithTenant } = require('../tenancy/context');
 
 const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => obj?.[k] !== undefined).map((k) => [k, obj[k]]));
@@ -18,7 +18,21 @@ const get = async (req, res) => {
     usage.getUsage(req.tenant._id),
     Person.countDocuments({ status: 'ativo' }),
   ]);
-  res.json({ ...serializeForTenantAdmin(req.tenant), consumo, pessoasAtivas });
+  const base = req.user.role === 'master'
+    ? serializeForTenantAdmin(req.tenant)
+    : serializeForMember(req.tenant, req.user.role);
+  res.json({ ...base, consumo, pessoasAtivas });
+};
+
+// Gera um token novo para o webhook da Evolution (o antigo deixa de valer na hora).
+const rotateWebhookToken = async (req, res) => {
+  const tenant = await Tenant.findById(req.tenant._id);
+  if (!tenant) return res.status(404).json({ message: 'Igreja não encontrada' });
+  tenant.whatsapp.webhookToken = randomToken(20);
+  await tenant.save();
+  invalidateTenant(tenant._id);
+  req.tenant = tenant;
+  return webhookInfo(req, res);
 };
 
 // Atualização das configurações pela própria igreja (master).
@@ -27,7 +41,7 @@ const updateSettings = async (req, res) => {
   const tenant = await Tenant.findById(req.tenant._id);
   if (!tenant) return res.status(404).json({ message: 'Igreja não encontrada' });
 
-  Object.assign(tenant, pick(body, ['nome', 'nomeCurto', 'email', 'telefone', 'responsavel', 'timezone', 'programacaoSemanal']));
+  Object.assign(tenant, pick(body, ['nome', 'nomeCurto', 'email', 'telefone', 'responsavel', 'cidade', 'uf', 'timezone', 'programacaoSemanal']));
   if (Array.isArray(body.congregacoes)) {
     const lista = [...new Set(body.congregacoes.map((c) => String(c).trim()).filter(Boolean))];
     if (!lista.length) return res.status(400).json({ message: 'Informe ao menos uma congregação' });
@@ -35,6 +49,26 @@ const updateSettings = async (req, res) => {
   }
   if (body.branding) tenant.branding = { ...tenant.branding?.toObject?.(), ...pick(body.branding, ['logoUrl', 'corPrimaria', 'corSecundaria', 'assinatura', 'portalUrl']) };
   if (body.automacoes) tenant.automacoes = body.automacoes;
+  // Pix da igreja (eventos pagos): limites do padrão BR Code (nome ≤ 25, cidade ≤ 15)
+  if (body.pix) {
+    tenant.pix = {
+      chave: String(body.pix.chave || '').trim().slice(0, 77) || undefined,
+      nome: String(body.pix.nome || '').trim().slice(0, 25) || undefined,
+      cidade: String(body.pix.cidade || '').trim().slice(0, 15) || undefined,
+    };
+  }
+  // Agenda semanal de cultos (lembretes)
+  if (Array.isArray(body.cultosProgramados)) {
+    tenant.cultosProgramados = body.cultosProgramados.slice(0, 30)
+      .filter((c) => c && /^[0-6]$/.test(String(c.diaSemana)) && /^([01]\d|2[0-3]):[0-5]\d$/.test(String(c.horario || '')))
+      .map((c) => ({
+        ...(c._id ? { _id: c._id } : {}),
+        titulo: String(c.titulo || 'Culto').trim().slice(0, 60), diaSemana: Number(c.diaSemana), horario: c.horario,
+        congregacao: c.congregacao || undefined, liveUrl: /^https?:\/\//i.test(String(c.liveUrl || '')) ? String(c.liveUrl).slice(0, 300) : undefined,
+        lembreteMin: Math.min(1440, Math.max(30, Number(c.lembreteMin) || 180)),
+        grupoJid: /@g\.us$/.test(String(c.grupoJid || '')) ? c.grupoJid : undefined, ativo: c.ativo !== false,
+      }));
+  }
   if (body.ia) tenant.ia = { ...tenant.ia?.toObject?.(), ...pick(body.ia, ['ativo', 'nomeAssistente', 'tom', 'cadastroPublico', 'instrucoesExtras']) };
   if (Array.isArray(body.lideranca)) tenant.lideranca = body.lideranca;
   if (Array.isArray(body.ebdLideres)) tenant.ebdLideres = body.ebdLideres;
@@ -176,4 +210,28 @@ const changePlan = async (req, res) => {
   return runWithTenant(updated, () => res.json(serializeForTenantAdmin(updated)));
 };
 
-module.exports = { get, updateSettings, whatsappStatus, whatsappTest, webhookInfo, billing, changePlan, listGroups, createGroup, apresentar };
+// ── Primeiros passos (onboarding) e aceite dos termos ──────────────────
+const onboardingSvc = require('../services/onboarding.service');
+const onboarding = async (req, res) => res.json(await onboardingSvc.status(req.tenant._id));
+const onboardingConfirmar = async (req, res) => {
+  await onboardingSvc.confirmar(req.tenant._id, String(req.body?.etapa || ''));
+  return res.json(await onboardingSvc.status(req.tenant._id));
+};
+const onboardingDispensar = async (req, res) => {
+  await onboardingSvc.dispensar(req.tenant._id, req.body?.dispensar !== false);
+  return res.json(await onboardingSvc.status(req.tenant._id));
+};
+const indicacao = async (req, res) => res.json(await require('../services/indicacao.service').resumo(await Tenant.findById(req.tenant._id).lean()));
+
+const aceitarTermos = async (req, res) => {
+  if (req.body?.aceito !== true) return res.status(400).json({ message: 'É preciso marcar o aceite' });
+  await onboardingSvc.aceitarTermos(req.tenant._id, { nome: req.user.nome, ip: req.ip });
+  return res.json(await onboardingSvc.status(req.tenant._id));
+};
+
+module.exports = {
+  onboarding,
+  onboardingConfirmar,
+  onboardingDispensar,
+  aceitarTermos,
+  indicacao, rotateWebhookToken, get, updateSettings, whatsappStatus, whatsappTest, webhookInfo, billing, changePlan, listGroups, createGroup, apresentar };

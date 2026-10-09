@@ -104,6 +104,17 @@ export default function MemberList() {
     return () => clearTimeout(t);
   }, [filters.search]);
 
+  // Números descadastrados do WhatsApp (SAIR): selo 🔕 na lista.
+  const [optout, setOptout] = useState(new Set());
+  useEffect(() => {
+    if (!['admin', 'master'].includes(user?.role)) return;
+    api.get('/optout').then(({ data }) => setOptout(new Set(data.map((o) => o.chave)))).catch(() => {});
+  }, [user?.role]);
+  const descadastrado = (cel) => {
+    const d = String(cel || '').replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, '');
+    return Boolean(d) && (optout.has(d) || optout.has(d.length === 11 ? d.slice(0, 2) + d.slice(3) : `${d.slice(0, 2)}9${d.slice(2)}`));
+  };
+
   const load = async (signal, requestId = ++requestIdRef.current) => {
     setLoading(true);
     try {
@@ -535,6 +546,7 @@ export default function MemberList() {
                             title={row.nome}
                           >
                             {row.nome}
+                            {descadastrado(row.celular) && <span title="Pediu para não receber mensagens no WhatsApp (SAIR)" className="ml-1 text-[11px] font-normal text-slate-500">🔕</span>}
                           </button>
                           {row.congregacao && (
                             <p className="text-[10px] sm:text-xs text-slate-400 mt-[1px] truncate w-full">{row.congregacao}</p>

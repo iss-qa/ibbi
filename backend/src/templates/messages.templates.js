@@ -85,7 +85,7 @@ Qualquer dúvida, estamos aqui! 💙`,
 
   relatorioSemanalPadrao: ({ periodo, presentes, total, percentual, alertas, aniversariantes }) => `📊 *Resumo semanal — ${churchShort()}*\n_${periodo}_\n\n• EBD: ${presentes}/${total} presenças (${percentual}%)\n• Membros em alerta: ${alertas.length}${alertas.length ? `\n${lista(alertas.slice(0, 10).map((a) => `${a.nome} — ${a.faltasConsecutivas} faltas`))}` : ''}\n• Aniversariantes da semana: ${aniversariantes}\n\nAcesse o painel para mais detalhes: ${portalUrl()}`,
 
-  menuLider: (nome, assistente) => `${saudacaoAssistente({ nomeUsuario: nome, assistente, igreja: churchShort(), produto: PRODUTO })}\n\n*O que você quer fazer?*\n\n👥 *Pessoas*\n1️⃣ Pesquisar pessoa\n2️⃣ Cadastrar pessoa\n3️⃣ Editar dados de uma pessoa\n\n📋 *Encontros*\n4️⃣ Registrar presença (EBD ou uniões)\n5️⃣ Resumir um encontro (enviar aos membros)\n\n💛 *Cuidado*\n6️⃣ Grupos: frequência, ausentes e números\n7️⃣ Quem está faltando (ligar, visitar, orar)\n8️⃣ Enviar aviso para um grupo\n9️⃣ Aniversariantes\n🔟 Relatório da semana\n1️⃣1️⃣ Pedidos de oração\n1️⃣2️⃣ Visitantes e novos convertidos (jornada)\n\n🙋 *Serviço*\n1️⃣3️⃣ Escalas de voluntários\n\n_Criar ou editar grupos e adicionar ou remover membros: pela plataforma web._\n\nResponda com o *número* ou escreva do seu jeito.${temMidia() ? ' Também entendo *áudio* e *foto* de ficha.' : ''} Digite *menu* a qualquer momento.`,
+  menuLider: (nome, assistente) => `${saudacaoAssistente({ nomeUsuario: nome, assistente, igreja: churchShort(), produto: PRODUTO })}\n\n*O que você quer fazer?*\n\n👥 *Pessoas*\n1️⃣ Pesquisar pessoa\n2️⃣ Cadastrar pessoa\n3️⃣ Editar dados de uma pessoa\n\n📋 *Encontros*\n4️⃣ Registrar presença (EBD ou uniões)\n5️⃣ Resumir um encontro (enviar aos membros)\n\n💛 *Cuidado*\n6️⃣ Grupos: frequência, ausentes e números\n7️⃣ Quem está faltando (ligar, visitar, orar)\n8️⃣ Enviar aviso para um grupo\n9️⃣ Aniversariantes\n🔟 Relatório da semana\n1️⃣1️⃣ Pedidos de oração\n1️⃣2️⃣ Visitantes e novos convertidos (jornada)\n\n🙋 *Serviço*\n1️⃣3️⃣ Escalas de voluntários\n\n📣 *Comunicação*\n1️⃣4️⃣ Resumo do sermão para a igreja\n1️⃣5️⃣ Eventos e inscrições\n1️⃣6️⃣ Impacto do mês\n\n_Criar ou editar grupos e adicionar ou remover membros: pela plataforma web._\n\nResponda com o *número* ou escreva do seu jeito.${temMidia() ? ' Também entendo *áudio* e *foto* de ficha.' : ''} Digite *menu* a qualquer momento.`,
 
   // ── Fluxos guiados do líder (menu numerado) ──────────────────────────
   opcoesNumeradas: (titulo, itens, rodape = '') => `${titulo}\n\n${itens.map((t, i) => `${i + 1}. ${t}`).join('\n')}${rodape ? `\n\n${rodape}` : ''}\n\n_Responda com o número. *menu* para voltar._`,
@@ -228,11 +228,74 @@ Qualquer dúvida, estamos aqui! 💙`,
   // ── Pedidos de oração ────────────────────────────────────────────────
   oracaoMenu: (novos) => `🙏 *Pedidos de oração*\n\n1. Fazer um pedido\n2. Ver pedidos${novos ? ` (${novos} novo${novos > 1 ? 's' : ''})` : ''}\n\n_Responda com o número._`,
   oracaoPedirTexto: () => `Qual é o pedido de oração? Pode escrever${temMidia() ? ' ou mandar um áudio' : ''}. 🙏`,
+  oracaoPerguntaConfidencial: () => 'Podemos compartilhar o seu pedido com a *equipe de intercessão* (só o seu primeiro nome)?\n\n1. Sim, podem orar comigo\n2. Não, só os pastores (confidencial)',
   oracaoRegistrada: () => '🙏 Pedido registrado! A liderança da igreja vai orar com você. _"Orai uns pelos outros."_ (Tg 5:16)',
   oracaoLista: (pedidos, dias) => (pedidos.length
     ? `🙏 *Pedidos de oração, últimos ${dias} dias* (${pedidos.length})\n\n${pedidos.map((p) => `${p.status === 'orado' ? '✅' : '🙏'} *${p.nome}*${p.congregacao ? ` (${p.congregacao})` : ''} · ${p.data}\n${p.texto}`).join('\n\n')}\n\n1. Marcar todos como orados\n2. Ver os últimos 30 dias\n\n_Responda com o número. *menu* para voltar._`
     : `Nenhum pedido de oração nos últimos ${dias} dias. 🙏\n\n2. Ver os últimos 30 dias`),
   oracaoMarcados: (n) => `✅ ${n} pedido(s) marcado(s) como orado(s). Que Deus responda cada um! 🙏`,
+
+  // ── Eventos e inscrições ─────────────────────────────────────────────
+  eventoPedirNome: (titulo) => `Que bom que você quer participar de *${titulo}*! 🙌\n\nPara a inscrição, qual é o seu *nome completo*?`,
+  eventoInscrito: (nome, e, pix) => `✅ Inscrição confirmada, ${firstName(nome)}!\n\n🎟️ *${e.titulo}*\n🗓️ ${e.data}${e.horario ? ` às ${e.horario}` : ''}${e.local ? `\n📍 ${e.local}` : ''}${e.valor ? `\n💰 Valor: R$ ${Number(e.valor).toFixed(2).replace('.', ',')}` : ''}${pix ? '\n\nPara garantir a vaga, pague pelo *Pix copia e cola* (mensagem abaixo) ou pelo QR Code. Depois é só aguardar a confirmação da liderança. 🙏' : (e.valor ? '\n\nA liderança vai te passar como pagar. 🙏' : '\n\nTe esperamos! 🙏')}`,
+  eventoEspera: (nome, titulo) => `As vagas de *${titulo}* acabaram, ${firstName(nome)}, mas você está na *lista de espera*. Se abrir uma vaga, te aviso por aqui. 🙏`,
+  eventoJaInscrito: (nome, titulo, status) => `${firstName(nome)}, você já está ${status === 'espera' ? 'na lista de espera' : 'inscrito(a)'} em *${titulo}*${status === 'pago' ? ' (pagamento confirmado ✅)' : ''}. 🙌`,
+  eventoInvalido: () => 'Não encontrei esse evento com inscrições abertas. Confira o código ou fale com a liderança. 🙏',
+  eventoVagaLiberada: (nome, titulo) => `🎉 ${firstName(nome)}, abriu uma vaga em *${titulo}* e ela é sua! Sua inscrição está confirmada.`,
+  eventoPagamentoConfirmado: (nome, titulo) => `✅ ${firstName(nome)}, recebemos o seu pagamento de *${titulo}*. Inscrição garantida! 🙌`,
+  eventoDivulgacao: (e) => `Olá, {nome}! 🎉\n\n*${e.titulo}*\n🗓️ ${e.data}${e.horario ? ` às ${e.horario}` : ''}${e.local ? `\n📍 ${e.local}` : ''}${e.valor ? `\n💰 R$ ${Number(e.valor).toFixed(2).replace('.', ',')}` : '\n🆓 Gratuito'}${e.vagas ? `\n🎟️ ${e.vagas} vagas` : ''}${e.descricao ? `\n\n${e.descricao}` : ''}\n\nPara se inscrever, responda: *INSCREVER ${e.codigo}*`,
+  eventosLider: (eventos) => (eventos.length
+    ? `🎟️ *Próximos eventos*\n\n${eventos.map((e, i) => `${i + 1}. *${e.titulo}* · ${e.data}\n    ${e.inscritos}${e.vagas ? `/${e.vagas}` : ''} inscrito(s)${e.valor ? ` · ✅ ${e.pagos} pago(s)` : ''}${e.espera ? ` · ⏳ ${e.espera} na espera` : ''} · código *${e.codigo}*`).join('\n')}\n\n_Responda com o número para ver os inscritos ou divulgar. Criar eventos: pela plataforma web._`
+    : '🎟️ Nenhum evento próximo. Crie pela plataforma web, em *Eventos*.'),
+  eventoDetalheLider: (e, inscritos) => `🎟️ *${e.titulo}* · ${e.data} · código *${e.codigo}*\n${e.inscritos}${e.vagas ? `/${e.vagas}` : ''} inscrito(s)${e.valor ? ` · ✅ ${e.pagos} pago(s)` : ''}${e.espera ? ` · ⏳ ${e.espera} na espera` : ''}\n\n${inscritos.map((i) => `${{ pago: '✅', inscrito: '🟡', espera: '⏳' }[i.status] || '•'} ${i.nome}`).join('\n') || '_Ninguém inscrito ainda._'}\n\n1. Divulgar para a igreja (envio gradual)\n\n_Responda com o número. *menu* para voltar._`,
+  eventoDivulgacaoAgendada: (n) => `📣 Divulgação na fila para *${n} pessoa(s)*, com intervalo entre as mensagens. Te aviso quando terminar.`,
+
+  // ── Lembrete do culto (opt-in "LEMBRETE") ────────────────────────────
+  lembreteAtivado: (nome) => `🔔 Pronto${nome ? `, ${firstName(nome)}` : ''}! Você vai receber um lembrete antes dos cultos (com o link da transmissão, quando houver).\n\nPara parar, envie *PARAR LEMBRETE*.`,
+  lembreteDesativado: () => '🔕 Lembretes de culto desativados. Para voltar, envie *LEMBRETE*.',
+  lembreteCulto: (c) => `🔔 Olá, {nome}! Hoje tem *${c.titulo}* às *${c.horario}*${c.congregacao ? ` (${c.congregacao})` : ''}.${c.liveUrl ? `\n\n📺 Transmissão ao vivo: ${c.liveUrl}` : ''}\n\nTe esperamos! 🙏\n_Para não receber estes lembretes, envie PARAR LEMBRETE._`,
+
+  // ── Impacto do mês ────────────────────────────────────────────────────
+  impactoMes: (r, mesNome, igreja) => [
+    `📊 *Impacto do PastorIA: ${mesNome}*`,
+    igreja ? `_${igreja}_` : null,
+    '',
+    `🌱 *${r.visitantesAcompanhados}* visitante(s) acompanhado(s) · *${r.visitantesVoltaram}* voltaram`,
+    `💛 *${r.ausentesRecuperados}* ausente(s) recuperado(s) · ${r.acoesCuidado} ação(ões) de cuidado (${r.ligacoes} ligações, ${r.visitas} visitas)`,
+    `📋 *${r.presencasRegistradas}* presença(s) registrada(s)${r.checkinsCulto ? ` (${r.checkinsCulto} check-ins no culto)` : ''}`,
+    `🙏 *${r.pedidosOracao}* pedido(s) de oração · ${r.pedidosOrados} orado(s)`,
+    `🎂 *${r.aniversariosFelicitados}* aniversariante(s) felicitado(s)`,
+    r.voluntariosConfirmados ? `🙋 *${r.voluntariosConfirmados}* voluntário(s) confirmado(s) nas escalas` : null,
+    r.inscricoesEventos ? `🎟️ *${r.inscricoesEventos}* inscrição(ões) em eventos` : null,
+    '',
+    `⏱️ Cerca de *${r.horasEconomizadas} hora(s)* de secretaria economizadas.`,
+    '',
+    '_"Quem falta, faz falta." Obrigado por cuidar de cada pessoa! 🙌_',
+  ].filter((l) => l !== null).join('\n'),
+
+  // ── Células ───────────────────────────────────────────────────────────
+  celulaPerguntarRelatorio: () => '\n\n🏠 *Relatório da célula:* quantos *visitantes* vieram e quantas *decisões por Jesus*? Responda os dois números (ex.: *2 1*), ou *0* se não houve.',
+  celulaRelatorioSalvo: (v, d) => `✅ Relatório salvo: ${v} visitante(s) e ${d} decisão(ões).${d ? ' Glória a Deus! 🙌 Cadastre quem decidiu (opção 2 do menu) para entrar na jornada de 30 dias.' : ''}`,
+
+  // ── Rede de intercessores ────────────────────────────────────────────
+  intercessaoPedido: (nome, texto) => `🙏 *Pedido de oração*\n\n*${firstName(nome)}* pede oração:\n_${texto}_\n\nObrigado por interceder! _"Orai uns pelos outros."_ (Tg 5:16)`,
+  intercessaoConfirmacao: (nome, n) => `🙏 ${firstName(nome)}, recebemos o seu pedido. *${n} intercessor${n > 1 ? 'es estão' : ' está'} orando por você* agora mesmo. Deus está no controle! 💛`,
+  intercessaoAcompanhamento: (nome) => `Oi, ${firstName(nome)}! 💛 Há uma semana você nos pediu oração. Como está a situação? Pode responder por aqui: continuamos orando com você. 🙏`,
+
+  // ── Campanhas (envio em massa retomável) ─────────────────────────────
+  sermaoPublico: (opcoes) => `📖 *Resumo do sermão*\n\nPara quem vamos enviar?\n\n${opcoes.map((o, i) => `${i + 1}. ${o}`).join('\n')}\n\n_Responda com o número. *menu* para voltar._`,
+  sermaoPedirRelato: (publico) => `📖 *Resumo do sermão* (${publico})\n\nConte o sermão por *texto* ou *áudio de até 5 minutos*: o texto bíblico, os pontos principais e a aplicação. Eu organizo em uma mensagem bonita com perguntas para reflexão, você aprova e escolhe quando enviar. 🙌`,
+  sermaoAudioLongo: (seg) => `O áudio tem ${Math.round(seg / 60)} min. Para o resumo, mande até *5 minutos* (ou o texto). 🙏`,
+  sermaoPrevia: (texto, n, dias) => `Assim ficará a mensagem para *${n} pessoa(s)*:\n\n────────────\nOlá, (nome)! 👋\n\n${texto}\n────────────\n\n1. 📅 Enviar amanhã a partir das 9h\n2. ⏰ Enviar daqui a 1 hora\n3. ✏️ Refazer\n4. ❌ Cancelar\n\n_O envio é gradual (intervalo entre mensagens, proteção contra bloqueio)${dias > 1 ? `: deve levar cerca de ${dias} dias` : ''}. Descadastrados não recebem._`,
+  sermaoAgendado: (n, quando) => `✅ Resumo do sermão agendado para *${quando}*: ${n} pessoa(s). Te aviso quando terminar. Acompanhe em *Campanhas*, na plataforma web.`,
+  sermaoMembro: (texto) => `Olá, {nome}! 👋\n\n${texto}\n\n_${churchName()}_`,
+
+  campanhaConcluida: (r) => `📬 *Envio concluído: ${r.titulo}*\n\n✅ ${r.enviados} enviada(s)${r.bloqueados ? ` · 🔕 ${r.bloqueados} descadastrado(s)` : ''}${r.erros ? ` · ⚠️ ${r.erros} com erro` : ''} de ${r.total}.`,
+
+  // ── Descadastro (SAIR / VOLTAR) ──────────────────────────────────────
+  optoutConfirmado: (nome) => `Pronto${nome ? `, ${firstName(nome)}` : ''}. Você *não vai mais receber mensagens* da ${churchShort()} por este WhatsApp. 🙏\n\nSe um dia quiser voltar a receber, é só enviar *VOLTAR*.`,
+  optoutVoltou: (nome) => `Que bom ter você de volta${nome ? `, ${firstName(nome)}` : ''}! 💛 Você voltou a receber as mensagens da ${churchShort()}.\n\nPara não receber mais, envie *SAIR* a qualquer momento.`,
+  rodapeSair: () => '\n\n_Para não receber mais mensagens, responda SAIR._',
 
   // ── Jornada do visitante / novo convertido (30 dias) ─────────────────
   jornadaD3: (nome, tipo) => (tipo === 'novo decidido'
@@ -287,3 +350,10 @@ Qualquer dúvida, estamos aqui! 💙`,
 
   agenteLimitePlano: () => `O assistente atingiu o limite de interações deste mês no plano da ${churchShort()}. Fale com a administração da igreja. 🙏`,
 };
+
+// Mensagens que a igreja envia por iniciativa própria levam o aviso de como sair (SAIR).
+// Aniversário fica de fora (template protegido — ver AGENTS.md).
+['jornadaD3', 'jornadaD7', 'jornadaD14', 'jornadaD21', 'personalizada', 'resumoMembro', 'ausenciaMembro'].forEach((k) => {
+  const original = module.exports[k];
+  module.exports[k] = (...args) => `${original(...args)}${module.exports.rodapeSair()}`;
+});

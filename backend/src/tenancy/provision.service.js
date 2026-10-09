@@ -27,7 +27,13 @@ const slugify = (value) => String(value || '')
   .slice(0, 40)
   .replace(/-+$/, '');
 
-const slugExists = (slug) => Tenant.exists({ slug });
+// Códigos que viram subdomínio/rota ou se passam pela plataforma: nunca disponíveis para igrejas.
+const RESERVED_SLUGS = new Set([
+  'www', 'app', 'api', 'admin', 'administrador', 'platform', 'plataforma', 'suporte', 'support', 'ajuda', 'help',
+  'pastoria', 'login', 'cadastro', 'signup', 'webhook', 'webhooks', 'static', 'assets', 'mail', 'email', 'status',
+  'billing', 'pagamento', 'financeiro', 'seguranca', 'security', 'root', 'sistema', 'teste', 'test', 'demo',
+]);
+const slugExists = async (slug) => RESERVED_SLUGS.has(String(slug || '').toLowerCase()) || Boolean(await Tenant.exists({ slug }));
 
 // Primeiro slug livre a partir de uma base: base, base-2, base-3…
 const availableSlug = async (base) => {
@@ -71,6 +77,8 @@ const provisionTenant = async (b = {}, { origem = 'painel' } = {}) => {
       timezone: b.timezone || 'America/Sao_Paulo',
       whatsapp: { provider: 'none', webhookToken: randomToken(20) },
       onboarding: { origem },
+      termos: b.termos,
+      indicacao: b.indicacao,
     });
   } catch (err) {
     throw new ProvisionError(400, err.message);

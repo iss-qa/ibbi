@@ -49,3 +49,8 @@ docs/*.csv
 .stylelintcache
 .vercel
 .env*.local
+
+# Suíte E2E completa (tests/full)
+tests/full/.auth/
+tests/full/report/
+tests/full/test-results/

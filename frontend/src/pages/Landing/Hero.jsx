@@ -1,6 +1,9 @@
 import { Link } from 'react-router-dom';
 import ChatDemo from './ChatDemo';
 
+// Botão da demonstração só com a igreja demo habilitada (DEMO_ENABLED no backend + VITE_DEMO_ENABLED aqui).
+const DEMO_ON = import.meta.env.VITE_DEMO_ENABLED === 'true';
+
 export default function Hero() {
   return (
     <section className="relative overflow-hidden bg-brandNavy text-white">
@@ -30,9 +33,15 @@ export default function Hero() {
               Começar 14 dias grátis
               <svg className="w-4 h-4 transition group-hover:translate-x-0.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14M13 6l6 6-6 6" /></svg>
             </Link>
-            <a href="#como-funciona" className="inline-flex items-center justify-center gap-2 border border-white/25 text-white font-semibold px-7 py-3.5 rounded-full hover:bg-white/10 transition">
-              Ver como funciona
-            </a>
+            {DEMO_ON ? (
+              <Link to="/demo" className="inline-flex items-center justify-center gap-2 border border-white/25 text-white font-semibold px-7 py-3.5 rounded-full hover:bg-white/10 transition">
+                👀 Ver demonstração
+              </Link>
+            ) : (
+              <a href="#como-funciona" className="inline-flex items-center justify-center gap-2 border border-white/25 text-white font-semibold px-7 py-3.5 rounded-full hover:bg-white/10 transition">
+                Ver como funciona
+              </a>
+            )}
           </div>
 
           <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-sm text-white/60">

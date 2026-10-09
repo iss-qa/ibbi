@@ -17,7 +17,9 @@
     "test:pre-deploy": "npx playwright test --project=api --project=health",
     "test:report": "npx playwright show-report tests/report",
     "seed:dev": "cd backend && node src/scripts/seed-dev-users.js",
-    "stop": "bash scripts/stop-dev.sh"
+    "stop": "bash scripts/stop-dev.sh",
+    "test:full": "npx playwright test -c playwright.full.config.js",
+    "test:full:api": "npx playwright test -c playwright.full.config.js --project=api"
   },
   "dependencies": {
     "@napi-rs/canvas": "^0.1.97",

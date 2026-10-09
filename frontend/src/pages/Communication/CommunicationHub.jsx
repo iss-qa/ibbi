@@ -2,10 +2,12 @@ import { useSearchParams } from 'react-router-dom';
 import Header from '../../components/Header';
 import WhatsAppCentral from '../WhatsAppCentral';
 import CommunicationPanel from './CommunicationPanel';
+import Descadastrados from './Descadastrados';
 
 const ABAS = [
   { id: 'conversas', label: 'Conversas', desc: 'Histórico por pessoa e envio direto' },
   { id: 'envios', label: 'Envios e histórico', desc: 'Envio por grupo, congregação, individual, falhas e orações' },
+  { id: 'sair', label: 'Descadastrados (SAIR)', desc: 'Quem pediu para não receber mensagens' },
 ];
 
 // Central WhatsApp: une a Comunicação (envios em massa + histórico) e as conversas por pessoa.
@@ -31,7 +33,9 @@ export default function CommunicationHub() {
           </button>
         ))}
       </div>
-      {aba === 'conversas' ? <WhatsAppCentral embedded /> : <CommunicationPanel embedded />}
+      {aba === 'conversas' && <WhatsAppCentral embedded />}
+      {aba === 'envios' && <CommunicationPanel embedded />}
+      {aba === 'sair' && <Descadastrados />}
     </div>
   );
 }

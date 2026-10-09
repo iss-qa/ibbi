@@ -1,16 +1,26 @@
 const axios = require('axios');
 const https = require('https');
+const {
+  assertOutboundUrl, safeHttpAgent, createSafeHttpsAgent, fetchRemoteMedia,
+} = require('../../../utils/url-guard');
 
 // Evolution API v2 (WhatsApp não oficial via QR Code). Suporta grupos (JID …@g.us).
-const createEvolutionProvider = ({ url, instance, apiKey, allowSelfSigned }) => {
+// trusted = URL definida pelo operador no .env; URL configurada pela igreja passa pelo guard de SSRF.
+const createEvolutionProvider = ({ url, instance, apiKey, allowSelfSigned, trusted = false }) => {
   if (!url || !instance || !apiKey) throw new Error('Configuração Evolution API incompleta');
   const baseUrl = String(url).replace(/\/$/, '');
-  const httpsAgent = allowSelfSigned ? new https.Agent({ rejectUnauthorized: false }) : undefined;
+  if (!trusted) assertOutboundUrl(baseUrl);
+  const tls = allowSelfSigned ? { rejectUnauthorized: false } : {};
+  const httpsAgent = trusted
+    ? (allowSelfSigned ? new https.Agent(tls) : undefined)
+    : createSafeHttpsAgent(tls);
+  const httpAgent = trusted ? undefined : safeHttpAgent;
+  const net = { httpsAgent, httpAgent, maxRedirects: trusted ? 5 : 0 };
   const headers = { apikey: apiKey, 'Content-Type': 'application/json' };
 
   const post = async (path, payload, timeout = 15000) => {
     try {
-      const response = await axios.post(`${baseUrl}${path}/${encodeURIComponent(instance)}`, payload, { headers, timeout, httpsAgent });
+      const response = await axios.post(`${baseUrl}${path}/${encodeURIComponent(instance)}`, payload, { headers, timeout, ...net });
       return response.data;
     } catch (err) {
       const data = err?.response?.data;
@@ -21,8 +31,8 @@ const createEvolutionProvider = ({ url, instance, apiKey, allowSelfSigned }) => 
 
   const toBase64 = async (media) => {
     if (String(media).startsWith('http')) {
-      const response = await axios.get(media, { responseType: 'arraybuffer', timeout: 20000 });
-      return Buffer.from(response.data, 'binary').toString('base64');
+      const { buffer } = await fetchRemoteMedia(media);
+      return buffer.toString('base64');
     }
     return String(media).replace(/^data:[a-z]+\/[a-z0-9.+-]+;base64,/i, '');
   };
@@ -72,7 +82,7 @@ const createEvolutionProvider = ({ url, instance, apiKey, allowSelfSigned }) => 
     listGroups: async () => {
       try {
         const res = await axios.get(`${baseUrl}/group/fetchAllGroups/${encodeURIComponent(instance)}`, {
-          headers, params: { getParticipants: false }, timeout: 90000, httpsAgent,
+          headers, params: { getParticipants: false }, timeout: 90000, ...net,
         });
         return (Array.isArray(res.data) ? res.data : []).map((g) => ({ jid: g.id, nome: g.subject, participantes: g.size }));
       } catch (err) {
@@ -87,11 +97,12 @@ const createEvolutionProvider = ({ url, instance, apiKey, allowSelfSigned }) => 
 
     connectionState: async () => {
       try {
-        const res = await axios.get(`${baseUrl}/instance/connectionState/${encodeURIComponent(instance)}`, { headers, timeout: 15000, httpsAgent });
+        const res = await axios.get(`${baseUrl}/instance/connectionState/${encodeURIComponent(instance)}`, { headers, timeout: 15000, ...net });
         const state = res.data?.instance?.state || res.data?.state || 'unknown';
         return { online: state === 'open' || state === 'connected', state };
       } catch (err) {
-        return { online: false, error: `HTTP ${err?.response?.status || '?'} — ${err?.response?.data?.message || err.message}` };
+        const detail = trusted ? (err?.response?.data?.message || err.message) : (err?.code === 'EBLOCKED' ? err.message : 'sem resposta válida da Evolution API');
+        return { online: false, error: `HTTP ${err?.response?.status || '?'} — ${detail}` };
       }
     },
 

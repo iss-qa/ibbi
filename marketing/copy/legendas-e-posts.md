@@ -99,9 +99,9 @@ Tom de voz: pastoral, acolhedor e direto. Fala com pastores e líderes como quem
 ### feed-11-planos.png
 > Menos que um almoço da liderança por mês.
 >
-> 🌱 Semente: R$97/mês, até 150 pessoas
-> 🌿 Crescer: R$197/mês, até 500 pessoas, com agente de IA e reengajamento (o mais escolhido)
-> 🌳 Multiplicar: R$397/mês, até 2.000 pessoas, com áudio, foto e WhatsApp Oficial
+> 🌱 Semente: R$47/mês, até 150 pessoas
+> 🌿 Crescer: R$99/mês, até 500 pessoas, com agente de IA e reengajamento (o mais escolhido)
+> 🌳 Multiplicar: R$197/mês, até 2.000 pessoas, com áudio, foto e WhatsApp Oficial
 > 🤝 Rede: sob consulta, para convenções
 >
 > Congregações ilimitadas em todos os planos. No anual, 2 meses saem de graça. Comece com 14 dias grátis no Crescer, sem cartão.
@@ -194,7 +194,7 @@ Gancho para escrever na tela nos primeiros 2s, se a plataforma pedir: **"Quantas
 | A · Dor | Sua igreja não perde membros de uma vez. Perde um domingo de cada vez. Perceba a tempo. | Quem falta, faz falta | feed-02-problema |
 | B · Demo | Chamada da EBD pelo WhatsApp e aviso automático de quem está faltando. Teste grátis. | Chamada em 8 segundos | pastoria-chamada-9x16 |
 | C · Fé | A IA avisa. O pastor abraça. Nenhuma ovelha a menos na sua igreja. | 14 dias grátis, sem cartão | feed-03-versiculo |
-| D · Preço | Gestão e cuidado pastoral pelo WhatsApp a partir de R$97/mês. Congregações ilimitadas. | Menos que um almoço por mês | feed-11-planos |
+| D · Preço | Gestão e cuidado pastoral pelo WhatsApp a partir de R$47/mês. Congregações ilimitadas. | Menos que um almoço por mês | feed-11-planos |
 
 Público sugerido: pastores, líderes de ministério, secretaria de igreja e superintendentes de EBD, de 28 a 65 anos, com interesses em igreja evangélica, teologia, escola bíblica dominical e liderança cristã.
 

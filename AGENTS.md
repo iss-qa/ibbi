@@ -221,7 +221,14 @@ NODE_ENV=development
 
 **Regra de login — usuários comuns:**
 - Login: primeiro nome em lowercase (ex: membro "João Pedro Silva" → login `joao`)
-- Senha padrão: configurada via `DEFAULT_USER_PASSWORD` no `.env`
+- **Não existe senha padrão compartilhada.** Toda conta nova/resetada recebe senha provisória aleatória (`config/defaults.js` → `applyTempPassword`), válida por 7 dias e trocada no primeiro acesso. A antiga `DEFAULT_USER_PASSWORD`/`IBBI2026` é recusada no login de contas que ainda não trocaram a senha (`TEMP_PASSWORD_EXPIRED` → líder gera nova em Usuários → Resetar senha).
+
+**Segurança (não regredir):**
+- Updates nunca recebem `{...req.body}`: sempre allowlist de campos. O plugin de tenancy recusa qualquer operador que toque `tenantId`; `server.js` remove chaves `$…` do corpo.
+- URL/mídia vinda de usuário ou igreja → `utils/url-guard.js` (só https, bloqueia rede interna, sem redirect). Evolution interna (Docker): liberar o host em `OUTBOUND_ALLOWED_HOSTS`.
+- `webhookToken` só em `GET /api/tenant/webhook-info` (master); rotação em `POST /api/tenant/webhook-info/rotate`. `GET /api/tenant` para admin/user devolve só o resumo (`serializeForMember`).
+- Celular é identidade no WhatsApp: membro não altera o próprio; celular/status de admin/master só o master altera (web e agente).
+- Endpoints por id checam a congregação do admin (`findAccessiblePerson`, `applyScopedCongregacaoFilter`).
 
 ---
 
@@ -478,7 +485,7 @@ npm run build
 
 ## 💳 Planos e billing
 
-- Catálogo em `backend/src/config/plans.js` (Semente R$97 · Crescer R$197 · Multiplicar R$397 · Rede sob consulta; anual = 10x mensal). Congregações ilimitadas: 1 igreja = 1 cobrança.
+- Catálogo em `backend/src/config/plans.js` (Semente R$47 · Crescer R$99 · Multiplicar R$197 · Rede sob consulta; anual = 10x mensal). Congregações ilimitadas: 1 igreja = 1 cobrança.
 - Limites por plano: pessoas ativas, mensagens WhatsApp/mês, interações de IA/mês (`usage.service` + `UsageCounter`).
 - `billing.service.runBillingCycle` (cron 06:00 BRT): fim de trial → fatura → vencida → inadimplente (3 dias) → suspensa (15 dias). Igreja suspensa recebe 402 `TENANT_SUSPENDED` (exceto `/api/tenant/*`).
 - Gateway opcional **Asaas** (`ASAAS_API_KEY`), webhook `POST /api/webhooks/asaas`.
@@ -521,6 +528,32 @@ Plataforma               /api/platform/* (auth, metrics, tenants, invoices, bill
 Public                   GET /api/public/plans · GET /api/public/tenants/:slug · GET /api/public/invitations/:token/tenant
                          GET /api/public/signup/slug/:slug · POST /api/public/signup (cadastro da LP → tenant em trial + master; rate limit 5/h/IP, honeypot `website`)
 ```
+
+## 🔕 Descadastro (SAIR), termos e onboarding
+
+- **SAIR é absoluto:** `services/optout.service.js` + model `OptOut` (por igreja, histórico saiu/voltou). Palavras: sair, parar, stop, descadastrar, remover, "não quero receber"… ("cancelar" sozinho e frases longas NÃO contam). Após o SAIR só sai a confirmação (`sendText(..., { ignorarOptOut: true })`); mensagens do número são registradas e **ignoradas** (nem menu, nem IA, nem check-in) até ele enviar **VOLTAR**.
+- **Trava central** em `whatsapp.service` (`guardaOptOut` → `OptOutError` code `OPT_OUT`) em sendText/Image/Audio/Buttons/Contact/Proactive e na fila. Todo envio novo passa por ela automaticamente; nunca use `ignorarOptOut` fora da confirmação do SAIR.
+- Liderança: `GET|POST /api/optout`, `POST /api/optout/:id/reativar` (justificativa ≥ 10 caracteres; só com pedido da pessoa). Aba "Descadastrados (SAIR)" na Central de WhatsApp; selo 🔕 em Pessoas. Campanhas marcam descadastrados como `bloqueado`.
+- Mensagens proativas (jornada, avisos, resumos, campanhas) levam o rodapé `rodapeSair` (o template de aniversário não foi alterado).
+- **Termos:** `config/legal.js` (`TERMOS_VERSAO`), páginas `/termos` e `/privacidade`, aceite no cadastro (com IP) e em `POST /api/tenant/termos/aceitar`. Mudou o texto? Suba a versão: as igrejas veem o aceite pendente. Texto precisa de revisão jurídica.
+- **Onboarding:** `services/onboarding.service.js` (etapas termos, igreja, congregações, liderança, WhatsApp, pessoas ≥ 10, grupos, automações, assistente/teste); conclui sozinho. Tela `/primeiros-passos`, banner no Dashboard. Rotas `GET /api/tenant/onboarding`, `POST /onboarding/confirmar|dispensar`.
+
+## 📣 Engajamento e venda
+
+- **Campanhas graduais** (`Campanha` + `campanha.service`): lotes de 30 por tick do scheduler, pausa até 08h do dia seguinte no limite diário, retomada após reinício. Usadas por sermão (menu 14), divulgação de eventos e lembretes. Rotas `/api/campanhas*`.
+- **Eventos** (`Evento` + `evento.service`): `INSCREVER <código>` no WhatsApp, lista de espera, Pix estático (`utils/pix.js`, BR Code com CRC16) se `Tenant.pix` configurado. Rotas `/api/eventos*`. Menu 15.
+- **Intercessores:** `Person.intercessor`; pedidos **não confidenciais** vão aos intercessores (só o primeiro nome). Pedido sem a flag `confidencial` é confidencial. Acompanhamento em 7 dias. Avisos em segundo plano (nunca segure a resposta HTTP esperando a fila).
+- **Lembretes de culto:** `Tenant.cultosProgramados` + opt-in `LEMBRETE` / `PARAR LEMBRETE` (`Person.lembreteCulto`).
+- **Células:** `Encontro.relatorio` (visitantes/decisões perguntados após a chamada) e painel `/api/celulas/painel`. **Impacto do mês:** `impacto.service` (`/api/impacto`, menu 16, envio dia 1 às 09h).
+- **Indicação:** código = slug (`?ref=`), +7 dias de teste para a indicada e 1 mês de crédito para quem indicou na 1ª fatura paga (idempotente).
+- **Demo:** só com `DEMO_ENABLED=true` (+ `VITE_DEMO_ENABLED=true` no front). Slug `demo`, somente leitura (403 `DEMO_READONLY`), `POST /api/public/demo`. A limpeza só apaga models com `tenantPlugin` e sempre filtra por `tenantId`.
+- **PWA:** `public/sw.js` (nunca guarda `/api` nem `/uploads`), `offline.html`, atalhos no manifesto, botão "Instalar app".
+
+## 🧪 Suíte E2E completa (`tests/full`)
+
+- `npm run test:full` (API + UI) ou `npm run test:full:api`. Sobe sozinho: WhatsApp falso (3199), backend de teste (3191, banco **`pastoria_e2e`**, recriado a cada execução, sem scheduler/IA/email/gateway) e Vite (4191). Relatório em `tests/full/report`.
+- O seed se recusa a rodar em banco que não termine em `_e2e`; todas as variáveis do `.env` real são zeradas. Telefones de teste começam com `000`.
+- O piso anti-ban de 30s vale também nos testes (mensagens de lote demoram); só a pausa a cada 20 e os limites hora/dia são afrouxados no ambiente de teste.
 
 ---
 

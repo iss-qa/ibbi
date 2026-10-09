@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import Logo from '../components/landing/Logo';
+import { refAtual, limparRef } from '../utils/indicacao';
 
 const UFS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG', 'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO'];
 const PLANOS = [
@@ -25,6 +26,7 @@ export default function Signup() {
   const navigate = useNavigate();
   const location = useLocation();
   const planoInicial = new URLSearchParams(location.search).get('plano');
+  const ref = refAtual(location.search); // indicação de outra igreja: +7 dias de teste
 
   const [form, setForm] = useState({
     nome: '', slug: '', responsavel: '', email: '', celular: '', cidade: '', uf: '',
@@ -68,7 +70,8 @@ export default function Signup() {
     setLoading(true);
     setError('');
     try {
-      const { data } = await api.post('/public/signup', { ...form, slug: slugify(form.slug), celular: form.celular.replace(/\D/g, '') });
+      const { data } = await api.post('/public/signup', { ...form, ref: ref || undefined, slug: slugify(form.slug), celular: form.celular.replace(/\D/g, '') });
+      limparRef();
       setDone(data);
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (err) {
@@ -111,13 +114,14 @@ export default function Signup() {
       <main className="max-w-5xl mx-auto px-4 sm:px-6 py-10 sm:py-14 grid lg:grid-cols-[1fr_1.15fr] gap-10">
         <aside className="lg:sticky lg:top-10 self-start">
           <p className="text-brandGold text-sm font-semibold tracking-wider uppercase">Cadastro da igreja</p>
+          {ref && !done && <p className="mt-3 inline-block text-sm bg-emerald-50 border border-emerald-100 text-emerald-800 rounded-lg px-3 py-1.5">🎁 Indicação de <strong>{ref}</strong>: você ganhou <strong>+7 dias</strong> de teste (21 no total).</p>}
           <h1 className="font-display text-3xl sm:text-4xl text-brandNavy mt-3 leading-tight">
             {done ? 'Sua igreja está pronta.' : 'Comece a cuidar de quem está sumindo.'}
           </h1>
           <p className="text-slate-600 mt-4 leading-relaxed">
             {done
               ? 'Guarde as credenciais abaixo. No primeiro acesso você escolherá uma nova senha e poderá conectar o WhatsApp.'
-              : '14 dias grátis no plano escolhido, sem cartão de crédito. Em minutos sua igreja terá o Barnabé, assistente de IA, no WhatsApp da liderança.'}
+              : `${ref ? '21' : '14'} dias grátis no plano escolhido, sem cartão de crédito. Em minutos sua igreja terá o Barnabé, assistente de IA, no WhatsApp da liderança.`}
           </p>
           <ul className="mt-6 space-y-3 text-sm text-slate-700">
             {['Congregações ilimitadas, uma cobrança só', 'Assistente de IA no WhatsApp da liderança', 'Chamada, ausências e reengajamento automáticos', 'Cancele quando quiser, seus dados são seus'].map((t) => (
@@ -227,7 +231,7 @@ export default function Signup() {
 
             <label className="flex items-start gap-2.5 text-sm text-slate-600">
               <input type="checkbox" checked={form.aceite} onChange={set('aceite')} className="mt-1 accent-brandNavy" />
-              <span>Concordo em usar o PastorIA de forma responsável, respeitando as políticas do WhatsApp e a privacidade dos membros da igreja.</span>
+              <span>Li e aceito os <a href="/termos" target="_blank" rel="noreferrer" className="text-brandBlue underline">Termos de Uso</a> e a <a href="/privacidade" target="_blank" rel="noreferrer" className="text-brandBlue underline">Política de Privacidade</a>, e me comprometo a respeitar as políticas do WhatsApp e quem pedir para sair.</span>
             </label>
 
             {error && <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">{error}</p>}

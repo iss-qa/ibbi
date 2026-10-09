@@ -119,7 +119,15 @@ export default function UserManagement() {
 
   const createUser = async () => {
     if (!selectedMember) return;
-    await api.post('/users', { personId: selectedMember._id, role: 'admin' });
+    try {
+      const { data } = await api.post('/users', { personId: selectedMember._id, role: 'admin' });
+      if (data?.senhaTemporaria) {
+        alert(`Usuário criado.\n\nLogin: ${data.login}\nSenha provisória (válida por 7 dias): ${data.senhaTemporaria}\n\nRepasse ao administrador — ela não será exibida novamente.`);
+      }
+    } catch (err) {
+      alert(err?.response?.data?.message || 'Erro ao criar usuário.');
+      return;
+    }
     setShowCreate(false);
     setSelectedMember(null);
     setMemberResults([]);
@@ -144,12 +152,12 @@ export default function UserManagement() {
   };
 
   const resetPassword = async (userId) => {
-    if (!confirm('Tem certeza que deseja resetar a senha deste usuário para o padrão?')) return;
+    if (!confirm('Gerar uma nova senha provisória para este usuário? As sessões abertas dele serão encerradas.')) return;
     try {
-      await api.put(`/users/${userId}/reset-password`);
-      alert('Senha resetada para o padrão com sucesso!');
+      const { data } = await api.put(`/users/${userId}/reset-password`);
+      alert(`Nova senha provisória (válida por 7 dias): ${data?.senhaTemporaria}\n\nRepasse ao usuário — ela não será exibida novamente.`);
     } catch (err) {
-      alert('Erro ao resetar senha.');
+      alert(err?.response?.data?.message || 'Erro ao resetar senha.');
     }
   };
 

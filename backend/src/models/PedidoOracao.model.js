@@ -14,6 +14,9 @@ const PedidoOracaoSchema = new mongoose.Schema({
   oradoEm: { type: Date },
   oradoPor: { type: String, trim: true },
   messageId: { type: mongoose.Schema.Types.ObjectId, ref: 'Message' }, // log do envio ao WhatsApp da igreja
+  confidencial: { type: Boolean, default: false }, // só pastores/liderança; não vai para a rede de intercessores
+  intercessoresAvisados: { type: Number, default: 0 },
+  acompanhamentoEm: { type: Date }, // "como está o seu pedido?" (7 dias depois)
 }, { timestamps: true });
 
 PedidoOracaoSchema.index({ tenantId: 1, createdAt: -1 });

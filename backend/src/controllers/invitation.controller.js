@@ -92,11 +92,12 @@ const submitInvitation = withInviteTenant(async (req, res, invite) => {
         });
       }
 
-      // Verificar duplicidade com solicitações pendentes
-      const existsRequest = await RegistrationRequest.findOne({
-        nome: nomeRegex,
-        status: 'pending',
-      });
+      // Duplicidade com solicitações pendentes: mesmo critério (nome + celular/nascimento).
+      // Só pelo nome, qualquer um bloquearia o cadastro de outra pessoa enviando o nome dela antes.
+      const pendingOr = [];
+      if (payload.celular) pendingOr.push({ nome: nomeRegex, celular: payload.celular });
+      if (payload.dataNascimento) pendingOr.push({ nome: nomeRegex, 'submittedData.dataNascimento': payload.dataNascimento });
+      const existsRequest = await RegistrationRequest.findOne({ $or: pendingOr, status: 'pending' });
       if (existsRequest) {
         return res.status(409).json({
           code: 'DUPLICATE_REQUEST',
@@ -116,14 +117,11 @@ const submitInvitation = withInviteTenant(async (req, res, invite) => {
     status: 'pending',
   });
 
-  try {
-    await sendPendingRegistrationWelcome({
-      nome: request.nome,
-      celular: request.celular,
-    });
-  } catch (err) {
-    console.error('Erro ao enviar boas-vindas do cadastro pendente:', err.message);
-  }
+  // Em segundo plano: o anti-ban pode aguardar o intervalo/janela de horário
+  sendPendingRegistrationWelcome({
+    nome: request.nome,
+    celular: request.celular,
+  }).catch((err) => console.error('Erro ao enviar boas-vindas do cadastro pendente:', err.message));
 
   res.json({
     message: 'Cadastro recebido com sucesso! Sua solicitação está em análise. Aguarde a aprovação da administração da igreja.',

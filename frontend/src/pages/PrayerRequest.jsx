@@ -3,9 +3,11 @@ import Header from '../components/Header';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
 import { Modal } from '../components/ui';
+import PersonPicker from './Encontros/PersonPicker';
 
 // Formulário de novo pedido (membro na página; liderança no modal "Novo pedido").
 function PrayerForm({ onSent }) {
+  const [confidencial, setConfidencial] = useState(false);
   const [mensagem, setMensagem] = useState('');
   const [status, setStatus] = useState(''); // '', 'enviando', 'ok', 'erro'
   const [feedback, setFeedback] = useState('');
@@ -15,7 +17,7 @@ function PrayerForm({ onSent }) {
     setStatus('enviando');
     setFeedback('');
     try {
-      await api.post('/prayer/send', { mensagem });
+      await api.post('/prayer/send', { mensagem, confidencial });
       setMensagem('');
       setStatus('ok');
       setFeedback('Pedido enviado com sucesso! A equipe de intercessão estará orando por você.');
@@ -40,6 +42,11 @@ function PrayerForm({ onSent }) {
               />
             </div>
             
+            <label className="flex items-start gap-2 text-sm text-slate-600">
+              <input type="checkbox" checked={confidencial} onChange={(e) => setConfidencial(e.target.checked)} className="mt-1" />
+              <span><strong>Confidencial</strong>: só os pastores veem (não vai para a equipe de intercessão)</span>
+            </label>
+
             <button 
               className={`w-full sm:w-auto font-medium px-6 py-3 rounded-xl transition shadow-sm text-sm flex items-center justify-center gap-2 ${
                 status === 'enviando' 
@@ -73,6 +80,35 @@ function PrayerForm({ onSent }) {
               </div>
             )}
           </form>
+  );
+}
+
+// Rede de intercessores: recebem no WhatsApp os pedidos NÃO confidenciais (só o primeiro nome de quem pediu).
+function Intercessores() {
+  const [lista, setLista] = useState([]);
+  const [aberto, setAberto] = useState(false);
+  const load = useCallback(async () => setLista((await api.get('/intercessores')).data), []);
+  useEffect(() => { load().catch(() => {}); }, [load]);
+  const marcar = async (personId, intercessor) => { await api.put(`/intercessores/${personId}`, { intercessor }); load(); };
+  return (
+    <div className="bg-white rounded-2xl border border-stone-100 p-4 mt-2">
+      <button type="button" onClick={() => setAberto((v) => !v)} className="w-full flex items-center justify-between text-left">
+        <span className="font-semibold text-ibbiNavy">🙏 Rede de intercessores <span className="font-normal text-slate-500">· {lista.length} pessoa(s)</span></span>
+        <span className="text-xs text-ibbiBlue">{aberto ? 'fechar' : 'gerenciar'}</span>
+      </button>
+      {aberto && (
+        <div className="mt-3 space-y-3">
+          <p className="text-xs text-slate-500">Cada pedido não confidencial vai para os intercessores no WhatsApp, e quem pediu recebe "X intercessores estão orando por você". Uma semana depois, perguntamos como está a situação.</p>
+          <PersonPicker onPick={(p) => marcar(p._id, true)} placeholder="Adicionar intercessor" />
+          <ul className="divide-y divide-slate-50 text-sm">
+            {lista.map((p) => (
+              <li key={p._id} className="py-1.5 flex justify-between"><span>{p.nome} <span className="text-xs text-slate-400">· {p.congregacao}</span></span><button type="button" className="text-xs text-red-600" onClick={() => marcar(p._id, false)}>remover</button></li>
+            ))}
+            {!lista.length && <li className="py-1.5 text-slate-400">Ninguém ainda.</li>}
+          </ul>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -112,6 +148,7 @@ function PrayerList() {
   return (
     <div className="min-h-screen">
       <Header title="Pedidos de Oração" subtitle="O que a igreja pediu para orarmos juntos" />
+      <div className="max-w-4xl mx-auto px-4"><Intercessores /></div>
 
       <div className="max-w-4xl mx-auto px-4 mt-6 space-y-4">
         <div className="flex flex-wrap items-center gap-2 justify-between">

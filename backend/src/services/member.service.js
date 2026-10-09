@@ -2,14 +2,16 @@ const User = require('../models/User.model');
 const Message = require('../models/Message.model');
 const { buildUniqueLogin } = require('../utils/login');
 const whatsapp = require('./whatsapp.service');
-const { DEFAULT_USER_PASSWORD } = require('../config/defaults');
+const { applyTempPassword } = require('../config/defaults');
 const templates = require('../templates/messages.templates');
 
-const sendAndLogMemberMessage = async ({ tipo, personLike, conteudo, authorId = null }) => {
+const sendAndLogMemberMessage = async ({ tipo, personLike, conteudo, authorId = null, bulk = false }) => {
   if (!personLike?.celular || !conteudo) return;
 
   try {
-    await whatsapp.sendSingle(personLike.celular, conteudo);
+    // bulk: ritmo anti-ban (intervalo, janela de horário, limites, duplicadas)
+    if (bulk) await whatsapp.sendText(personLike.celular, conteudo, { bulk: true });
+    else await whatsapp.sendSingle(personLike.celular, conteudo);
 
     await Message.create({
       tipo,
@@ -39,11 +41,13 @@ const sendPendingRegistrationWelcome = async (personLike, authorId = null) => {
   if (!personLike?.celular) return false;
 
   const msgText = templates.boasVindasCadastroPendente();
+  // Disparado por formulário público: sempre pelo anti-ban (senão vira canhão de spam no número da igreja)
   await sendAndLogMemberMessage({
     tipo: 'novo cadastro',
     personLike,
     conteudo: msgText,
     authorId,
+    bulk: true,
   });
 
   return true;
@@ -61,17 +65,16 @@ const onboardMember = async (person, authorId = null, options = {}) => {
     if (existing) return null; // Já tem usuário
 
     const userLogin = await buildUniqueLogin(person.nome);
-    const defaultPassword = DEFAULT_USER_PASSWORD;
-    
-    await User.create({
+    // Senha provisória própria da conta (nunca uma senha compartilhada entre membros)
+    const user = new User({
       nome: person.nome,
       login: userLogin,
-      senha: defaultPassword,
       role: 'user',
       personId: person._id,
       ativo: true,
-      mustChangePassword: true,
     });
+    const defaultPassword = applyTempPassword(user);
+    await user.save();
 
     const isApprovalFlow = options.context === 'approval';
     const msgText = isApprovalFlow

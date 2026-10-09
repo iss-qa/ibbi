@@ -17,7 +17,7 @@ const triggerEvolutionCheckOnFailure = () => {
 const templates = require('../templates/messages.templates');
 const { generateBirthdayCard } = require('../services/image.service');
 const { applyScopedCongregacaoFilter, assertPersonAccess, getUserCongregacao, getUserCongregacoes } = require('../utils/access');
-const { DEFAULT_USER_PASSWORD } = require('../config/defaults');
+const { applyTempPassword } = require('../config/defaults');
 
 const SUMMARY_TYPE_ORDER = [
   'aniversario',
@@ -249,14 +249,29 @@ const sendByCongregation = async (req, res) => {
   return res.json({ message: 'Envio enfileirado', log, congregacao: scopedCongregacao || congregacao });
 };
 
+// Log visível ao usuário: master vê tudo; admin vê o que saiu das suas congregações ou foi enviado
+// por usuários delas. Pedidos de oração têm tela própria (prayerLog), com o mesmo escopo.
+const messageScopeFilter = async (user) => {
+  if (user.role === 'master') return {};
+  const lista = await getUserCongregacoes(user);
+  const pessoas = await Person.find({ congregacao: { $in: lista } }).distinct('_id');
+  const autores = await User.find({ personId: { $in: pessoas } }).distinct('_id');
+  return {
+    tipo: { $ne: 'oracao' },
+    $or: [{ origemCongregacao: { $in: lista } }, { enviadoPor: { $in: [...autores, user._id] } }],
+  };
+};
+
 const log = async (req, res) => {
-  const items = await Message.find().sort({ criadoEm: -1 }).limit(200);
+  const items = await Message.find(await messageScopeFilter(req.user)).sort({ criadoEm: -1 }).limit(200);
   res.json(items);
 };
 
 const summary = async (req, res) => {
+  const escopo = await messageScopeFilter(req.user);
   const [statusCounts, typeCounts] = await Promise.all([
     Message.aggregate([
+      { $match: escopo },
       {
         $group: {
           _id: null,
@@ -280,6 +295,7 @@ const summary = async (req, res) => {
       },
     ]),
     Message.aggregate([
+      { $match: escopo },
       {
         $group: {
           _id: '$tipo',
@@ -348,7 +364,8 @@ const sendBirthdayNow = async (req, res) => {
 const sendCarteirinha = async (req, res) => {
   try {
     const { personId, base64Image, mensagem } = req.body;
-    const person = await Person.findById(personId);
+    // Só membros das congregações do usuário (admin não envia para outra congregação)
+    const person = await Person.findOne(await applyScopedCongregacaoFilter(req.user, { _id: String(personId || '') }));
     if (!person || !person.celular) {
       return res.status(400).json({ message: 'Membro inválido ou sem celular cadastrado' });
     }
@@ -378,7 +395,8 @@ const sendCarteirinha = async (req, res) => {
 const sendBirthdayImage = async (req, res) => {
   try {
     const { personId, imageBase64 } = req.body;
-    const person = await Person.findById(personId);
+    // Só membros das congregações do usuário (admin não envia para outra congregação)
+    const person = await Person.findOne(await applyScopedCongregacaoFilter(req.user, { _id: String(personId || '') }));
     if (!person || !person.celular) {
       return res.status(400).json({ message: 'Membro inválido ou sem celular' });
     }
@@ -460,7 +478,7 @@ const lastBirthdayMessage = async (req, res) => {
 };
 
 const resendMessage = async (req, res) => {
-  const msg = await Message.findById(req.params.id);
+  const msg = await Message.findOne({ ...(await messageScopeFilter(req.user)), _id: req.params.id });
   if (!msg) return res.status(404).json({ message: 'Mensagem não encontrada' });
   if (!msg.destinatarios || msg.destinatarios.length === 0) {
     return res.status(400).json({ message: 'Mensagem sem destinatários' });
@@ -494,8 +512,10 @@ const resendMessage = async (req, res) => {
 
       const newLog = await Message.create({
         tipo: 'aniversario',
-        destinatarios: buildDestinatarioLog(msg.destinatarios, erros.length > 0 ? 'erro' : 'concluido').map((dest) => ({
+        // Status por destinatário: uma falha não pode marcar quem recebeu como "não enviado"
+        destinatarios: buildDestinatarioLog(msg.destinatarios, 'concluido').map((dest) => ({
           ...dest,
+          status: erros.some((err) => err.celular === dest.celular) ? 'erro' : 'concluido',
           processadoEm: new Date(),
           ...(erros.find((err) => err.celular === dest.celular) ? { erro: erros.find((err) => err.celular === dest.celular).motivo } : {}),
         })),
@@ -551,7 +571,7 @@ const sendPendingPhotos = async (req, res) => {
   // Executa em background para não travar a request
   (async () => {
     try {
-      const persons = await Person.find({
+      const persons = await Person.find(await applyScopedCongregacaoFilter(req.user, {
         status: 'ativo',
         celular: { $exists: true, $ne: '' },
         $or: [
@@ -561,15 +581,19 @@ const sendPendingPhotos = async (req, res) => {
           { fotoUrl: /dove/i },
           { fotoUrl: /logo/i }
         ]
-      });
+      }));
 
       const tasks = [];
       for (const person of persons) {
         const user = await User.findOne({ personId: person._id });
         if (!user) continue;
 
-        // Senha padrão só para quem ainda não trocou (os demais já têm senha própria)
-        const senha = user.mustChangePassword ? DEFAULT_USER_PASSWORD : '(sua senha atual)';
+        // Quem ainda não trocou recebe uma senha provisória nova e individual (os demais usam a própria)
+        let senha = '(sua senha atual)';
+        if (user.mustChangePassword) {
+          senha = applyTempPassword(user);
+          await user.save();
+        }
         const msgToSend = mensagem.replace(/\{nome\}/gi, person.nome)
           .replace(/\{login\}/gi, user.login)
           .replace(/\{senha\}/gi, senha);

@@ -52,6 +52,7 @@ const serializePublic = (tenant) => tenant && ({
   branding: tenant.branding || {},
   congregacoes: tenant.congregacoes || [],
   status: tenant.status,
+  demo: Boolean(tenant.demo),
 });
 
 // Visão do tenant para os usuários da própria igreja (segredos mascarados).
@@ -80,7 +81,7 @@ const serializeForTenantAdmin = (tenant) => {
       numeroIgreja: wa.numeroIgreja,
       numeroInstancia: wa.numeroInstancia || (wa.useEnvFallback ? process.env.WHATSAPP_NUMERO_INSTANCIA : ''),
       apresentacaoEnviadaEm: wa.apresentacaoEnviadaEm || null,
-      webhookToken: wa.webhookToken,
+      // webhookToken nunca sai aqui: autentica o webhook (quem tem o token fala "como" qualquer número). Só em /webhook-info.
       grupoLideranca: wa.grupoLideranca || null,
       liderancaEnvio: wa.liderancaEnvio || 'individual',
       antiban: require('../services/whatsapp/antiban').config(tenant),
@@ -99,13 +100,37 @@ const serializeForTenantAdmin = (tenant) => {
       },
     },
     automacoes: tenant.automacoes,
+    onboarding: { concluido: Boolean(tenant.onboarding?.concluido), dispensado: Boolean(tenant.onboarding?.dispensado) },
+    cidade: tenant.cidade,
+    uf: tenant.uf,
+    pix: tenant.pix || {},
+    cultosProgramados: tenant.cultosProgramados || [],
+    termosPendentes: tenant.termos?.versao !== require('../config/legal').TERMOS_VERSAO,
+    termos: tenant.termos ? { versao: tenant.termos.versao, aceitoEm: tenant.termos.aceitoEm, aceitoPor: tenant.termos.aceitoPor } : null,
     ia: tenant.ia,
     lideranca: tenant.lideranca || [],
     ebdLideres: tenant.ebdLideres || [],
   };
 };
 
+// Visão para admin/user: só o que a interface usa (plano, recursos, nome do assistente).
+// Telefones da liderança, automações e configuração de WhatsApp ficam restritos ao master.
+const serializeForMember = (tenant, role) => {
+  if (!tenant) return null;
+  const full = serializeForTenantAdmin(tenant);
+  return {
+    ...serializePublic(tenant),
+    plano: full.plano,
+    planoInfo: full.planoInfo,
+    trialEndsAt: full.trialEndsAt,
+    timezone: full.timezone,
+    ia: { nomeAssistente: tenant.ia?.nomeAssistente },
+    ...(role === 'admin' ? { automacoes: tenant.automacoes } : {}),
+  };
+};
+
 module.exports = {
+  serializeForMember,
   DEFAULT_TENANT_SLUG,
   getTenantById,
   getTenantBySlug,

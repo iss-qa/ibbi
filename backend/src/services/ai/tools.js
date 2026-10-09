@@ -1,4 +1,6 @@
+const mongoose = require('mongoose');
 const Person = require('../../models/Person.model');
+const User = require('../../models/User.model');
 const EbdAula = require('../../models/EbdAula.model');
 const CareAlert = require('../../models/CareAlert.model');
 const Message = require('../../models/Message.model');
@@ -23,10 +25,19 @@ const { timezone } = require('../../tenancy/brand');
 const prayer = require('../prayer.service');
 
 // ── helpers ──────────────────────────────────────────────────────────────
+// Sem congregação definida só fica sem filtro quem tem escopo total (master, liderança geral).
+// Lista vazia de congregações = nenhum acesso (falha fechado).
 const scopeFilter = (actor, filter = {}) => {
   if (actor.congregacao) return { ...filter, congregacao: actor.congregacao };
-  if (actor.congregacoes?.length) return { ...filter, congregacao: { $in: actor.congregacoes } };
+  if (Array.isArray(actor.congregacoes)) return { ...filter, congregacao: { $in: actor.congregacoes } };
   return filter;
+};
+
+// Congregações em que o líder pode gravar (null = todas da igreja).
+const writableCongregacoes = (actor) => {
+  if (actor.congregacao) return [actor.congregacao];
+  if (Array.isArray(actor.congregacoes)) return actor.congregacoes;
+  return null;
 };
 
 const toolError = (message) => {
@@ -37,7 +48,7 @@ const toolError = (message) => {
 
 const resolveCongregacao = (actor, input) => {
   const tenant = getTenant();
-  const lista = actor.congregacoes?.length ? actor.congregacoes : tenant?.congregacoes || [];
+  const lista = Array.isArray(actor.congregacoes) ? actor.congregacoes : tenant?.congregacoes || [];
   if (actor.congregacao) return actor.congregacao;
   if (input) {
     const hit = lista.find((c) => ebd.normalize(c) === ebd.normalize(input));
@@ -147,7 +158,8 @@ const isGestor = (actor) => ['master', 'admin'].includes(actor.role);
 // Grupos que o líder pode ver: admin/master pelas congregações; líder de união só os seus.
 const gruposAcessiveis = async (actor) => {
   const filter = scopeFilter(actor, { ativo: true, tipo: { $ne: 'ebd' } });
-  if (!isGestor(actor) && actor.grupos?.length) filter._id = { $in: actor.grupos.map((g) => g.id) };
+  // Líder de união/classe vê só os próprios grupos (nenhum, se não lidera grupo); liderança geral vê o escopo todo
+  if (!isGestor(actor) && !actor.liderancaGeral) filter._id = { $in: (actor.grupos || []).map((g) => g.id) };
   return GrupoEncontro.find(filter).sort({ congregacao: 1, nome: 1 });
 };
 
@@ -312,11 +324,19 @@ const TOOLS = {
       },
     },
     run: async ({ pessoaId, confirmado, usarUltimaFoto, ...campos }, { actor, conversation }) => {
+      if (!mongoose.isValidObjectId(pessoaId)) throw toolError('Pessoa não encontrada nas suas congregações');
       const person = await Person.findOne(scopeFilter(actor, { _id: pessoaId })).lean();
       if (!person) throw toolError('Pessoa não encontrada nas suas congregações');
       const set = {};
       const permitidos = ['nome', 'celular', 'email', 'endereco', 'dataNascimento', 'sexo', 'tipo', 'estadoCivil', 'grupo', 'congregacao', 'ministerio', 'status', 'motivoInativacao'];
-      permitidos.forEach((k) => { if (campos[k] !== undefined && campos[k] !== '') set[k] = campos[k]; });
+      permitidos.forEach((k) => { if (campos[k] !== undefined && campos[k] !== '' && typeof campos[k] !== 'object') set[k] = campos[k]; });
+      // O celular é a identidade no WhatsApp: celular/status de quem tem conta master/admin só o master altera
+      if (actor.role !== 'master' && (set.celular || set.status) && String(person._id) !== String(actor.personId)) {
+        const lider = await User.exists({ personId: person._id, role: { $in: ['master', 'admin'] } });
+        if (lider) throw toolError('Celular e status de administradores só podem ser alterados pelo master, na plataforma.');
+      }
+      // Batizado ⇒ membro (regra 5) sobre o estado final, não só o que veio no pedido
+      if (person.batizado && set.tipo && set.tipo !== 'membro') set.tipo = 'membro';
       if (usarUltimaFoto) {
         if (!conversation?.lastMediaDataUrl) throw toolError('Nenhuma foto recebida nesta conversa. Peça ao líder para enviar a foto.');
         set.fotoUrl = conversation.lastMediaDataUrl;
@@ -326,7 +346,11 @@ const TOOLS = {
       if (set.celular) set.celular = toLocal(set.celular);
       if (set.email) set.email = String(set.email).toLowerCase();
       if (set.dataNascimento) set.dataNascimento = new Date(`${String(set.dataNascimento).slice(0, 10)}T12:00:00Z`);
-      if (set.congregacao) set.congregacao = resolveCongregacao({ ...actor, congregacao: null }, set.congregacao);
+      if (set.congregacao) {
+        // Só para congregações dentro do escopo do líder
+        const permitidas = writableCongregacoes(actor);
+        set.congregacao = resolveCongregacao({ ...actor, congregacao: null, ...(permitidas ? { congregacoes: permitidas } : {}) }, set.congregacao);
+      }
       if (set.status === 'inativo' && !set.motivoInativacao && !person.motivoInativacao) throw toolError('Informe o motivo da inativação');
       const antes = Object.fromEntries(Object.keys(set).map((k) => [k, k === 'fotoUrl' ? (person.fotoUrl ? 'foto atual' : 'sem foto') : person[k] ?? null]));
       const alertaCelular = set.celular ? phoneWarning(set.celular) : null;
@@ -1180,10 +1204,24 @@ const TOOLS = {
 const allowedIn = (tool, channel) => !tool.channels || tool.channels.includes(channel || 'whatsapp');
 const toolsFor = (papel, channel = 'whatsapp') => Object.values(TOOLS).filter((t) => t.roles.includes(papel) && allowedIn(t, channel));
 
+// Argumentos vêm do modelo (sujeito a prompt injection): chave "$…" em qualquer nível viraria
+// operador do Mongo (ex.: pessoaId: { "$ne": null } casaria com qualquer pessoa).
+const hasOperatorKey = (v, depth = 0) => {
+  if (!v || typeof v !== 'object' || depth > 6) return false;
+  if (Array.isArray(v)) return v.some((x) => hasOperatorKey(x, depth + 1));
+  return Object.keys(v).some((k) => k.startsWith('$') || hasOperatorKey(v[k], depth + 1));
+};
+
 const runTool = async (name, input, ctx) => {
   const tool = TOOLS[name];
   if (!tool || !tool.roles.includes(ctx.actor.papel) || !allowedIn(tool, ctx.channel)) throw toolError(`Ferramenta ${name} não permitida`);
-  return tool.run(input || {}, ctx);
+  if (hasOperatorKey(input)) throw toolError('Parâmetros inválidos');
+  // Ids sempre como texto: objeto no lugar de id não pode virar filtro
+  const args = { ...(input || {}) };
+  Object.keys(args).forEach((k) => {
+    if (/Id$/.test(k) && args[k] !== undefined && args[k] !== null && typeof args[k] !== 'string') throw toolError(`Parâmetro ${k} inválido`);
+  });
+  return tool.run(args, ctx);
 };
 
 module.exports = {

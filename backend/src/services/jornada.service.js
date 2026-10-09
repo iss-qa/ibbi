@@ -42,7 +42,10 @@ const depoisDoDia = (inicio) => new Date(new Date(inicio).setHours(23, 59, 59, 9
 // Inicia (idempotente) a jornada de quem acabou de ser cadastrado como visitante/novo decidido.
 const iniciarJornada = async (person) => {
   if (!person || !TIPOS.includes(person.tipo) || person.status === 'inativo' || !jornadaLigada()) return null;
-  const inicio = person.tipo === 'novo decidido' ? (person.dataDecisao || new Date()) : (person.dataVisita || new Date());
+  const informada = person.tipo === 'novo decidido' ? person.dataDecisao : person.dataVisita;
+  // Visita lançada com atraso: a jornada conta a partir de no máximo 2 dias atrás — senão a primeira
+  // execução pularia d3–d14 e já mandaria o d21 e o resumo do d30 no mesmo dia.
+  const inicio = new Date(Math.max(new Date(informada || Date.now()).getTime() || Date.now(), Date.now() - 2 * DIA_MS));
   return Jornada.findOneAndUpdate(
     { personId: person._id },
     {
@@ -123,8 +126,14 @@ const runJornadas = async () => {
 
   for (const j of jornadas) {
     const person = await Person.findById(j.personId).lean();
-    if (!person || person.status === 'inativo') {
-      await Jornada.updateOne({ _id: j._id }, { $set: { status: 'cancelada', canceladaMotivo: person ? 'pessoa inativa' : 'cadastro removido' } });
+    // Inativo, removido ou que deixou de ser visitante/novo decidido (virou membro, foi batizado):
+    // não recebe mais mensagens de visitante nem convite ao batismo.
+    const motivoCancelar = !person ? 'cadastro removido'
+      : person.status === 'inativo' ? 'pessoa inativa'
+        : (!TIPOS.includes(person.tipo) || person.batizado) ? `agora é ${person.batizado ? 'batizado(a)' : person.tipo}`
+          : null;
+    if (motivoCancelar) {
+      await Jornada.updateOne({ _id: j._id }, { $set: { status: 'cancelada', canceladaMotivo: motivoCancelar } });
       continue;
     }
     const set = {};

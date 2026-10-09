@@ -3,7 +3,7 @@ const Person = require('../models/Person.model');
 const { onboardMember } = require('../services/member.service');
 const { getUserCongregacao, getUserCongregacoes, resolveWritableCongregacao } = require('../utils/access');
 const {
-  escapeRegex, sanitizeFotoUrl, PUBLIC_PERSON_FIELDS, pickFields,
+  escapeRegex, sanitizeFotoUrl, PUBLIC_PERSON_FIELDS, pickFields, pageParams,
 } = require('../utils/sanitize');
 const { toLocal } = require('../utils/phone');
 const { applyPersonBusinessRules } = require('../utils/person-rules');
@@ -31,7 +31,8 @@ const findScopedRequestById = async (user, id) => {
 
 const list = async (req, res) => {
   try {
-    const { status, search, page = 1, limit = 20 } = req.query;
+    const { status, search } = req.query;
+    const { page, limit, skip } = pageParams({ ...req.query, limit: Math.min(Number(req.query.limit) || 20, 100) });
     const baseFilter = {};
 
     if (status) baseFilter.status = status;
@@ -42,15 +43,14 @@ const list = async (req, res) => {
     const { filter } = await applyRegistrationScope(req.user, baseFilter);
 
     const total = await RegistrationRequest.countDocuments(filter);
-    const skip = (Number(page) - 1) * Number(limit);
     const items = await RegistrationRequest.find(filter)
       .sort({ submittedAt: -1 })
       .skip(skip)
-      .limit(Number(limit))
+      .limit(limit)
       .populate('reviewedBy', 'nome')
       .lean();
 
-    res.json({ items, total, page: Number(page), limit: Number(limit) });
+    res.json({ items, total, page, limit });
   } catch (error) {
     sendError(res, error);
   }

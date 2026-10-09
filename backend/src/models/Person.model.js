@@ -43,6 +43,8 @@ const PersonSchema = new mongoose.Schema(
     batizado: { type: Boolean, default: false },
     dataBatismo: { type: Date },
     dataCasamento: { type: Date }, // bodas: parabéns automáticos (scheduler)
+    lembreteCulto: { type: Boolean, default: false }, // opt-in "LEMBRETE" no WhatsApp: aviso antes dos cultos
+    intercessor: { type: Boolean, default: false }, // recebe pedidos de oração (não confidenciais)
     // Controle de idempotência: data do último email de aniversário enviado (1x/dia)
     aniversarioEmailEnviadoEm: { type: Date },
     congregacao: { type: String, trim: true, default: 'Não atribuído' },

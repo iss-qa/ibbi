@@ -2,6 +2,8 @@ const Escala = require('../models/Escala.model');
 const Person = require('../models/Person.model');
 const escalaSvc = require('../services/escala.service');
 const { applyScopedCongregacaoFilter, resolveWritableCongregacao } = require('../utils/access');
+const { zonedParts } = require('../utils/time');
+const { timezone } = require('../tenancy/brand');
 const { hasFeature } = require('../config/plans');
 
 const featureOk = (req, res) => {
@@ -16,10 +18,12 @@ const isoDia = (v) => {
 };
 const HORA_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-// Itens { funcao, personId } → com nome/celular do cadastro (só pessoas ativas).
-const montarItens = async (itens = []) => {
-  const validos = itens.filter((i) => i?.funcao && i?.personId).slice(0, 50);
-  const pessoas = await Person.find({ _id: { $in: validos.map((i) => i.personId) }, status: 'ativo' }).select('nome celular').lean();
+// Itens { funcao, personId } → com nome/celular do cadastro (só pessoas ativas e no escopo do usuário).
+const montarItens = async (user, itens = []) => {
+  const validos = (Array.isArray(itens) ? itens : []).filter((i) => i?.funcao && i?.personId).slice(0, 50);
+  const filtro = await applyScopedCongregacaoFilter(user, { status: 'ativo' });
+  filtro._id = { $in: validos.map((i) => String(i.personId)) };
+  const pessoas = await Person.find(filtro).select('nome celular').lean();
   const porId = new Map(pessoas.map((p) => [String(p._id), p]));
   return validos.filter((i) => porId.has(String(i.personId))).map((i) => {
     const p = porId.get(String(i.personId));
@@ -30,7 +34,8 @@ const montarItens = async (itens = []) => {
 const list = async (req, res) => {
   if (!featureOk(req, res)) return undefined;
   const passadas = req.query.passadas === '1';
-  const hoje = new Date(new Date().toISOString().slice(0, 10));
+  // "Hoje" no fuso da igreja (o servidor roda em UTC: após 21h BRT viraria amanhã)
+  const hoje = new Date(zonedParts(timezone()).isoDate);
   const filter = await applyScopedCongregacaoFilter(req.user, {
     cancelada: { $ne: true },
     data: passadas ? { $gte: new Date(hoje.getTime() - 60 * 864e5), $lt: hoje } : { $gte: hoje },
@@ -46,9 +51,11 @@ const create = async (req, res) => {
   if (!b.ministerio || !data) return res.status(400).json({ message: 'Informe o ministério e a data' });
   if (b.horario && !HORA_RE.test(b.horario)) return res.status(400).json({ message: 'Horário inválido (HH:MM)' });
   const congregacao = await resolveWritableCongregacao(req.user, b.congregacao);
-  const itens = await montarItens(b.itens);
+  const itens = await montarItens(req.user, b.itens);
   if (!itens.length) return res.status(400).json({ message: 'Adicione ao menos uma pessoa à escala' });
-  const resp = b.responsavelId ? await Person.findById(b.responsavelId).select('nome celular').lean() : null;
+  const resp = b.responsavelId
+    ? await Person.findOne(await applyScopedCongregacaoFilter(req.user, { _id: String(b.responsavelId) })).select('nome celular').lean()
+    : null;
   const euPessoa = req.user.personId ? await Person.findById(req.user.personId).select('nome celular').lean() : null;
   const responsavel = resp || euPessoa;
   const escala = await Escala.create({
@@ -71,7 +78,7 @@ const enviarConvites = async (req, res) => {
 const addItem = async (req, res) => {
   const e = await findScoped(req);
   if (!e) return res.status(404).json({ message: 'Escala não encontrada' });
-  const [item] = await montarItens([req.body]);
+  const [item] = await montarItens(req.user, [req.body]);
   if (!item) return res.status(400).json({ message: 'Informe a função e uma pessoa ativa' });
   e.itens.push(item);
   await e.save();

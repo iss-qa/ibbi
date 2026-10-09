@@ -20,6 +20,8 @@ api.interceptors.response.use(
     if (error?.response?.status === 401 && !String(error.config?.url || '').includes('/auth/login')) {
       window.dispatchEvent(new CustomEvent('auth-expired'));
     }
+    // Igreja demonstração: avisa a faixa do topo (somente leitura)
+    if (error?.response?.data?.code === 'DEMO_READONLY') window.dispatchEvent(new CustomEvent('demo-readonly'));
     if (error?.response?.status === 402 && error.response.data?.code === 'TENANT_SUSPENDED') {
       if (!window.location.pathname.startsWith('/assinatura')) {
         window.dispatchEvent(new CustomEvent('tenant-suspended', { detail: error.response.data.message }));
