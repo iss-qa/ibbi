@@ -47,7 +47,6 @@ docs/*.csv
 .npm
 .eslintcache
 .stylelintcache
-.vercel
 .env*.local
 
 # Suíte E2E completa (tests/full)

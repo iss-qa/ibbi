@@ -17,7 +17,6 @@ test-results
 playwright-report
 blob-report
 
-.vercel
 .vscode
 .idea
 .agent

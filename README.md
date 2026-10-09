@@ -61,19 +61,20 @@ O frontend consome a API pelo arquivo [api.js](frontend/src/services/api.js), qu
 
 ### Produção
 
-Hoje o frontend e a API estão na Vercel, no mesmo deploy ([vercel.json](vercel.json)):
+A produção roda no **EasyPanel**, a partir do [Dockerfile](Dockerfile), num único processo Node ([backend/server.js](backend/server.js)):
 
-- o frontend é servido como aplicação estática
-- as rotas `/api/*` são reescritas para [api/index.js](api/index.js), que reaproveita o mesmo app Express de [backend/server.js](backend/server.js) em modo serverless
-- a Vercel instala só o `package.json` da **raiz**: toda dependência nova do backend precisa estar lá também
-
-Limite: em serverless não rodam o scheduler (aniversários, jornada, campanhas), o monitor da Evolution nem a fila anti-ban contínua. Essa entrada é uma ponte; o destino é rodar o backend completo pelo [Dockerfile](Dockerfile) (EasyPanel) e a Vercel repassar `/api` para lá.
+- o frontend é buildado na imagem (Vite) e servido como estático pelo próprio Express (`public/`)
+- as rotas `/api/*` são atendidas pelo mesmo processo
+- o scheduler (aniversários, jornada, campanhas), o monitor da Evolution e a fila anti-ban rodam junto (desligue com `DISABLE_SCHEDULER=true`)
+- dependências do backend ficam em `backend/package.json`, que é o que a imagem instala
+- as variáveis `VITE_*` do "Ambiente" do EasyPanel entram como build args do frontend
+- mantenha **uma réplica** só: a fila e o scheduler ficam em memória
 
 ## Resposta Direta às Suas Perguntas
 
 ### Back-end hospedado onde?
 
-Hoje na **Vercel**, via [api/index.js](api/index.js) (ponte serverless). O backend completo, com scheduler e fila, roda pelo [Dockerfile](Dockerfile).
+No **EasyPanel** (VPS), pelo [Dockerfile](Dockerfile): API, front, scheduler e fila no mesmo container.
 
 ### A API é qual stack?
 
@@ -86,9 +87,9 @@ A API usa:
 - JWT
 - bcryptjs
 
-### Front no Vercel?
+### E o front?
 
-Sim. O repositório possui [vercel.json](vercel.json) e a estrutura do frontend foi organizada para build estático com Vite.
+Vai na mesma imagem: o build do Vite é copiado para `public/` e servido pelo Express.
 
 ### Endereço do GitHub
 
@@ -97,7 +98,6 @@ Sim. O repositório possui [vercel.json](vercel.json) e a estrutura do frontend 
 ### Domínio público
 
 - [https://pastoria.issqa.com.br/login](https://pastoria.issqa.com.br/login)
-- `ibbi.issqa.com.br` continua apontando para o mesmo deploy (links antigos enviados aos membros da IBBI)
 
 Nas mensagens, o link do portal vem de `portalUrl()` em [brand.js](backend/src/tenancy/brand.js): `Tenant.branding.portalUrl` da igreja, senão `APP_URL`.
 
@@ -105,10 +105,8 @@ Nas mensagens, o link do portal vem de `portalUrl()` em [brand.js](backend/src/t
 
 ```text
 pastoria/
-├── api/
-│   └── index.js                  # entrada serverless para produção (Vercel)
 ├── backend/
-│   ├── server.js                 # backend tradicional para desenvolvimento/local
+│   ├── server.js                 # API + front estático + scheduler (dev e produção)
 │   ├── package.json
 │   └── src/
 │       ├── config/               # conexão com banco e configs
@@ -131,7 +129,7 @@ pastoria/
 │       ├── constants/            # enums/listas
 │       └── assets/               # imagens e recursos visuais
 ├── tests/                        # testes Playwright
-├── vercel.json                   # rewrites do deploy Vercel
+├── Dockerfile                    # imagem de produção (EasyPanel)
 ├── package.json                  # scripts do monorepo
 └── README.md
 ```
@@ -154,9 +152,8 @@ pastoria/
 Navegador
   -> Frontend React/Vite
   -> /api/*
-  -> Vercel rewrite
-  -> api/index.js
-  -> Express
+  -> EasyPanel (proxy HTTPS)
+  -> backend/server.js (Express)
   -> Controllers / Services
   -> MongoDB + Evolution API
 ```
@@ -261,11 +258,11 @@ Exemplos:
 
 ### Frontend
 
-- Vercel
+- EasyPanel: build do Vite dentro da imagem, servido pelo Express
 
 ### Backend
 
-- Vercel Serverless Functions com Express
+- EasyPanel: container Node.js com Express ([Dockerfile](Dockerfile)), scheduler e fila no mesmo processo
 
 ### Banco
 
@@ -277,11 +274,10 @@ Exemplos:
 
 ## Observações Úteis
 
-- o backend local em [backend/server.js](backend/server.js) continua importante para desenvolvimento
-- na Vercel, [api/index.js](api/index.js) importa o app de `backend/server.js` (sem `listen` nem scheduler quando `VERCEL` está definido)
+- [backend/server.js](backend/server.js) é a mesma entrada em desenvolvimento e em produção
 - a base do frontend em produção usa `/api`, sem precisar informar domínio manualmente
 - existem aliases de rota para grupos, incluindo `/api/grupos`
 
 ## Resumo Executivo
 
-Este projeto é um monorepo fullstack com React no frontend e Express/MongoDB no backend. Em desenvolvimento ele roda com dois processos separados; em produção o frontend estático e a API serverless convivem no mesmo deploy da Vercel. O repositório Git é [iss-qa/pastoria](https://github.com/iss-qa/pastoria), e o domínio público é [pastoria.issqa.com.br](https://pastoria.issqa.com.br/login). A IBBI é a igreja fundadora (tenant `ibbi`).
+Este projeto é um monorepo fullstack com React no frontend e Express/MongoDB no backend. Em desenvolvimento ele roda com dois processos separados; em produção um único container no EasyPanel serve o frontend estático, a API, o scheduler e a fila. O repositório Git é [iss-qa/pastoria](https://github.com/iss-qa/pastoria), e o domínio público é [pastoria.issqa.com.br](https://pastoria.issqa.com.br/login). A IBBI é a igreja fundadora (tenant `ibbi`).
