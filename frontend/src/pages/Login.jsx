@@ -174,6 +174,13 @@ export default function Login() {
             </div>
           </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
+          {/* Operador da plataforma entra com email, em outra tela */}
+          {error && form.login.includes('@') && (
+            <p className="text-xs text-slate-600 bg-slate-50 border border-slate-100 rounded-lg px-3 py-2">
+              Este login é da igreja (ex.: <strong>joao</strong>). Administrador da plataforma?{' '}
+              <a href="/platform/login" className="text-ibbiBlue font-medium hover:underline">Entre por aqui</a>.
+            </p>
+          )}
           <button
             type="submit"
             disabled={loading || !recaptchaReady}

@@ -71,6 +71,9 @@ const dropLegacyIndexes = async () => {
  * 3. Troca índices únicos globais por compostos.
  * 4. Cria o operador inicial da plataforma (PLATFORM_ADMIN_EMAIL/PASSWORD).
  */
+// Valor de variável de ambiente sem espaços nas pontas nem aspas em volta (comum ao colar no painel).
+const envValue = (v) => String(v || '').trim().replace(/^(['"])(.*)\1$/, '$2');
+
 const bootstrapTenancy = () => runAsPlatform(async () => {
   let founder = await Tenant.findOne({ slug: DEFAULT_TENANT_SLUG() });
   if (!founder && (await Tenant.estimatedDocumentCount()) === 0) {
@@ -93,11 +96,21 @@ const bootstrapTenancy = () => runAsPlatform(async () => {
     await Model.createIndexes().catch((err) => console.warn(`[TENANCY] Índices de ${Model.modelName}:`, err.message));
   }
 
-  const email = process.env.PLATFORM_ADMIN_EMAIL;
-  const senha = process.env.PLATFORM_ADMIN_PASSWORD;
-  if (email && senha && !(await PlatformUser.exists({ email: email.toLowerCase() }))) {
-    await PlatformUser.create({ nome: process.env.PLATFORM_ADMIN_NAME || 'Administrador da Plataforma', email, senha });
-    console.log(`[TENANCY] Operador da plataforma criado: ${email}`);
+  // Operador da plataforma: o .env (PLATFORM_ADMIN_*) é a fonte da verdade. Não há tela para trocar
+  // essa senha, então trocar a variável e reiniciar atualiza a senha (e reativa) o operador.
+  const email = envValue(process.env.PLATFORM_ADMIN_EMAIL).toLowerCase();
+  const senha = envValue(process.env.PLATFORM_ADMIN_PASSWORD);
+  if (email && senha) {
+    const operador = await PlatformUser.findOne({ email });
+    if (!operador) {
+      await PlatformUser.create({ nome: process.env.PLATFORM_ADMIN_NAME || 'Administrador da Plataforma', email, senha });
+      console.log(`[TENANCY] Operador da plataforma criado: ${email}`);
+    } else if (!operador.ativo || !(await operador.comparePassword(senha))) {
+      operador.senha = senha;
+      operador.ativo = true;
+      await operador.save();
+      console.log(`[TENANCY] Senha do operador da plataforma sincronizada com PLATFORM_ADMIN_PASSWORD: ${email}`);
+    }
   }
 });
 
