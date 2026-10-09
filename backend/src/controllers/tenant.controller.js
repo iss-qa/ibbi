@@ -122,9 +122,24 @@ const apresentar = async (req, res) => {
 };
 
 const whatsappStatus = async (req, res) => {
+  if (whatsapp.desativado(req.tenant)) return res.json({ online: false, configurado: true, desativado: true });
   if (!whatsapp.isConfigured(req.tenant)) return res.json({ online: false, configurado: false });
   const state = await whatsapp.connectionState(req.tenant).catch((err) => ({ online: false, error: err.message }));
   return res.json({ configurado: true, ...whatsapp.getProvider(req.tenant).describe(), ...state, antiban: whatsapp.antibanStats() });
+};
+
+// Liga/desliga o WhatsApp da igreja na hora (sem "Salvar"). Desligar cancela a fila pendente;
+// ligar não reapresenta o número à liderança.
+const setWhatsappAtivo = async (req, res) => {
+  if (typeof req.body?.ativo !== 'boolean') return res.status(400).json({ message: 'Informe ativo: true ou false' });
+  const { ativo } = req.body;
+  await Tenant.updateOne({ _id: req.tenant._id }, { $set: { 'whatsapp.ativo': ativo, 'whatsapp.desativadoEm': ativo ? null : new Date() } });
+  invalidateTenant(req.tenant._id);
+  whatsapp.marcarAtivo(req.tenant._id, ativo);
+  const pendentes = ativo ? 0 : whatsapp.getQueueStatus().pendente;
+  if (!ativo) whatsapp.cancelQueue();
+  console.log(`[WHATSAPP] ${req.tenant.slug}: ${ativo ? 'ligado' : `desligado (${pendentes} na fila cancelado(s))`} por ${req.user?.login || req.user?._id}`);
+  return res.json({ ativo, filaCancelada: pendentes });
 };
 
 const whatsappTest = async (req, res) => {
@@ -234,4 +249,4 @@ module.exports = {
   onboardingConfirmar,
   onboardingDispensar,
   aceitarTermos,
-  indicacao, rotateWebhookToken, get, updateSettings, whatsappStatus, whatsappTest, webhookInfo, billing, changePlan, listGroups, createGroup, apresentar };
+  indicacao, rotateWebhookToken, get, updateSettings, whatsappStatus, setWhatsappAtivo, whatsappTest, webhookInfo, billing, changePlan, listGroups, createGroup, apresentar };

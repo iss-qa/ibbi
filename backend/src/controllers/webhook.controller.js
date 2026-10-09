@@ -83,6 +83,7 @@ const evolution = async (req, res) => {
     return res.status(401).json({ message: 'Webhook não autorizado' });
   }
   res.sendStatus(200);
+  if (tenant.whatsapp?.ativo === false) return undefined; // desligado nas configurações: ignora
 
   const event = String(req.body?.event || '').toLowerCase().replace(/_/g, '.');
   if (event !== 'messages.upsert') return undefined;
@@ -131,7 +132,7 @@ const cloudReceive = async (req, res) => {
       const value = change.value || {};
       if (!value.messages?.length) continue;
       const tenant = await tenantByPhoneNumberId(value.metadata?.phone_number_id);
-      if (!tenant) continue;
+      if (!tenant || tenant.whatsapp?.ativo === false) continue;
       const nomes = Object.fromEntries((value.contacts || []).map((c) => [c.wa_id, c.profile?.name]));
       for (const m of value.messages) {
         let text = '';

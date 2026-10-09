@@ -78,6 +78,8 @@ const serializeForTenantAdmin = (tenant) => {
     whatsapp: {
       provider: wa.provider,
       useEnvFallback: wa.useEnvFallback,
+      ativo: wa.ativo !== false,
+      desativadoEm: wa.desativadoEm || null,
       numeroIgreja: wa.numeroIgreja,
       numeroInstancia: wa.numeroInstancia || (wa.useEnvFallback ? process.env.WHATSAPP_NUMERO_INSTANCIA : ''),
       apresentacaoEnviadaEm: wa.apresentacaoEnviadaEm || null,

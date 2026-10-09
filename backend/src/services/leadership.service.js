@@ -100,6 +100,7 @@ const apresentarNumero = async ({ forcar = false } = {}) => {
   const { invalidateTenant } = require('../tenancy/tenant.service');
   const templates = require('../templates/messages.templates');
   const tenant = getTenant();
+  if (whatsapp.desativado()) throw new Error('WhatsApp desligado nas configurações. Ligue para apresentar o número.');
   if (!whatsapp.isConfigured()) throw new Error('WhatsApp da igreja ainda não configurado.');
   const numero = tenant?.whatsapp?.numeroInstancia || (tenant?.whatsapp?.useEnvFallback ? process.env.WHATSAPP_NUMERO_INSTANCIA : '');
   if (!forcar && tenant?.whatsapp?.apresentacaoEnviadaEm && tenant.whatsapp.apresentacaoNumero === numero) {

@@ -46,7 +46,26 @@ class OptOutError extends Error {
     this.code = 'OPT_OUT';
   }
 }
+// ── Interruptor da igreja (Configurações → WhatsApp) ─────────────────
+// Desligado: nada sai nem é processado, mesmo com a instância conectada na Evolution.
+// `.lean()` não aplica default: só `false` explícito desliga.
+class WhatsAppDesativadoError extends Error {
+  constructor() {
+    super('WhatsApp desligado nas configurações da igreja. Nenhuma mensagem foi enviada.');
+    this.code = 'WHATSAPP_DESATIVADO';
+  }
+}
+// O interruptor também vale na memória: um envio já em espera na fila carrega uma cópia
+// antiga do tenant e precisa enxergar o desligamento na hora.
+const interruptor = new Map(); // tenantId → ativo
+const marcarAtivo = (tenantId, ativo) => interruptor.set(String(tenantId), ativo);
+const desativado = (tenant = getTenant()) => {
+  const memoria = tenant && interruptor.get(String(tenant._id));
+  return memoria === undefined || memoria === null ? tenant?.whatsapp?.ativo === false : !memoria;
+};
+
 const guardaOptOut = async (number, { ignorarOptOut = false } = {}) => {
+  if (desativado()) throw new WhatsAppDesativadoError();
   if (ignorarOptOut || isGroupJid(number)) return;
   if (await require('./optout.service').bloqueado(number)) throw new OptOutError(number);
 };
@@ -96,7 +115,9 @@ const getProvider = (tenant = getTenant()) => {
   return provider;
 };
 
+// Desligado conta como "não configurado": scheduler, monitor e avisos pulam a igreja.
 const isConfigured = (tenant = getTenant()) => {
+  if (desativado(tenant)) return false;
   try {
     getProvider(tenant);
     return true;
@@ -219,7 +240,9 @@ const createGroup = (nome, numeros, descricao) => {
   if (!p.createGroup) throw new Error('Grupos só estão disponíveis com a Evolution API (WhatsApp não oficial).');
   return p.createGroup(nome, [...new Set(numeros.map(sanitizeNumber))], descricao);
 };
-const connectionState = (tenant = getTenant()) => getProvider(tenant).connectionState();
+const connectionState = async (tenant = getTenant()) => (desativado(tenant)
+  ? { online: false, desativado: true }
+  : getProvider(tenant).connectionState());
 
 // ── Fila FIFO por tenant (cada igreja tem seu próprio número/ritmo) ──────
 class WhatsAppQueue {
@@ -263,7 +286,8 @@ class WhatsAppQueue {
   async runJob(job) {
     const exec = async () => {
       try {
-        // Descadastrado: falha na hora, sem gastar o intervalo anti-ban da fila.
+        // Desligado ou descadastrado: falha na hora, sem gastar o intervalo anti-ban da fila.
+        if (desativado(this.tenant)) throw new WhatsAppDesativadoError();
         if (job.number) await guardaOptOut(job.number);
         if (job.onStart) await job.onStart();
         let result;
@@ -375,6 +399,9 @@ module.exports = {
   sendContact,
   isOwnEcho,
   OptOutError,
+  WhatsAppDesativadoError,
+  desativado,
+  marcarAtivo,
   isOwnImageEcho,
   paceBulk,
   antibanStats,
