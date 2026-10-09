@@ -495,6 +495,7 @@ npm run build
 ## 🤖 IA e WhatsApp
 
 - **Provider por igreja** (`services/whatsapp.service.js`): `evolution` (não oficial, QR) ou `cloud` (API Oficial da Meta). Credenciais criptografadas (`utils/crypto.js`). Tenant com `whatsapp.useEnvFallback` usa `EVOLUTION_*` do `.env`.
+- **Interruptor do WhatsApp** (`Tenant.whatsapp.ativo`, Configurações → WhatsApp, `PUT /api/tenant/whatsapp/ativo`, master): desligado = nada sai (`WhatsAppDesativadoError`, code `WHATSAPP_DESATIVADO`, checado em `guardaOptOut` e na fila), webhooks de entrada ignorados e `isConfigured()` falso (scheduler, monitor e avisos pulam a igreja). Vale na hora (também em memória), cancela a fila e não reapresenta o número. Não mexe na instância da Evolution.
 - **Fila FIFO por igreja**, delay de 30s mantido. Na API Oficial, mensagens proativas fora da janela de 24h usam templates aprovados (`whatsapp.cloud.templates`).
 - **Agente** (`services/ai/agent.service.js` + `tools.js`): Claude via `@anthropic-ai/sdk`, modelo em `AI_MODEL`. Papéis: `lider` (master/admin com celular, `Tenant.lideranca`, `Tenant.ebdLideres`), `membro`, `desconhecido` — cada um com ferramentas próprias.
 - **Entrada:** webhooks `POST /api/webhooks/evolution/:slug?token=` e `GET|POST /api/webhooks/whatsapp` → `ai/inbound.service.js` (dedup por messageId, atalhos sem IA para "1 3 5" e "enviar", áudio → transcrição, imagem → visão).

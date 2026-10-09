@@ -71,6 +71,9 @@ const TenantSchema = new mongoose.Schema({
   whatsapp: {
     provider: { type: String, enum: ['evolution', 'cloud', 'none'], default: 'none' },
     useEnvFallback: { type: Boolean, default: false }, // usa EVOLUTION_* do .env (tenant fundador)
+    // Interruptor da igreja: false = não envia nem processa mensagens, sem mexer na instância.
+    ativo: { type: Boolean, default: true },
+    desativadoEm: { type: Date },
     numeroIgreja: { type: String, trim: true }, // recebe pedidos de oração
     numeroInstancia: { type: String, trim: true }, // número conectado que envia as mensagens (com 55)
     apresentacaoEnviadaEm: { type: Date }, // mensagem "salve nosso contato" enviada à liderança

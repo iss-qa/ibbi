@@ -164,6 +164,21 @@ export default function TenantSettings() {
     }
   };
 
+  // Interruptor do WhatsApp: vale na hora, sem "Salvar alterações".
+  const alternarWhatsapp = async (ativo) => {
+    if (!ativo && !window.confirm('Desligar o WhatsApp da igreja?\n\nNada será enviado nem respondido (automações, avisos, menu do líder) e a fila pendente será cancelada. A instância continua conectada na Evolution.')) return;
+    setMsg(null);
+    try {
+      const { data } = await api.put('/tenant/whatsapp/ativo', { ativo });
+      setForm((f) => ({ ...f, whatsapp: { ...f.whatsapp, ativo, desativadoEm: ativo ? null : new Date().toISOString() } }));
+      refresh();
+      api.get('/tenant/whatsapp/status').then((r) => setStatus(r.data)).catch(() => setStatus({ online: false }));
+      setMsg({ ok: true, text: ativo ? 'WhatsApp ligado.' : `WhatsApp desligado.${data.filaCancelada ? ` ${data.filaCancelada} mensagem(ns) na fila cancelada(s).` : ''}` });
+    } catch (err) {
+      setMsg({ ok: false, text: err?.response?.data?.message || 'Não foi possível alterar o WhatsApp.' });
+    }
+  };
+
   useEffect(() => { if (tenant && !form) setForm(clone(tenant)); }, [tenant, form]);
   useEffect(() => {
     if (tab !== 'whatsapp') return;
@@ -318,12 +333,25 @@ export default function TenantSettings() {
           <Card
             title="Conexão"
             action={status && (
-              <Badge color={status.online ? 'green' : 'red'} icon={status.online ? '●' : '■'}>
-                {status.online ? 'Conectado' : status.configurado === false ? 'Não configurado' : 'Desconectado'}
-              </Badge>
+              status.desativado ? <Badge color="gray" icon="⏸">Desligado</Badge> : (
+                <Badge color={status.online ? 'green' : 'red'} icon={status.online ? '●' : '■'}>
+                  {status.online ? 'Conectado' : status.configurado === false ? 'Não configurado' : 'Desconectado'}
+                </Badge>
+              )
             )}
           >
             <div className="space-y-3">
+              <Toggle
+                checked={w.ativo !== false}
+                onChange={alternarWhatsapp}
+                label={w.ativo !== false ? 'WhatsApp ligado' : 'WhatsApp desligado'}
+                hint="Desligado, o sistema não envia nem responde nada, sem mexer na instância da Evolution. Vale na hora."
+              />
+              {w.ativo === false && (
+                <p className="text-xs rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2">
+                  ⏸ Desligado{w.desativadoEm ? ` desde ${new Date(w.desativadoEm).toLocaleString('pt-BR')}` : ''}. Automações, avisos e respostas do assistente estão parados.
+                </p>
+              )}
               <Field label="Provedor">
                 <select className={inputClass} value={w.provider || 'none'} onChange={(e) => set('whatsapp.provider', e.target.value)}>
                   <option value="none">{w.useEnvFallback ? 'Padrão do servidor (.env)' : 'Não configurado'}</option>
