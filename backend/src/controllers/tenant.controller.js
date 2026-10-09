@@ -30,6 +30,17 @@ const validaLogo = (valor) => {
   return { ok: false, message: 'Logo inválido: envie uma imagem ou use um link https.' };
 };
 
+// Cor de fundo das telas: hex #rrggbb e clara o bastante para o texto escuro continuar legível.
+const validaCorFundo = (valor) => {
+  const v = String(valor || '').trim().toLowerCase();
+  if (!v) return { ok: true, valor: undefined };
+  if (!/^#[0-9a-f]{6}$/.test(v)) return { ok: false, message: 'Cor de fundo inválida (use o formato #rrggbb).' };
+  const [r, g, b] = [1, 3, 5].map((i) => parseInt(v.slice(i, i + 2), 16) / 255)
+    .map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
+  if (0.2126 * r + 0.7152 * g + 0.0722 * b < 0.75) return { ok: false, message: 'Escolha uma cor de fundo mais clara: os textos ficariam difíceis de ler.' };
+  return { ok: true, valor: v };
+};
+
 const get = async (req, res) => {
   const [consumo, pessoasAtivas] = await Promise.all([
     usage.getUsage(req.tenant._id),
@@ -65,7 +76,12 @@ const updateSettings = async (req, res) => {
     tenant.congregacoes = lista;
   }
   if (body.branding) {
-    const branding = pick(body.branding, ['logoUrl', 'corPrimaria', 'corSecundaria', 'assinatura', 'portalUrl']);
+    const branding = pick(body.branding, ['logoUrl', 'corPrimaria', 'corSecundaria', 'corFundo', 'assinatura', 'portalUrl']);
+    if ('corFundo' in branding) {
+      const cor = validaCorFundo(branding.corFundo);
+      if (!cor.ok) return res.status(400).json({ message: cor.message });
+      branding.corFundo = cor.valor;
+    }
     if ('logoUrl' in branding && branding.logoUrl !== tenant.branding?.logoUrl) {
       const logo = validaLogo(branding.logoUrl);
       if (!logo.ok) return res.status(400).json({ message: logo.message });
@@ -74,12 +90,12 @@ const updateSettings = async (req, res) => {
     tenant.branding = { ...tenant.branding?.toObject?.(), ...branding };
   }
   if (body.automacoes) tenant.automacoes = body.automacoes;
-  // Pix da igreja (eventos pagos): cidade ≤ 15 (BR Code); o nome guarda até 60 e o BR Code usa até 25
+  // Pix da igreja (eventos pagos): o nome guarda até 60 e o BR Code usa até 25.
+  // A cidade do BR Code vem dos Dados da igreja (evento.service → pixConfig).
   if (body.pix) {
     tenant.pix = {
       chave: String(body.pix.chave || '').trim().slice(0, 77) || undefined,
       nome: String(body.pix.nome || '').trim().slice(0, 60) || undefined,
-      cidade: String(body.pix.cidade || '').trim().slice(0, 15) || undefined,
     };
   }
   // Agenda semanal de cultos (lembretes)
@@ -165,6 +181,16 @@ const setWhatsappAtivo = async (req, res) => {
   if (!ativo) whatsapp.cancelQueue();
   console.log(`[WHATSAPP] ${req.tenant.slug}: ${ativo ? 'ligado' : `desligado (${pendentes} na fila cancelado(s))`} por ${req.user?.login || req.user?._id}`);
   return res.json({ ativo, filaCancelada: pendentes });
+};
+
+// Prévia do relatório semanal com os dados reais da semana (sem IA e sem enviar nada).
+// Sem chamadas registradas, mostra um exemplo com dados fictícios.
+const relatorioSemanalPrevia = async (req, res) => {
+  const engagement = require('../services/engagement.service');
+  const { relatorioSemanalPrevia: previa } = require('../services/ai/generators');
+  const { zonedParts } = require('../utils/time');
+  const dados = await engagement.weeklyReportData({ isoDate: zonedParts(req.tenant.timezone || 'America/Bahia').isoDate }).catch(() => null);
+  return res.json(previa(dados));
 };
 
 const whatsappTest = async (req, res) => {
@@ -274,4 +300,4 @@ module.exports = {
   onboardingConfirmar,
   onboardingDispensar,
   aceitarTermos,
-  indicacao, rotateWebhookToken, get, updateSettings, whatsappStatus, setWhatsappAtivo, whatsappTest, webhookInfo, billing, changePlan, listGroups, createGroup, apresentar };
+  indicacao, rotateWebhookToken, get, updateSettings, whatsappStatus, setWhatsappAtivo, whatsappTest, relatorioSemanalPrevia, webhookInfo, billing, changePlan, listGroups, createGroup, apresentar };

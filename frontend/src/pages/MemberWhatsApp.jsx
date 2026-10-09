@@ -17,7 +17,7 @@ export default function MemberWhatsApp() {
   const nome = tenant?.nomeCurto || 'Igreja';
   return (
     <div className="max-w-3xl mx-auto">
-      <div className="pl-12 md:pl-0 mb-4">
+      <div className="mb-4">
         <h1 className="font-display text-2xl md:text-3xl text-ibbiNavy">Meu WhatsApp</h1>
         <p className="text-xs md:text-sm text-slate-500">Tudo o que a {nome} enviou para o seu WhatsApp{data?.celular ? ` (${data.celular})` : ''}, e suas conversas com o assistente.</p>
       </div>

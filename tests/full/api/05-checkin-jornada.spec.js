@@ -43,7 +43,7 @@ test.describe.serial('Culto: check-in e jornada', () => {
     const j = jornadas.find((x) => x.nome === 'Carlos Visitante Teste');
     expect(j).toBeTruthy();
     expect(j.tipo).toBe('visitante');
-    expect(j.etapas.map((e) => e.chave)).toEqual(['d3', 'd7', 'd14', 'd21', 'd30']);
+    expect(j.etapas.map((e) => e.chave)).toEqual(['d1', 'd2', 'd3', 'd7', 'd14', 'd21', 'd30']);
   });
 
   test('presenças do culto (2 check-ins: 1 visitante) e presença manual', async ({ request }) => {

@@ -1,31 +1,44 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&display=swap');
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
   color-scheme: light;
+  --app-bg-rgb: 247 243 234; /* creme padrão; cada igreja pode trocar em Configurações → Aparência */
+}
+
+/* clip (e não hidden): hidden cria um contêiner de rolagem e quebra o position: sticky do menu */
+html,
+body,
+#root {
+  overflow-x: clip;
+  max-width: 100vw;
+  width: 100%;
 }
 
 body {
   font-family: Inter, sans-serif;
-  overflow-x: hidden;
-  max-width: 100vw;
-  width: 100%;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
-html {
-  overflow-x: hidden;
-  max-width: 100vw;
-  width: 100%;
+/* Barra de rolagem discreta (menu lateral, abas) */
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(255 255 255 / 0.18) transparent;
+}
+.scrollbar-none {
+  scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }
 
-#root {
-  overflow-x: hidden;
-  max-width: 100vw;
-  width: 100%;
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
+.animate-page { animation: pageIn 0.25s ease-out both; }
 
 @keyframes photoPulse {
   0% {
@@ -210,5 +223,5 @@ html {
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
   .animate-float, .animate-float-slow, .animate-bubble, .typing-dot, .text-shimmer,
-  .pulse-ring::before, .animate-glow, .animate-marquee { animation: none !important; }
+  .pulse-ring::before, .animate-glow, .animate-marquee, .animate-page { animation: none !important; }
 }

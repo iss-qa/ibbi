@@ -6,10 +6,11 @@ const PLANS = {
     id: 'semente',
     nome: 'Semente',
     descricao: 'Para igrejas que querem sair da planilha e nunca mais esquecer um aniversário.',
+    faixa: 'Até 100 pessoas',
     precoMensal: 47,
     precoAnual: 470, // 2 meses grátis
     limites: {
-      pessoas: 150,
+      pessoas: 100,
       whatsappMensagensMes: 1500,
       iaInteracoesMes: 0,
       usuariosAdmin: 3,
@@ -32,11 +33,12 @@ const PLANS = {
     id: 'crescer',
     nome: 'Crescer',
     descricao: 'Agente de IA no WhatsApp da liderança + motor de reengajamento de ausentes.',
+    faixa: 'Até 300 pessoas',
     precoMensal: 99,
     precoAnual: 990,
     destaque: true,
     limites: {
-      pessoas: 500,
+      pessoas: 300,
       whatsappMensagensMes: 5000,
       iaInteracoesMes: 3000,
       usuariosAdmin: 10,
@@ -59,10 +61,11 @@ const PLANS = {
     id: 'multiplicar',
     nome: 'Multiplicar',
     descricao: 'IA multimodal (áudio e foto de ficha), WhatsApp Oficial e alto volume.',
+    faixa: 'Até 1.000 pessoas',
     precoMensal: 197,
     precoAnual: 1970,
     limites: {
-      pessoas: 2000,
+      pessoas: 1000,
       whatsappMensagensMes: 15000,
       iaInteracoesMes: 6000,
       usuariosAdmin: null,
@@ -84,7 +87,9 @@ const PLANS = {
   rede: {
     id: 'rede',
     nome: 'Rede',
-    descricao: 'Convenções e redes de igrejas. Limites e SLA sob medida.',
+    descricao: 'Igrejas grandes, convenções e redes. Limites e SLA sob medida.',
+    faixa: 'Acima de 1.000 pessoas',
+    extras: ['Pessoas, mensagens e IA sob medida', 'SLA e suporte dedicado'],
     precoMensal: 0, // sob consulta — usar valorMensal customizado no tenant
     precoAnual: 0,
     sobConsulta: true,

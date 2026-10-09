@@ -64,6 +64,7 @@ const TenantSchema = new mongoose.Schema({
     logoUrl: { type: String },
     corPrimaria: { type: String, default: '#0a1f44' },
     corSecundaria: { type: String, default: '#c9a227' },
+    corFundo: { type: String }, // fundo das telas internas (o menu lateral continua na cor da marca); vazio = creme
     assinatura: { type: String, trim: true }, // assinatura das mensagens; default = nome
     portalUrl: { type: String, trim: true },
   },
@@ -141,6 +142,7 @@ const TenantSchema = new mongoose.Schema({
       ativo: { type: Boolean, default: true },
       hora: { type: String, default: '10:00' }, // horário local das mensagens
       avisarLideranca: { type: Boolean, default: true }, // no dia 30: quem não voltou
+      primeirosDias: { type: Boolean, default: true }, // etapas d1 (obrigado) e d2 (oração)
     },
     // Escalas de voluntários: lembrete na véspera para quem confirmou
     escalas: {

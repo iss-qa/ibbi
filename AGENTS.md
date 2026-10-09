@@ -458,6 +458,21 @@ npm run build
 
 ---
 
+## 🎨 Layout e UX (telas internas)
+
+- **Shell** (`App.jsx`): menu lateral flutuante arredondado (`Sidebar.jsx`, sticky no desktop, gaveta no celular com Esc/backdrop) + barra superior fixa com o botão de menu **só no celular**. Páginas não precisam de recuo para o botão (nada de `pl-12`). Conteúdo limitado a `max-w-[1440px]`.
+- **Nunca** use `overflow-x: hidden` em `html/body/#root` ou ancestrais do menu: quebra o `position: sticky`. Use `overflow-x: clip` (`overflow-x-clip`).
+- **Fundo por igreja:** token Tailwind `bg-app` (CSS var `--app-bg-rgb`, padrão creme). `Tenant.branding.corFundo` (#rrggbb, só tons claros — validado no front e em `tenant.controller`) é aplicado pelo `TenantContext`. O menu lateral continua `ibbiNavy` sempre. Configurações → Aparência.
+- **Rotas com `React.lazy`**: toda página nova entra em `App.jsx` como `lazy(() => import(...))` (o bundle inicial caiu de 1,8 MB para ~240 KB). Fontes carregadas só no `index.html` (sem `@import` no CSS).
+- **Componentes** (`components/ui.jsx`): `Card`/`KpiCard` (`rounded-2xl`), `Tabs` (pílulas roláveis, a ativa entra na tela sozinha), `Modal` (folha de baixo no celular), `Button`, `Field`, `Toggle`, `inputClass`. Prefira-os a classes soltas.
+- **Configurações** (`Settings/TenantSettings.jsx`): abas Igreja · Aparência · WhatsApp · Anti-bloqueio · Automações · Liderança · Líderes de EBD · Assistente IA, com `?aba=` na URL. A barra flutuante "Alterações não salvas" compara `buildPayload(form)` com o tenant salvo — campo novo salvo pelo botão entra em `buildPayload`.
+- Responsivo de 320px a 1920px: tabela sempre dentro de `overflow-x-auto` (ou cartões abaixo de `sm`), `min-w-0`/`truncate`/`break-words` em textos longos, grids com fallback de 1 coluna.
+
+## 🧹 Manutenção de dados
+
+- `node backend/src/scripts/audit-test-users.js [saida.csv]` (com `MONGO_URI` do ambiente): **somente leitura**; lista igrejas, masters e usuários/pessoas com cara de teste (nomes das suítes, sufixo `Mn…`, telefones `000…`, igrejas de teste/demo) em `TESTE` / `REVISAR`. Exclusão só depois de revisar a lista.
+- Operador da plataforma ≠ master da igreja: `PlatformUser` (`PLATFORM_ADMIN_EMAIL/PASSWORD`, painel `/platform`) é o administrador geral do SaaS; `User.role = 'master'` é o dono de **uma** igreja.
+
 ## 🌐 Landing page e cadastro público
 
 - `/` → `frontend/src/pages/Landing/` (Nav, Hero com `ChatDemo`, Sections, Plans). Animações em CSS puro (`index.css`, bloco "Landing page") + `hooks/useReveal.js` / `components/landing/Reveal.jsx` (reveal por scroll, respeita `prefers-reduced-motion`). Sem lib de animação.
@@ -486,7 +501,7 @@ npm run build
 
 ## 💳 Planos e billing
 
-- Catálogo em `backend/src/config/plans.js` (Semente R$47 · Crescer R$99 · Multiplicar R$197 · Rede sob consulta; anual = 10x mensal). Congregações ilimitadas: 1 igreja = 1 cobrança.
+- Catálogo em `backend/src/config/plans.js` (Semente R$47 até 100 pessoas · Crescer R$99 até 300 · Multiplicar R$197 até 1.000 · Rede acima de 1.000, sob consulta; anual = 10x mensal). `faixa`/`extras` aparecem em `components/PlanCards.jsx` (cada plano lista só o que soma ao anterior). Congregações ilimitadas: 1 igreja = 1 cobrança.
 - Limites por plano: pessoas ativas, mensagens WhatsApp/mês, interações de IA/mês (`usage.service` + `UsageCounter`).
 - `billing.service.runBillingCycle` (cron 06:00 BRT): fim de trial → fatura → vencida → inadimplente (3 dias) → suspensa (15 dias). Igreja suspensa recebe 402 `TENANT_SUSPENDED` (exceto `/api/tenant/*`).
 - Gateway opcional **Asaas** (`ASAAS_API_KEY`), webhook `POST /api/webhooks/asaas`.
@@ -505,7 +520,8 @@ npm run build
 - **Menu do líder guiado** (`services/ai/flows.js`, sem IA): 👥 1 Pesquisar (ficha + foto) · 2 Cadastrar · 3 Editar | 📋 4 Registrar presença (EBD: congregação → classe; Uniões: grupo → novo encontro/anteriores/resumir) · 5 Resumir encontro | 💛 6 Grupos (membros, frequência, ausentes 3+, números) · 7 Quem está faltando (ligar/visitar/orar com confirmação "foi feito?", mensagem, encaminhar a obreiro) · 8 Aviso (grupo → mensagem → prévia) · 9 Aniversariantes (semana/mês, com bodas e batismo) · 10 Relatório da semana (avaliação: ≥90% elogio, <50% preocupação em negrito) · 11 Pedidos de oração (fazer/ver). Opções 2 e 3 viram pedido ao agente. Criar/editar grupos e adicionar/remover membros: **só na web** (tools com `channels: ['web']`). `menu`/`MENU` a qualquer momento.
 - **Assistente por igreja:** `Tenant.ia.nomeAssistente` (padrão *Barnabé*), catálogo com apresentação bíblica em `config/assistentes.js` (`GET /api/public/assistentes`); nome fora do catálogo usa Lucas 15:4.
 - **Pedidos de oração:** model `PedidoOracao` (portal e WhatsApp, via `services/prayer.service.js`); repassados ao WhatsApp da igreja quando configurado. Liderança lista em `GET /api/prayer` e marca `PUT /api/prayer/:id/status` (novo/orado/arquivado); tela `/prayer` (admin/master: lista + modo leitura + novo pedido). Pedidos antigos (log `Message.tipo=oracao`) importados uma vez na subida.
-- **Jornada do visitante** (`services/jornada.service.js`, model `Jornada`, feature `jornadaVisitante` — Crescer+): começa sozinha em todo cadastro de visitante/novo decidido (`trigger.service`, aprovação de cadastro, check-in). Etapas sem IA: d3 como foi · d7 convite à união certa (`grupoSugerido` por sexo/idade) · d14 EBD (classe da idade) · d21 visitante "te esperamos" (pulada se voltou) / novo decidido convite ao batismo · d30 resumo à liderança (`notifyLeadership`). "Voltou" = presença em EBD, encontro ou culto depois do dia da visita (`buscarRetorno`). `runJornadas` 1x/dia (scheduler, `automacoes.jornada.hora`, padrão 10:00) envia só a etapa vencida mais recente (atrasadas = `pulada`). Tela `/jornada`; WhatsApp menu 12. Respostas da pessoa → agente registra pedido de contato.
+- **Jornada do visitante** (`services/jornada.service.js`, model `Jornada`, feature `jornadaVisitante` — Crescer+): começa sozinha em todo cadastro de visitante/novo decidido (`trigger.service`, aprovação de cadastro, check-in). Etapas sem IA: d1 obrigado pela visita/decisão · d2 pedido de oração (d1/d2 desligáveis em `automacoes.jornada.primeirosDias`) · d3 como foi · d7 convite à união certa (`grupoSugerido` por sexo/idade) · d14 EBD (classe da idade) · d21 visitante "te esperamos" (pulada se voltou) / novo decidido convite ao batismo · d30 resumo à liderança (`notifyLeadership`). "Voltou" = presença em EBD, encontro ou culto depois do dia da visita (`buscarRetorno`). `runJornadas` 1x/dia (scheduler, `automacoes.jornada.hora`, padrão 10:00) envia só a etapa vencida mais recente (atrasadas = `pulada`). Tela `/jornada`; WhatsApp menu 12. Respostas da pessoa → agente registra pedido de contato.
+- **Relatório semanal** (`scheduler.runWeeklyReport`): estrutura fixa em `templates.relatorioSemanalLideranca` (EBD por classe + variação, quem precisa de contato com ação sugerida, esfriando, retornos, aniversariantes); a IA escreve só a "Sugestão da semana" (`generators.relatorioSemanal`, reserva `sugestaoPadrao`). Prévia sem envio: `GET /api/tenant/relatorio-semanal/previa` (dados fictícios se a semana não tem chamada).
 - **Esfriamento** (`engagement.computeStreaks` → `esfriando`): ≥75% nos 4 registros anteriores e ≤50% nos 4 últimos, com menos de 2 faltas seguidas. Aparece em `overview().esfriando`, no menu 7 (📉) e no relatório da semana.
 - **Presença no culto** (`services/culto.service.js`, model `Culto`, feature `checkinCulto` — todos os planos): QR → `wa.me/<numeroInstancia>?text=CHEGUEI <código>`. Tratado **sem IA** em `inbound.preAtendimento` (antes da trava de plano): conhecido = presença; desconhecido = pede nome (`checkin_nome`) → cadastra visitante (boas-vindas + jornada). Check-in não gera falta. Tela `/cultos` (QR, telão, presença manual); WhatsApp menu 4 → 3 (envia o QR ao líder).
 - **Escalas de voluntários** (`services/escala.service.js`, model `Escala`, feature `escalas` — todos os planos): convite pela fila anti-ban com "1 Confirmo / 2 Não posso" (conversa do voluntário no estado `escala_convite`, respondida sem IA em `preAtendimento`); recusa → responsável recebe sugestões (mesma função > já serviu no ministério > ministério no cadastro; livres na data) e escolhe pelo número (`escala_substituto`); lembrete na véspera (`automacoes.escalas.lembreteHora`, padrão 18:00) + aviso ao responsável dos pendentes. Tela `/escalas`; WhatsApp menu 13.
@@ -543,7 +559,7 @@ Public                   GET /api/public/plans · GET /api/public/tenants/:slug 
 ## 📣 Engajamento e venda
 
 - **Campanhas graduais** (`Campanha` + `campanha.service`): lotes de 30 por tick do scheduler, pausa até 08h do dia seguinte no limite diário, retomada após reinício. Usadas por sermão (menu 14), divulgação de eventos e lembretes. Rotas `/api/campanhas*`.
-- **Eventos** (`Evento` + `evento.service`): `INSCREVER <código>` no WhatsApp, lista de espera, Pix estático (`utils/pix.js`, BR Code com CRC16) se `Tenant.pix` configurado. Rotas `/api/eventos*`. Menu 15.
+- **Eventos** (`Evento` + `evento.service`): `INSCREVER <código>` no WhatsApp, lista de espera, Pix estático (`utils/pix.js`, BR Code com CRC16) se `Tenant.pix` configurado: nome do recebedor guarda até 60 (no BR Code vão 25, cortados na palavra) e a cidade é a de `Tenant.cidade` (Dados da igreja). Rotas `/api/eventos*`. Menu 15.
 - **Intercessores:** `Person.intercessor`; pedidos **não confidenciais** vão aos intercessores (só o primeiro nome). Pedido sem a flag `confidencial` é confidencial. Acompanhamento em 7 dias. Avisos em segundo plano (nunca segure a resposta HTTP esperando a fila).
 - **Lembretes de culto:** `Tenant.cultosProgramados` + opt-in `LEMBRETE` / `PARAR LEMBRETE` (`Person.lembreteCulto`).
 - **Células:** `Encontro.relatorio` (visitantes/decisões perguntados após a chamada) e painel `/api/celulas/painel`. **Impacto do mês:** `impacto.service` (`/api/impacto`, menu 16, envio dia 1 às 09h).

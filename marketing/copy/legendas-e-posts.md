@@ -99,9 +99,9 @@ Tom de voz: pastoral, acolhedor e direto. Fala com pastores e líderes como quem
 ### feed-11-planos.png
 > Menos que um almoço da liderança por mês.
 >
-> 🌱 Semente: R$47/mês, até 150 pessoas
-> 🌿 Crescer: R$99/mês, até 500 pessoas, com agente de IA e reengajamento (o mais escolhido)
-> 🌳 Multiplicar: R$197/mês, até 2.000 pessoas, com áudio, foto e WhatsApp Oficial
+> 🌱 Semente: R$47/mês, até 100 pessoas
+> 🌿 Crescer: R$99/mês, até 300 pessoas, com agente de IA e reengajamento (o mais escolhido)
+> 🌳 Multiplicar: R$197/mês, até 1.000 pessoas, com áudio, foto e WhatsApp Oficial
 > 🤝 Rede: sob consulta, para convenções
 >
 > Congregações ilimitadas em todos os planos. No anual, 2 meses saem de graça. Comece com 14 dias grátis no Crescer, sem cartão.

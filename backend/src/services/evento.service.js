@@ -18,7 +18,8 @@ const INSCREVER_RE = /^\s*inscrever\s*#?\s*([a-z0-9]{4,8})\b/i;
 const gerarCodigo = () => Array.from(crypto.randomBytes(5), (b) => ALFABETO[b % ALFABETO.length]).join('');
 const ATIVOS = ['inscrito', 'pago'];
 
-const pixConfig = (tenant = getTenant()) => tenant?.pix || {};
+// Cidade do BR Code: a dos Dados da igreja (o campo do Pix antigo fica só como reserva).
+const pixConfig = (tenant = getTenant()) => ({ ...(tenant?.pix || {}), cidade: tenant?.cidade || tenant?.pix?.cidade });
 const pixPronto = (tenant = getTenant()) => Boolean(pixConfig(tenant).chave && pixConfig(tenant).nome && pixConfig(tenant).cidade);
 
 const criar = async (dados, user) => {
