@@ -40,7 +40,7 @@ const createFounderTenant = () => Tenant.create({
   billing: { isento: true, ciclo: 'mensal' }, // cliente fundador
   timezone: process.env.APP_TIMEZONE || 'America/Bahia',
   congregacoes: Person.CONGREGACOES.filter((c) => c !== 'Não atribuído'),
-  branding: { portalUrl: process.env.APP_URL || 'https://ibbi.issqa.com.br', corPrimaria: '#0a1f44', corSecundaria: '#c9a227' },
+  branding: { portalUrl: process.env.APP_URL || 'https://pastoria.issqa.com.br', corPrimaria: '#0a1f44', corSecundaria: '#c9a227' },
   whatsapp: {
     provider: 'none',
     useEnvFallback: true,

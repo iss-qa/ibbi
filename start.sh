@@ -9,7 +9,7 @@ NC='\033[0m'
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}   IBBI - Sistema de Gestao da Igreja   ${NC}"
+echo -e "${BLUE} PastorIA - Quem falta, faz falta  ${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 

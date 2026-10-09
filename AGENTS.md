@@ -1,4 +1,4 @@
-# AGENTS.md — PastorIA (ex-IBBI)
+# AGENTS.md — PastorIA
 > Arquivo de contexto para agentes de IA e IDEs inteligentes (Cursor, Windsurf, Copilot, etc.)
 > Mantenha este arquivo na raiz do monorepo.
 
@@ -17,7 +17,7 @@
 ## 🗂️ Estrutura do Monorepo
 
 ```
-ibbi-system/
+pastoria/
 ├── AGENTS.md                        ← este arquivo
 ├── package.json                     ← scripts raiz (concurrently)
 ├── .env                             ← variáveis de ambiente (NÃO versionar)
@@ -454,6 +454,7 @@ npm run build
 12. **Índice único composto** { tenantId, data, classe, congregacao } na collection ebdaulas
 13. **Presença pré-populada** com todos os ativos do grupo, presente = true por padrão
 14. **Chamada bloqueada** para edição após 7 dias — exceto master
+15. **Dependência nova no backend vai também no `package.json` da raiz** — a Vercel só instala a raiz; faltar uma derruba toda a `/api` (`FUNCTION_INVOCATION_FAILED`). `api/index.js` reaproveita o app de `backend/server.js`: rota nova entra só no `server.js`
 
 ---
 

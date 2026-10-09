@@ -1,5 +1,5 @@
 {
-  "name": "ibbi-backend",
+  "name": "pastoria-backend",
   "version": "0.1.0",
   "private": true,
   "main": "server.js",

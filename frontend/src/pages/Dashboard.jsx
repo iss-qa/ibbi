@@ -197,7 +197,7 @@ export default function Dashboard() {
     const geradoEm = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
 
     const html = `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8" />
-      <title>${esc(titulo)} — IBBI</title>
+      <title>${esc(titulo)} — PastorIA</title>
       <style>
         * { box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color: #1f2937; margin: 32px; }
@@ -229,7 +229,7 @@ export default function Dashboard() {
         <thead><tr><th>Nome</th><th>Congregação</th><th class="data">Data</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
-      <footer>Sistema IBBI</footer>
+      <footer>PastorIA</footer>
     </body></html>`;
 
     const win = window.open('', '_blank');

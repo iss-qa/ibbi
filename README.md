@@ -57,31 +57,23 @@ Em ambiente local, a arquitetura é separada:
 - frontend em `http://localhost:5173`
 - backend em `http://localhost:3001`
 
-O frontend consome a API pelo arquivo [api.js](/Users/isaiassilva/development/igreja/ibbi/frontend/src/services/api.js), que em desenvolvimento aponta para `http://localhost:3001/api`.
+O frontend consome a API pelo arquivo [api.js](frontend/src/services/api.js), que em desenvolvimento aponta para `http://localhost:3001/api`.
 
 ### Produção
 
-Em produção, o projeto foi estruturado para rodar na Vercel com frontend e backend no mesmo deploy:
+Hoje o frontend e a API estão na Vercel, no mesmo deploy ([vercel.json](vercel.json)):
 
 - o frontend é servido como aplicação estática
-- as rotas `/api/*` são reescritas para [api/index.js](/Users/isaiassilva/development/igreja/ibbi/api/index.js)
-- essa entrada sobe um app Express em modo serverless
+- as rotas `/api/*` são reescritas para [api/index.js](api/index.js), que reaproveita o mesmo app Express de [backend/server.js](backend/server.js) em modo serverless
+- a Vercel instala só o `package.json` da **raiz**: toda dependência nova do backend precisa estar lá também
 
-Isso é definido em [vercel.json](/Users/isaiassilva/development/igreja/ibbi/vercel.json).
-
-Em outras palavras:
-
-- `frontend`: hospedado na Vercel
-- `backend/api`: também hospedado na Vercel, como função serverless baseada em Express
-
-Observação importante:
-não encontrei no repositório evidência de outro provedor de hospedagem para a API em produção. Pelos arquivos atuais, a arquitetura publicada é Vercel para frontend e API.
+Limite: em serverless não rodam o scheduler (aniversários, jornada, campanhas), o monitor da Evolution nem a fila anti-ban contínua. Essa entrada é uma ponte; o destino é rodar o backend completo pelo [Dockerfile](Dockerfile) (EasyPanel) e a Vercel repassar `/api` para lá.
 
 ## Resposta Direta às Suas Perguntas
 
 ### Back-end hospedado onde?
 
-Pelos arquivos do projeto, o backend em produção está preparado para rodar na **Vercel**, via [api/index.js](/Users/isaiassilva/development/igreja/ibbi/api/index.js), com Express em modo serverless.
+Hoje na **Vercel**, via [api/index.js](api/index.js) (ponte serverless). O backend completo, com scheduler e fila, roda pelo [Dockerfile](Dockerfile).
 
 ### A API é qual stack?
 
@@ -96,24 +88,23 @@ A API usa:
 
 ### Front no Vercel?
 
-Sim. O repositório possui [vercel.json](/Users/isaiassilva/development/igreja/ibbi/vercel.json) e a estrutura do frontend foi organizada para build estático com Vite.
+Sim. O repositório possui [vercel.json](vercel.json) e a estrutura do frontend foi organizada para build estático com Vite.
 
 ### Endereço do GitHub
 
-- [https://github.com/iss-qa/ibbi](https://github.com/iss-qa/ibbi)
+- [https://github.com/iss-qa/pastoria](https://github.com/iss-qa/pastoria)
 
-### Domínio público identificado no projeto
+### Domínio público
 
-Foi encontrado no código o portal:
+- [https://pastoria.issqa.com.br/login](https://pastoria.issqa.com.br/login)
+- `ibbi.issqa.com.br` continua apontando para o mesmo deploy (links antigos enviados aos membros da IBBI)
 
-- [https://ibbi.issqa.com.br/login](https://ibbi.issqa.com.br/login)
-
-Esse endereço aparece em [member.service.js](/Users/isaiassilva/development/igreja/ibbi/backend/src/services/member.service.js).
+Nas mensagens, o link do portal vem de `portalUrl()` em [brand.js](backend/src/tenancy/brand.js): `Tenant.branding.portalUrl` da igreja, senão `APP_URL`.
 
 ## Estrutura do Projeto
 
 ```text
-ibbi/
+pastoria/
 ├── api/
 │   └── index.js                  # entrada serverless para produção (Vercel)
 ├── backend/
@@ -174,16 +165,16 @@ Navegador
 
 ### Frontend
 
-- [App.jsx](/Users/isaiassilva/development/igreja/ibbi/frontend/src/App.jsx)
-- [main.jsx](/Users/isaiassilva/development/igreja/ibbi/frontend/src/main.jsx)
+- [App.jsx](frontend/src/App.jsx)
+- [main.jsx](frontend/src/main.jsx)
 
 ### Backend local
 
-- [server.js](/Users/isaiassilva/development/igreja/ibbi/backend/server.js)
+- [server.js](backend/server.js)
 
 ### Backend produção/serverless
 
-- [api/index.js](/Users/isaiassilva/development/igreja/ibbi/api/index.js)
+- [api/index.js](api/index.js)
 
 ## Banco de Dados
 
@@ -193,7 +184,7 @@ O projeto usa MongoDB e lê a conexão por:
 
 A conexão é centralizada em:
 
-- [db.js](/Users/isaiassilva/development/igreja/ibbi/backend/src/config/db.js)
+- [db.js](backend/src/config/db.js)
 
 O repositório não fixa o provedor do banco no código, mas aceita tanto MongoDB local quanto MongoDB remoto por `mongodb+srv`.
 
@@ -206,7 +197,7 @@ O repositório não fixa o provedor do banco no código, mas aceita tanto MongoD
 
 ## Variáveis de Ambiente Essenciais
 
-Baseado em [.env.example](/Users/isaiassilva/development/igreja/ibbi/.env.example):
+Baseado em [.env.example](.env.example):
 
 - `MONGO_URI`
 - `JWT_SECRET`
@@ -286,11 +277,11 @@ Exemplos:
 
 ## Observações Úteis
 
-- o backend local em [backend/server.js](/Users/isaiassilva/development/igreja/ibbi/backend/server.js) continua importante para desenvolvimento
-- a produção usa [api/index.js](/Users/isaiassilva/development/igreja/ibbi/api/index.js), não `backend/server.js`
+- o backend local em [backend/server.js](backend/server.js) continua importante para desenvolvimento
+- na Vercel, [api/index.js](api/index.js) importa o app de `backend/server.js` (sem `listen` nem scheduler quando `VERCEL` está definido)
 - a base do frontend em produção usa `/api`, sem precisar informar domínio manualmente
 - existem aliases de rota para grupos, incluindo `/api/grupos`
 
 ## Resumo Executivo
 
-Este projeto é um monorepo fullstack com React no frontend e Express/MongoDB no backend. Em desenvolvimento ele roda com dois processos separados; em produção ele foi adaptado para Vercel, onde o frontend estático e a API serverless convivem no mesmo deploy. O repositório Git é [iss-qa/ibbi](https://github.com/iss-qa/ibbi), e o domínio público identificado no código é [ibbi.issqa.com.br](https://ibbi.issqa.com.br/login).
+Este projeto é um monorepo fullstack com React no frontend e Express/MongoDB no backend. Em desenvolvimento ele roda com dois processos separados; em produção o frontend estático e a API serverless convivem no mesmo deploy da Vercel. O repositório Git é [iss-qa/pastoria](https://github.com/iss-qa/pastoria), e o domínio público é [pastoria.issqa.com.br](https://pastoria.issqa.com.br/login). A IBBI é a igreja fundadora (tenant `ibbi`).
