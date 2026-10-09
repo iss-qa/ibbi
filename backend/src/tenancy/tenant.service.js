@@ -64,6 +64,8 @@ const serializeForTenantAdmin = (tenant) => {
   return {
     ...serializePublic(tenant),
     documento: tenant.documento,
+    emailCobranca: tenant.emailCobranca,
+    endereco: tenant.endereco || {},
     email: tenant.email,
     telefone: tenant.telefone,
     responsavel: tenant.responsavel,

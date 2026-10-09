@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 import api from '../services/api';
+import { useDialog } from './dialog/DialogProvider.jsx';
 import logoIbbi from '../assets/logo-ibbi.jpeg';
 
 // Nome vem do cadastro (inclusive formulário público): escapar antes de document.write
@@ -385,6 +386,7 @@ function CertificadoVerso() {
 export default function CertificadoBatismoModal({ person, onClose, hideWhatsApp = false }) {
   const [side, setSide] = useState('front');
   const [downloading, setDownloading] = useState('');
+  const { alert } = useDialog();
   const hiddenFrontRef = useRef(null);
   const hiddenBackRef = useRef(null);
   const firstName = person.nome?.split(' ')[0] || 'Membro';
@@ -424,7 +426,7 @@ export default function CertificadoBatismoModal({ person, onClose, hideWhatsApp 
   };
 
   const handleWhatsApp = async () => {
-    if (!person.celular) { alert('Membro não possui celular cadastrado.'); return; }
+    if (!person.celular) { alert({ title: 'Sem celular', message: 'Membro não possui celular cadastrado.' }); return; }
     setDownloading('whatsapp');
     try {
       const canvas = await capture(hiddenFrontRef);
@@ -434,9 +436,9 @@ export default function CertificadoBatismoModal({ person, onClose, hideWhatsApp 
         base64Image: canvas.toDataURL('image/png'),
         mensagem: `🙏 Paz do Senhor, *${person.nome}*!\n\nSegue seu *Certificado de Batismo* da Igreja Batista Bíblica Israel! 📜\n\nQue Deus continue abençoando sua caminhada conosco! 🙌\n\n_IGREJA BATISTA BÍBLICA ISRAEL_`,
       });
-      alert('Certificado enviado com sucesso!');
+      alert({ title: 'Certificado enviado', message: 'Certificado enviado com sucesso!' });
     } catch (err) {
-      alert(err?.response?.data?.message || err.message || 'Erro ao enviar via WhatsApp.');
+      alert({ title: 'Erro ao enviar', message: err?.response?.data?.message || err.message || 'Erro ao enviar via WhatsApp.' });
     } finally { setDownloading(''); }
   };
 

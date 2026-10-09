@@ -13,6 +13,7 @@ router.use(platformAuth);
 router.get('/auth/me', controller.me);
 router.get('/plans', controller.plans);
 router.get('/metrics', controller.metrics);
+router.get('/ia-uso', controller.iaUso);
 
 router.get('/tenants', controller.listTenants);
 router.post('/tenants', controller.createTenant);
@@ -28,6 +29,7 @@ router.put('/invoices/:id/pay', controller.payInvoice);
 router.put('/invoices/:id/cancel', controller.cancelInvoice);
 router.post('/invoices/:id/charge', controller.chargeInvoice);
 router.post('/invoices/:id/sync', controller.syncInvoice);
+router.post('/invoices/:id/email', controller.emailInvoice);
 router.post('/billing/run', controller.runBilling);
 
 module.exports = router;

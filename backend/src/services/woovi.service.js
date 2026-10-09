@@ -65,11 +65,29 @@ const customerFor = (tenant) => {
   return customer.taxID || customer.email || customer.phone ? customer : undefined;
 };
 
-const createCharge = async ({ correlationID, valueCents, comment, customer, expiresDate, additionalInfo }) => {
+// Boleto (cobrança tipo BOLETO gera boleto + Pix). A Woovi precisa habilitar o recurso na conta
+// (WOOVI_BOLETO=true) e exige CNPJ/CPF e endereço completo do pagador.
+const boletoEnabled = () => process.env.WOOVI_BOLETO === 'true';
+const boletoCustomerFor = (tenant) => {
+  const base = customerFor(tenant);
+  const e = tenant.endereco || {};
+  const cep = String(e.cep || '').replace(/\D/g, '');
+  if (!base?.taxID || cep.length !== 8 || !e.logradouro || !e.numero || !e.bairro || !tenant.cidade || !/^[A-Z]{2}$/i.test(tenant.uf || '')) return null;
+  return {
+    ...base,
+    address: {
+      zipcode: cep, street: e.logradouro, number: String(e.numero), neighborhood: e.bairro,
+      city: tenant.cidade, state: String(tenant.uf).toUpperCase(), country: 'BR',
+      ...(e.complemento ? { complement: e.complemento } : {}),
+    },
+  };
+};
+
+const createCharge = async ({ correlationID, valueCents, comment, customer, expiresDate, additionalInfo, type = 'DYNAMIC' }) => {
   const data = await request('post', '/api/v1/charge', {
     correlationID,
     value: valueCents,
-    type: 'DYNAMIC',
+    type,
     ...(comment ? { comment: sanitizeComment(comment) } : {}),
     ...(customer ? { customer } : {}),
     ...(expiresDate ? { expiresDate: new Date(expiresDate).toISOString() } : {}),
@@ -157,6 +175,8 @@ const correlationIdOf = (body) => body?.charge?.correlationID
 module.exports = {
   CORRELATION_PREFIX,
   enabled,
+  boletoEnabled,
+  boletoCustomerFor,
   isProduction,
   customerFor,
   sanitizeComment,

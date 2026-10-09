@@ -4,6 +4,7 @@ import api from '../../services/api';
 import { Card, Button, Field, Modal, inputClass } from '../../components/ui';
 import { CONGREGACOES } from '../../constants/congregacoes';
 import PersonPicker from '../Encontros/PersonPicker';
+import { useDialog } from '../../components/dialog/DialogProvider.jsx';
 
 const MINISTERIOS = ['Louvor', 'Recepção', 'Som e mídia', 'EBD', 'Infantil', 'Intercessão', 'Diaconia', 'Limpeza', 'Outro'];
 const STATUS = { confirmado: ['✅', 'Confirmado', 'text-emerald-700 bg-emerald-50'], recusado: ['❌', 'Não pode', 'text-red-700 bg-red-50'], pendente: ['⏳', 'Aguardando', 'text-amber-700 bg-amber-50'] };
@@ -13,6 +14,7 @@ const novoForm = () => ({ ministerio: 'Louvor', evento: 'Culto de domingo', cong
 
 // Escala de voluntários: convite no WhatsApp com "1 Confirmo / 2 Não posso".
 export default function Escalas() {
+  const { confirm } = useDialog();
   const [escalas, setEscalas] = useState([]);
   const [passadas, setPassadas] = useState(false);
   const [form, setForm] = useState(null);
@@ -53,7 +55,7 @@ export default function Escalas() {
   };
   const remover = async (e, item) => atualizarDetalhe((await api.delete(`/escalas/${e._id}/itens/${item._id}`)).data);
   const cancelar = async (e) => {
-    if (!window.confirm('Cancelar esta escala?')) return;
+    if (!(await confirm({ title: 'Cancelar escala', message: 'Cancelar esta escala?', confirmLabel: 'Cancelar escala', cancelLabel: 'Voltar', danger: true }))) return;
     await api.delete(`/escalas/${e._id}`);
     setDetalhe(null);
     load();

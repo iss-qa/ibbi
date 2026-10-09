@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import Header from '../../components/Header';
 import api from '../../services/api';
+import { useDialog } from '../../components/dialog/DialogProvider.jsx';
 import { useTenant } from '../../context/TenantContext';
 import { CONGREGACOES } from '../../constants/congregacoes';
 import { Badge, Button, Card, Field, Tabs, Toggle, inputClass } from '../../components/ui';
@@ -203,6 +204,9 @@ const buildPayload = (f, secrets) => {
     responsavel: f.responsavel,
     cidade: f.cidade,
     uf: f.uf,
+    documento: f.documento || '',
+    emailCobranca: f.emailCobranca || '',
+    endereco: f.endereco || {},
     pix: f.pix,
     cultosProgramados: f.cultosProgramados,
     timezone: f.timezone,
@@ -227,6 +231,7 @@ const buildPayload = (f, secrets) => {
 };
 
 export default function TenantSettings() {
+  const { confirm, alert } = useDialog();
   const { tenant, refresh, hasFeature, previewCorFundo } = useTenant();
   // ?aba=whatsapp abre direto na aba (links do checklist de primeiros passos)
   const [tab, setTab] = useState(() => {
@@ -268,7 +273,12 @@ export default function TenantSettings() {
 
   // Interruptor do WhatsApp: vale na hora, sem "Salvar alterações".
   const alternarWhatsapp = async (ativo) => {
-    if (!ativo && !window.confirm('Desligar o WhatsApp da igreja?\n\nNada será enviado nem respondido (automações, avisos, menu do líder) e a fila pendente será cancelada. A instância continua conectada na Evolution.')) return;
+    if (!ativo && !(await confirm({
+      title: 'Desligar o WhatsApp da igreja?',
+      message: 'Nada será enviado nem respondido (automações, avisos, menu do líder) e a fila pendente será cancelada. A instância continua conectada na Evolution.',
+      confirmLabel: 'Desligar',
+      danger: true,
+    }))) return;
     setMsg(null);
     try {
       const { data } = await api.put('/tenant/whatsapp/ativo', { ativo });
@@ -390,6 +400,18 @@ export default function TenantSettings() {
               <Field label="Cidade"><input className={inputClass} value={form.cidade || ''} onChange={(e) => set('cidade', e.target.value)} /></Field>
               <Field label="UF"><input className={inputClass} maxLength={2} value={form.uf || ''} onChange={(e) => set('uf', e.target.value.toUpperCase())} /></Field>
             </div>
+          </Card>
+          <Card title="🧾 Dados de cobrança" subtitle="Para a fatura do PastorIA: o email recebe a cobrança (Pix e boleto). O boleto exige CNPJ e endereço completo.">
+            <div className="grid sm:grid-cols-2 gap-3">
+              <Field label="CNPJ"><input className={inputClass} inputMode="numeric" value={form.documento || ''} onChange={(e) => set('documento', e.target.value.replace(/\D/g, '').slice(0, 14))} placeholder="Somente números" /></Field>
+              <Field label="Email de cobrança" hint="Vazio = email da igreja"><input type="email" className={inputClass} value={form.emailCobranca || ''} onChange={(e) => set('emailCobranca', e.target.value)} placeholder={form.email || 'financeiro@suaigreja.com.br'} /></Field>
+              <Field label="CEP"><input className={inputClass} inputMode="numeric" value={form.endereco?.cep || ''} onChange={(e) => set('endereco.cep', e.target.value.replace(/\D/g, '').slice(0, 8))} /></Field>
+              <Field label="Bairro"><input className={inputClass} value={form.endereco?.bairro || ''} onChange={(e) => set('endereco.bairro', e.target.value)} /></Field>
+              <div className="sm:col-span-2"><Field label="Logradouro"><input className={inputClass} value={form.endereco?.logradouro || ''} onChange={(e) => set('endereco.logradouro', e.target.value)} placeholder="Rua, avenida…" /></Field></div>
+              <Field label="Número"><input className={inputClass} value={form.endereco?.numero || ''} onChange={(e) => set('endereco.numero', e.target.value)} /></Field>
+              <Field label="Complemento"><input className={inputClass} value={form.endereco?.complemento || ''} onChange={(e) => set('endereco.complemento', e.target.value)} /></Field>
+            </div>
+            <p className="text-xs text-slate-500 mt-2">Cidade e UF vêm dos Dados da igreja.</p>
           </Card>
           <Card title="💰 Pix da igreja" subtitle="Para eventos pagos: cada inscrito recebe o Pix copia e cola com o valor e um QR Code">
             <div className="space-y-3">
@@ -522,12 +544,12 @@ export default function TenantSettings() {
                       type="button"
                       className="text-xs text-red-600 hover:underline mt-1"
                       onClick={async () => {
-                        if (!confirm('Gerar um novo token? A URL atual para de funcionar e precisa ser atualizada na Evolution API.')) return;
+                        if (!(await confirm({ title: 'Gerar novo token', message: 'Gerar um novo token? A URL atual para de funcionar e precisa ser atualizada na Evolution API.', confirmLabel: 'Gerar novo token', danger: true }))) return;
                         try {
                           const { data } = await api.post('/tenant/webhook-info/rotate');
                           setHooks(data);
                         } catch (err) {
-                          alert(err?.response?.data?.message || 'Erro ao gerar novo token.');
+                          alert({ title: 'Erro', message: err?.response?.data?.message || 'Erro ao gerar novo token.' });
                         }
                       }}
                     >

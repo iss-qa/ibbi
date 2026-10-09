@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import api from '../services/api';
+import { useDialog } from '../components/dialog/DialogProvider.jsx';
 import Header from '../components/Header';
 import { calculateAge, determineGroupFromBirthDate } from '../utils/person';
 
@@ -78,6 +79,7 @@ const resolvePhotoUrl = (fotoUrl) => {
 };
 
 export default function RegistrationApprovals() {
+  const { confirm, alert } = useDialog();
   const [requests, setRequests] = useState([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -114,7 +116,7 @@ export default function RegistrationApprovals() {
   useEffect(() => { load(); }, [load]);
 
   const handleApprove = async (id) => {
-    if (!confirm('Confirma a aprovação desta solicitação? Será criado um cadastro de pessoa e usuário.')) return;
+    if (!(await confirm({ title: 'Aprovar cadastro', message: 'Confirma a aprovação desta solicitação? Será criado um cadastro de pessoa e usuário.', confirmLabel: 'Aprovar' }))) return;
     setActionLoading(true);
     try {
       const request = requests.find((item) => item._id === id) || selected;
@@ -125,14 +127,14 @@ export default function RegistrationApprovals() {
       setSelected(null);
       load();
     } catch (err) {
-      alert(err?.response?.data?.message || 'Erro ao aprovar');
+      alert({ title: 'Erro ao aprovar', message: err?.response?.data?.message || 'Erro ao aprovar' });
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleReject = async () => {
-    if (!rejectNote.trim()) { alert('Informe o motivo da rejeição.'); return; }
+    if (!rejectNote.trim()) { alert({ title: 'Rejeitar cadastro', message: 'Informe o motivo da rejeição.' }); return; }
     setActionLoading(true);
     try {
       await api.put(`/registrations/${showRejectModal}/reject`, { reviewNote: rejectNote });
@@ -142,7 +144,7 @@ export default function RegistrationApprovals() {
       setSelected(null);
       load();
     } catch (err) {
-      alert(err?.response?.data?.message || 'Erro ao rejeitar');
+      alert({ title: 'Erro ao rejeitar', message: err?.response?.data?.message || 'Erro ao rejeitar' });
     } finally {
       setActionLoading(false);
     }

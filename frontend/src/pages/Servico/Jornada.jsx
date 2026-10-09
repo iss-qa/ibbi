@@ -4,6 +4,7 @@ import Header from '../../components/Header';
 import api from '../../services/api';
 import { Card, KpiCard } from '../../components/ui';
 import { useTenant } from '../../context/TenantContext';
+import { useDialog } from '../../components/dialog/DialogProvider.jsx';
 
 const ETAPAS = [
   ['d1', 'Dia 1', 'Obrigado pela visita'],
@@ -18,6 +19,7 @@ const ICONE = { enviada: '✅', pulada: '⏭️', erro: '⚠️', pendente: '·'
 
 // Jornada de 30 dias do visitante e do novo convertido: acolhimento automático até se firmar.
 export default function Jornada() {
+  const { confirm } = useDialog();
   const { hasFeature, tenant } = useTenant();
   const [data, setData] = useState(null);
   const [filtro, setFiltro] = useState('ativa');
@@ -27,7 +29,7 @@ export default function Jornada() {
   useEffect(() => { if (hasFeature('jornadaVisitante')) load().catch((e) => setErro(e.response?.data?.message || 'Falha ao carregar')); }, [load, hasFeature]);
 
   const encerrar = async (j) => {
-    if (!window.confirm(`Encerrar a jornada de ${j.nome}? As mensagens programadas não serão enviadas.`)) return;
+    if (!(await confirm({ title: 'Encerrar jornada', message: `Encerrar a jornada de ${j.nome}? As mensagens programadas não serão enviadas.`, confirmLabel: 'Encerrar', danger: true }))) return;
     await api.put(`/jornadas/${j._id}/cancelar`);
     load();
   };

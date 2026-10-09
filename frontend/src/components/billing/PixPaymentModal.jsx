@@ -24,7 +24,7 @@ export default function PixPaymentModal({ faturaId, onClose, onPaid }) {
       .then(({ data }) => {
         if (!ativo) return;
         if (data.pago) confirmar(data);
-        else setState({ loading: false, fatura: data.fatura, pix: data.pix });
+        else setState({ loading: false, fatura: data.fatura, pix: data.pix, boleto: data.boleto });
       })
       .catch((err) => ativo && setState({ loading: false, erro: err?.response?.data?.message || 'Não foi possível gerar o Pix agora.' }));
     return () => { ativo = false; };
@@ -113,6 +113,14 @@ export default function PixPaymentModal({ faturaId, onClose, onPaid }) {
             <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" aria-hidden="true" />
             Aguardando o pagamento… a confirmação aparece aqui sozinha.
           </div>
+
+          {state.boleto?.digitable && (
+            <div className="w-full border-t border-slate-100 pt-3">
+              <p className="text-xs font-medium text-slate-600">Ou pague com boleto (linha digitável)</p>
+              <input readOnly value={state.boleto.digitable} onFocus={(e) => e.target.select()} aria-label="Linha digitável do boleto" className="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono text-slate-700" />
+              <p className="text-[11px] text-slate-500 mt-1">O boleto leva até 3 dias úteis para compensar; o Pix confirma na hora.</p>
+            </div>
+          )}
 
           {pix.invoiceUrl && (
             <a href={pix.invoiceUrl} target="_blank" rel="noreferrer" className="text-sm text-ibbiBlue font-medium hover:underline">

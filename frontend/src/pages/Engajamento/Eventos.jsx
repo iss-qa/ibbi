@@ -5,6 +5,7 @@ import api from '../../services/api';
 import { Card, Button, Field, Modal, Toggle, inputClass } from '../../components/ui';
 import { CONGREGACOES } from '../../constants/congregacoes';
 import PersonPicker from '../Encontros/PersonPicker';
+import { useDialog } from '../../components/dialog/DialogProvider.jsx';
 
 const brl = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 const STATUS = { inscrito: ['🟡', 'Inscrito', 'bg-amber-50 text-amber-700'], pago: ['✅', 'Pago', 'bg-emerald-50 text-emerald-700'], espera: ['⏳', 'Espera', 'bg-slate-100 text-slate-600'] };
@@ -50,6 +51,7 @@ function RecebedorFields({ value, onChange }) {
 
 // Eventos com inscrição pelo WhatsApp ("INSCREVER <código>") e Pix com valor.
 export default function Eventos() {
+  const { confirm } = useDialog();
   const [lista, setLista] = useState([]);
   const [pixOk, setPixOk] = useState(true);
   const [form, setForm] = useState(null);
@@ -72,13 +74,13 @@ export default function Eventos() {
     try { await api.put(`/eventos/${det.id}`, pagamento); abrir(det.id); load(); } catch (e) { setErro(e.response?.data?.message || 'Não foi possível salvar'); }
   };
   const status = async (insc, s) => { await api.put(`/eventos/${det.id}/inscricoes/${insc._id}`, { status: s }); abrir(det.id); load(); };
-  const marcarPago = (insc, pago) => {
-    if (!pago && !window.confirm(`Desmarcar o pagamento de ${insc.nome}?`)) return;
+  const marcarPago = async (insc, pago) => {
+    if (!pago && !(await confirm({ title: 'Desmarcar pagamento', message: `Desmarcar o pagamento de ${insc.nome}?`, confirmLabel: 'Desmarcar', danger: true }))) return;
     status(insc, pago ? 'pago' : 'inscrito');
   };
   const inscrever = async (p) => { await api.post(`/eventos/${det.id}/inscricoes`, { personId: p._id }); abrir(det.id); load(); };
   const divulgar = async () => {
-    if (!window.confirm('Divulgar para a igreja pelo WhatsApp? O envio é gradual e quem respondeu SAIR não recebe.')) return;
+    if (!(await confirm({ title: 'Divulgar evento', message: 'Divulgar para a igreja pelo WhatsApp? O envio é gradual e quem respondeu SAIR não recebe.', confirmLabel: 'Divulgar' }))) return;
     const { data } = await api.post(`/eventos/${det.id}/divulgar`, {});
     setMsg(`📣 Divulgação na fila para ${data.pendentes} pessoa(s). Acompanhe em Campanhas.`); setDet(null);
   };

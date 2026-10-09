@@ -32,9 +32,18 @@ const InvoiceSchema = new mongoose.Schema({
     expiraEm: { type: Date },
     status: { type: String }, // ACTIVE | COMPLETED | EXPIRED
     tentativas: { type: Number, default: 0 },
+    // Boleto (cobrança BOLETO da Woovi: gera boleto + Pix). Só com WOOVI_BOLETO=true e endereço da igreja.
+    boleto: {
+      digitable: { type: String },
+      barcode: { type: String },
+      imagem: { type: String },
+    },
     verificadoEm: { type: Date }, // última conferência direta na Woovi
   },
   lembretesEnviados: { type: Number, default: 0 },
+  // Link público de pagamento (/pagar/:token), enviado por email. Sem login; revogável trocando o token.
+  publicToken: { type: String, index: { unique: true, sparse: true } },
+  emailEnviadoEm: { type: Date },
 }, { timestamps: true });
 
 InvoiceSchema.index({ tenantId: 1, competencia: 1 }, { unique: true });

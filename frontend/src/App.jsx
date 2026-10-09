@@ -40,6 +40,7 @@ const Campanhas = lazy(() => import('./pages/Engajamento/Campanhas'));
 const Eventos = lazy(() => import('./pages/Engajamento/Eventos'));
 const Celulas = lazy(() => import('./pages/Engajamento/Celulas'));
 const Impacto = lazy(() => import('./pages/Engajamento/Impacto'));
+const PagarFatura = lazy(() => import('./pages/PagarFatura'));
 const Termos = lazy(() => import('./pages/Legal/Legal').then((m) => ({ default: m.Termos })));
 const Privacidade = lazy(() => import('./pages/Legal/Legal').then((m) => ({ default: m.Privacidade })));
 const Landing = lazy(() => import('./pages/Landing'));
@@ -113,6 +114,7 @@ export default function App() {
         <Route path="/cadastro" element={<Signup />} />
         <Route path="/demo" element={<DemoEntrar />} />
         <Route path="/termos" element={<Termos />} />
+        <Route path="/pagar/:token" element={<PagarFatura />} />
         <Route path="/privacidade" element={<Privacidade />} />
         <Route path="/login" element={<Login />} />
         <Route path="/external/:token" element={<ExternalMemberForm />} />

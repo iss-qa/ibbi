@@ -4,10 +4,13 @@ import platformApi from '../../services/platformApi';
 import { Badge, Button, Card, Field, KpiCard, Toggle, brl, fmtDate, inputClass } from '../../components/ui';
 import { INVOICE_STATUS, PLAN_NAMES, TENANT_STATUS } from './constants';
 import TenantWhatsappCard from './TenantWhatsappCard';
+import IaUsoCard from './IaUsoCard';
+import { useDialog } from '../../components/dialog/DialogProvider.jsx';
 
 const money = (v) => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
 export default function PlatformTenantDetail() {
+  const { prompt, confirm } = useDialog();
   const { id } = useParams();
   const [t, setT] = useState(null);
   const [form, setForm] = useState(null);
@@ -20,6 +23,11 @@ export default function PlatformTenantDetail() {
       status: r.data.status,
       trialEndsAt: r.data.trialEndsAt ? r.data.trialEndsAt.slice(0, 10) : '',
       billing: { ciclo: r.data.billing?.ciclo || 'mensal', valorMensal: r.data.billing?.valorMensal ?? '', diaVencimento: r.data.billing?.diaVencimento || 10, isento: Boolean(r.data.billing?.isento) },
+      documento: r.data.documento || '',
+      emailCobranca: r.data.emailCobranca || '',
+      cidade: r.data.cidade || '',
+      uf: r.data.uf || '',
+      endereco: { cep: '', logradouro: '', numero: '', complemento: '', bairro: '', ...(r.data.endereco || {}) },
     });
   });
   useEffect(() => { load(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -47,8 +55,45 @@ export default function PlatformTenantDetail() {
     }
   };
 
+  const acao = async (fn, ok) => {
+    try {
+      const r = await fn();
+      setMsg({ ok: true, text: typeof ok === 'function' ? ok(r.data) : ok });
+      load();
+    } catch (err) {
+      setMsg({ ok: false, text: err?.response?.data?.message || 'Falha na operação' });
+    }
+  };
+  const linkPagamento = (f) => `${window.location.origin}/pagar/${f.publicToken}`;
+  const copiarLink = async (f) => {
+    try {
+      await navigator.clipboard.writeText(linkPagamento(f));
+      setMsg({ ok: true, text: 'Link de pagamento copiado.' });
+    } catch {
+      setMsg({ ok: true, text: linkPagamento(f) });
+    }
+  };
+  const cancelar = async (f) => {
+    if (!(await confirm({ title: 'Cancelar fatura', message: `Cancelar "${f.descricao}" (${brl(f.valor)})? O Pix/boleto é retirado da Woovi e a igreja deixa de ver a cobrança.`, confirmLabel: 'Cancelar fatura', cancelLabel: 'Voltar', danger: true }))) return;
+    const motivo = await prompt({ title: 'Motivo do cancelamento', label: 'Motivo (opcional)', placeholder: 'Ex.: cortesia, cobrança duplicada…', confirmLabel: 'Confirmar cancelamento' });
+    if (motivo === null) return;
+    acao(() => platformApi.put(`/invoices/${f._id}/cancel`, { observacao: motivo || undefined }), 'Fatura cancelada.');
+  };
+
   const pagar = async (inv) => {
-    const metodo = window.prompt('Forma de pagamento (pix, boleto, cartao, transferencia, dinheiro):', 'pix');
+    const metodo = await prompt({
+      title: 'Dar baixa na fatura',
+      label: 'Forma de pagamento',
+      defaultValue: 'pix',
+      options: [
+        { value: 'pix', label: 'Pix' },
+        { value: 'boleto', label: 'Boleto' },
+        { value: 'cartao', label: 'Cartão' },
+        { value: 'transferencia', label: 'Transferência' },
+        { value: 'dinheiro', label: 'Dinheiro' },
+      ],
+      confirmLabel: 'Dar baixa',
+    });
     if (!metodo) return;
     await platformApi.put(`/invoices/${inv._id}/pay`, { metodo });
     load();
@@ -108,7 +153,7 @@ export default function PlatformTenantDetail() {
           </div>
         </Card>
 
-        <Card title="Consumo mensal" subtitle="Custo de IA: ~ = estimado pelos tokens (antes do registro por chamada)">
+        <Card title="Consumo mensal" subtitle="Totais por mês · ~ = estimado pelos tokens (meses anteriores ao registro por chamada)">
           {t.consumo[0] && (
             <div className="grid grid-cols-1 min-[400px]:grid-cols-3 gap-2 mb-4 text-center">
               {[
@@ -141,6 +186,22 @@ export default function PlatformTenantDetail() {
         </Card>
       </div>
 
+      <IaUsoCard tenantId={id} />
+
+      <Card title="Dados de cobrança" subtitle="Email que recebe a fatura e dados do boleto (CNPJ + endereço completo)" action={<Button onClick={save}>Salvar</Button>}>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <Field label="CNPJ"><input className={inputClass} inputMode="numeric" value={form.documento} onChange={(e) => setForm({ ...form, documento: e.target.value.replace(/\D/g, '').slice(0, 14) })} /></Field>
+          <Field label="Email de cobrança" hint={`Vazio = ${t.email || 'email da igreja'}`}><input type="email" className={inputClass} value={form.emailCobranca} onChange={(e) => setForm({ ...form, emailCobranca: e.target.value })} /></Field>
+          <Field label="CEP"><input className={inputClass} inputMode="numeric" value={form.endereco.cep} onChange={(e) => setForm({ ...form, endereco: { ...form.endereco, cep: e.target.value.replace(/\D/g, '').slice(0, 8) } })} /></Field>
+          <Field label="Bairro"><input className={inputClass} value={form.endereco.bairro} onChange={(e) => setForm({ ...form, endereco: { ...form.endereco, bairro: e.target.value } })} /></Field>
+          <div className="sm:col-span-2"><Field label="Logradouro"><input className={inputClass} value={form.endereco.logradouro} onChange={(e) => setForm({ ...form, endereco: { ...form.endereco, logradouro: e.target.value } })} /></Field></div>
+          <Field label="Número"><input className={inputClass} value={form.endereco.numero} onChange={(e) => setForm({ ...form, endereco: { ...form.endereco, numero: e.target.value } })} /></Field>
+          <Field label="Complemento"><input className={inputClass} value={form.endereco.complemento} onChange={(e) => setForm({ ...form, endereco: { ...form.endereco, complemento: e.target.value } })} /></Field>
+          <Field label="Cidade"><input className={inputClass} value={form.cidade} onChange={(e) => setForm({ ...form, cidade: e.target.value })} /></Field>
+          <Field label="UF"><input className={inputClass} maxLength={2} value={form.uf} onChange={(e) => setForm({ ...form, uf: e.target.value.toUpperCase() })} /></Field>
+        </div>
+      </Card>
+
       <TenantWhatsappCard tenant={t} onSaved={load} />
 
       <Card title="Faturas" action={<Button variant="outline" onClick={gerarFatura}>Gerar fatura do mês</Button>}>
@@ -153,10 +214,18 @@ export default function PlatformTenantDetail() {
                   <p>{f.descricao}</p>
                   <p className="text-xs text-slate-500">Vence {fmtDate(f.vencimento)}{f.pagoEm ? ` · pago ${fmtDate(f.pagoEm)} (${f.metodo})` : ''}{f.gateway?.id ? ` · ${f.gateway.provider} ${f.gateway.id}` : ''}</p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <span className="tabular-nums font-medium">{brl(f.valor)}</span>
                   <Badge color={s.color}>{s.label}</Badge>
-                  {['pendente', 'vencido'].includes(f.status) && <Button variant="ghost" className="text-xs" onClick={() => pagar(f)}>Dar baixa</Button>}
+                  {['pendente', 'vencido'].includes(f.status) && (
+                    <>
+                      {f.publicToken && <Button variant="ghost" className="text-xs" onClick={() => copiarLink(f)}>Copiar link</Button>}
+                      {f.gateway?.status !== 'ACTIVE' && <Button variant="ghost" className="text-xs" onClick={() => acao(() => platformApi.post(`/invoices/${f._id}/charge`), 'Pix gerado na Woovi.')}>Gerar Pix</Button>}
+                      <Button variant="ghost" className="text-xs" onClick={() => acao(() => platformApi.post(`/invoices/${f._id}/email`), (r) => `Email enviado para ${r.para}.`)}>Enviar por email</Button>
+                      <Button variant="ghost" className="text-xs" onClick={() => pagar(f)}>Dar baixa</Button>
+                      <Button variant="ghost" className="text-xs text-red-600" onClick={() => cancelar(f)}>Cancelar</Button>
+                    </>
+                  )}
                 </div>
               </li>
             );

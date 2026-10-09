@@ -35,7 +35,7 @@ const generateText = async ({ system, prompt, maxTokens = 2000 }) => {
   if (provider() === 'anthropic') return claude.generateText({ system, prompt, maxTokens });
   try {
     // O Gemini gasta parte do limite "pensando" antes do texto: limites baixos cortam a resposta.
-    const response = await gemini.createMessage({ system, max_tokens: Math.max(maxTokens, GEMINI_MIN_TOKENS), messages: [{ role: 'user', content: prompt }] });
+    const response = await gemini.createMessage({ system, max_tokens: Math.max(maxTokens, GEMINI_MIN_TOKENS), messages: [{ role: 'user', content: prompt }] }, { operacao: 'texto' });
     if (response.stop_reason === 'refusal') return null;
     return claude.textOf(response) || null;
   } catch (err) {

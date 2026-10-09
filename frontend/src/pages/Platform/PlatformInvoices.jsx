@@ -3,8 +3,10 @@ import { Link } from 'react-router-dom';
 import platformApi from '../../services/platformApi';
 import { Badge, Button, Card, brl, fmtDate, inputClass } from '../../components/ui';
 import { INVOICE_STATUS } from './constants';
+import { useDialog } from '../../components/dialog/DialogProvider.jsx';
 
 export default function PlatformInvoices() {
+  const { confirm } = useDialog();
   const [rows, setRows] = useState([]);
   const [status, setStatus] = useState('');
   const [msg, setMsg] = useState('');
@@ -61,7 +63,7 @@ export default function PlatformInvoices() {
                           {f.gateway?.provider === 'woovi' && f.gateway?.id && <Button variant="ghost" className="text-xs mr-1" onClick={() => act(() => platformApi.post(`/invoices/${f._id}/sync`), 'Pix conferido na Woovi.')}>Conferir Pix</Button>}
                           {f.gateway?.invoiceUrl && <a href={f.gateway.invoiceUrl} target="_blank" rel="noreferrer" className="text-xs text-ibbiBlue mr-2">link</a>}
                           <Button variant="ghost" className="text-xs mr-1" onClick={() => act(() => platformApi.put(`/invoices/${f._id}/pay`, { metodo: 'pix' }), 'Baixa registrada.')}>Dar baixa</Button>
-                          <Button variant="ghost" className="text-xs" onClick={() => window.confirm('Cancelar fatura?') && act(() => platformApi.put(`/invoices/${f._id}/cancel`, {}), 'Fatura cancelada.')}>Cancelar</Button>
+                          <Button variant="ghost" className="text-xs" onClick={async () => { if (await confirm({ title: 'Cancelar fatura', message: 'Cancelar fatura?', confirmLabel: 'Cancelar fatura', cancelLabel: 'Voltar', danger: true })) act(() => platformApi.put(`/invoices/${f._id}/cancel`, {}), 'Fatura cancelada.'); }}>Cancelar</Button>
                         </>
                       )}
                     </td>

@@ -4,6 +4,7 @@ import api from '../../services/api';
 import useAuth from '../../hooks/useAuth';
 import { CONGREGACOES } from '../../constants/congregacoes';
 import { Button, Modal } from '../../components/ui';
+import { useDialog } from '../../components/dialog/DialogProvider.jsx';
 
 const ROLE_INFO = {
   user: { label: 'Membro', desc: 'Vê e edita apenas os próprios dados, pedido de oração e carteirinha.' },
@@ -82,6 +83,7 @@ function AccessModal({ target, onClose, onSaved }) {
 }
 
 export default function UserManagement() {
+  const { confirm, alert } = useDialog();
   const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -122,10 +124,10 @@ export default function UserManagement() {
     try {
       const { data } = await api.post('/users', { personId: selectedMember._id, role: 'admin' });
       if (data?.senhaTemporaria) {
-        alert(`Usuário criado.\n\nLogin: ${data.login}\nSenha provisória (válida por 7 dias): ${data.senhaTemporaria}\n\nRepasse ao administrador — ela não será exibida novamente.`);
+        await alert({ title: 'Usuário criado', message: `Login: ${data.login}\nSenha provisória (válida por 7 dias): ${data.senhaTemporaria}\n\nRepasse ao administrador — ela não será exibida novamente.` });
       }
     } catch (err) {
-      alert(err?.response?.data?.message || 'Erro ao criar usuário.');
+      alert({ title: 'Erro ao criar usuário', message: err?.response?.data?.message || 'Erro ao criar usuário.' });
       return;
     }
     setShowCreate(false);
@@ -146,18 +148,18 @@ export default function UserManagement() {
   };
 
   const removeUser = async (userId) => {
-    if (!confirm('Excluir usuário?')) return;
+    if (!(await confirm({ title: 'Excluir usuário', message: 'Excluir usuário?', confirmLabel: 'Excluir', danger: true }))) return;
     await api.delete(`/users/${userId}`);
     await load();
   };
 
   const resetPassword = async (userId) => {
-    if (!confirm('Gerar uma nova senha provisória para este usuário? As sessões abertas dele serão encerradas.')) return;
+    if (!(await confirm({ title: 'Resetar senha', message: 'Gerar uma nova senha provisória para este usuário? As sessões abertas dele serão encerradas.', confirmLabel: 'Gerar nova senha', danger: true }))) return;
     try {
       const { data } = await api.put(`/users/${userId}/reset-password`);
-      alert(`Nova senha provisória (válida por 7 dias): ${data?.senhaTemporaria}\n\nRepasse ao usuário — ela não será exibida novamente.`);
+      alert({ title: 'Nova senha provisória', message: `Nova senha provisória (válida por 7 dias): ${data?.senhaTemporaria}\n\nRepasse ao usuário — ela não será exibida novamente.` });
     } catch (err) {
-      alert(err?.response?.data?.message || 'Erro ao resetar senha.');
+      alert({ title: 'Erro ao resetar senha', message: err?.response?.data?.message || 'Erro ao resetar senha.' });
     }
   };
 

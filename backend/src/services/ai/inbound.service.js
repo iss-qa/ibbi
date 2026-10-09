@@ -294,7 +294,7 @@ const handleInbound = async (msg) => {
             await reply(chave, 'Ainda não consigo ouvir áudios. Pode me mandar por texto? 🙏');
             return;
           }
-          const transcrito = await transcribe(media.base64, mimetype || 'audio/ogg');
+          const transcrito = await transcribe(media.base64, mimetype || 'audio/ogg', { seconds: media.seconds });
           if (!transcrito) {
             await reply(chave, 'Não consegui entender o áudio. Pode repetir ou mandar por texto? 🙏');
             return;
