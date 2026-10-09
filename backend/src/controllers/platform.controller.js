@@ -23,7 +23,7 @@ const PAYING = ['ativa', 'inadimplente'];
 // ── Auth ────────────────────────────────────────────────────────────────
 const login = async (req, res) => {
   const { email, senha } = req.body || {};
-  const admin = await PlatformUser.findOne({ email: String(email || '').toLowerCase() });
+  const admin = await PlatformUser.findOne({ email: String(email || '').trim().toLowerCase() });
   if (!admin || !admin.ativo || !(await admin.comparePassword(String(senha || '')))) {
     return res.status(401).json({ message: 'Credenciais inválidas' });
   }
