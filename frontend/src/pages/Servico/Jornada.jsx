@@ -68,7 +68,7 @@ export default function Jornada() {
           <table className="w-full text-sm">
             {lista.length > 0 && (
               <thead>
-                <tr className="text-left text-xs text-slate-400 uppercase">
+                <tr className="text-left text-xs text-slate-400 uppercase whitespace-nowrap">
                   <th className="py-2 pr-3">Pessoa</th>
                   <th className="pr-3">Dia</th>
                   {ETAPAS.map(([k, l, d]) => <th key={k} className="pr-2 text-center" title={d}>{l}</th>)}
@@ -80,7 +80,7 @@ export default function Jornada() {
             <tbody className="divide-y divide-slate-50">
               {lista.map((j) => (
                 <tr key={j._id}>
-                  <td className="py-2 pr-3">
+                  <td className="py-2 pr-3 min-w-[10rem]">
                     <p className="font-medium text-ibbiNavy">{j.nome}</p>
                     <p className="text-xs text-slate-500">{j.tipo} · {j.congregacao}{j.respondeuEm ? ' · 💬 respondeu' : ''}</p>
                   </td>

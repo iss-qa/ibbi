@@ -92,7 +92,7 @@ const buildGrupoPayload = (form) => ({
 
 function SectionCard({ children, className = '' }) {
   return (
-    <div className={`bg-white rounded-xl border border-slate-100 shadow-sm ${className}`}>
+    <div className={`bg-white rounded-2xl border border-slate-100 shadow-sm ${className}`}>
       {children}
     </div>
   );
@@ -312,33 +312,6 @@ export default function GruposTriagem() {
         subtitle="Gerenciamento dos grupos de acolhimento"
         action={
           <div className="flex gap-2 items-center flex-wrap">
-            {user?.role !== 'user' && (
-              <select
-                className="border rounded-lg px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
-                value={filterCongregacao}
-                onChange={(e) => setFilterCongregacao(e.target.value)}
-                disabled={Boolean(lockedCongregacao)}
-              >
-                {!lockedCongregacao && <option value="Todos">Todos</option>}
-                {congregacaoOptions.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-            )}
-            <select
-              className="border rounded-lg px-3 py-2 text-sm"
-              value={filterEtapa}
-              onChange={(e) => {
-                setFilterEtapa(e.target.value);
-                if (e.target.value) { searchParams.set('etapa', e.target.value); } else { searchParams.delete('etapa'); }
-                setSearchParams(searchParams);
-              }}
-            >
-              <option value="">Todas etapas</option>
-              {ETAPA_OPTIONS.map((e) => (
-                <option key={e.value} value={e.value}>{e.label}</option>
-              ))}
-            </select>
             <button
               onClick={() => navigate('/projeto-amigo')}
               className="flex items-center gap-1.5 border border-slate-200 text-slate-600 text-sm font-medium px-4 h-[40px] rounded-lg hover:bg-slate-50 transition"
@@ -373,7 +346,36 @@ export default function GruposTriagem() {
         </div>
       )}
 
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="max-w-7xl mx-auto sm:px-4 py-6">
+        <div className="flex flex-wrap gap-2 mb-4">
+          {user?.role !== 'user' && (
+            <select
+              className="border rounded-lg px-3 py-2 text-sm disabled:bg-slate-100 disabled:text-slate-500"
+              value={filterCongregacao}
+              onChange={(e) => setFilterCongregacao(e.target.value)}
+              disabled={Boolean(lockedCongregacao)}
+            >
+              {!lockedCongregacao && <option value="Todos">Todos</option>}
+              {congregacaoOptions.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          )}
+          <select
+            className="border rounded-lg px-3 py-2 text-sm"
+            value={filterEtapa}
+            onChange={(e) => {
+              setFilterEtapa(e.target.value);
+              if (e.target.value) { searchParams.set('etapa', e.target.value); } else { searchParams.delete('etapa'); }
+              setSearchParams(searchParams);
+            }}
+          >
+            <option value="">Todas etapas</option>
+            {ETAPA_OPTIONS.map((e) => (
+              <option key={e.value} value={e.value}>{e.label}</option>
+            ))}
+          </select>
+        </div>
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20 text-slate-400">
             <svg className="w-6 h-6 animate-spin text-slate-300 mb-3" fill="none" viewBox="0 0 24 24">

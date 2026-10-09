@@ -118,13 +118,13 @@ export default function App() {
                 <Sidebar user={user} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
                 {sidebarOpen && (
                   <div
-                    className="fixed inset-0 bg-ibbiNavy/40 backdrop-blur-[2px] z-30 md:hidden"
+                    className="fixed inset-0 bg-ibbiNavy/40 backdrop-blur-[2px] z-30 lg:hidden"
                     onClick={() => setSidebarOpen(false)}
                     aria-hidden="true"
                   />
                 )}
                 <main className="flex-1 min-w-0 flex flex-col">
-                  <div className="md:hidden sticky top-0 z-20 h-14 px-3 flex items-center gap-2 bg-app/85 backdrop-blur-md border-b border-ibbiNavy/5">
+                  <div className="lg:hidden sticky top-0 z-20 h-14 px-3 flex items-center gap-2 bg-app/85 backdrop-blur-md border-b border-ibbiNavy/5">
                     <button
                       type="button"
                       className="w-10 h-10 rounded-xl flex items-center justify-center text-ibbiNavy transition hover:bg-black/5 active:bg-black/10"

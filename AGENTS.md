@@ -460,7 +460,7 @@ npm run build
 
 ## 🎨 Layout e UX (telas internas)
 
-- **Shell** (`App.jsx`): menu lateral flutuante arredondado (`Sidebar.jsx`, sticky no desktop, gaveta no celular com Esc/backdrop) + barra superior fixa com o botão de menu **só no celular**. Páginas não precisam de recuo para o botão (nada de `pl-12`). Conteúdo limitado a `max-w-[1440px]`.
+- **Shell** (`App.jsx`): menu lateral flutuante arredondado (`Sidebar.jsx`, fixo/sticky a partir de `lg`; abaixo disso gaveta com Esc/backdrop) + barra superior com o botão de menu até `lg`. `Header` só fica em linha (título × ações) a partir de `lg`; conteúdo de página deve preferir breakpoints `lg`/`xl` para layouts lado a lado. Páginas não precisam de recuo para o botão (nada de `pl-12`). Conteúdo limitado a `max-w-[1440px]`.
 - **Nunca** use `overflow-x: hidden` em `html/body/#root` ou ancestrais do menu: quebra o `position: sticky`. Use `overflow-x: clip` (`overflow-x-clip`).
 - **Fundo por igreja:** token Tailwind `bg-app` (CSS var `--app-bg-rgb`, padrão creme). `Tenant.branding.corFundo` (#rrggbb, só tons claros — validado no front e em `tenant.controller`) é aplicado pelo `TenantContext`. O menu lateral continua `ibbiNavy` sempre. Configurações → Aparência.
 - **Rotas com `React.lazy`**: toda página nova entra em `App.jsx` como `lazy(() => import(...))` (o bundle inicial caiu de 1,8 MB para ~240 KB). Fontes carregadas só no `index.html` (sem `@import` no CSS).

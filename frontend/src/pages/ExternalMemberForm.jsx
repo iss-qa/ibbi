@@ -76,7 +76,7 @@ export default function ExternalMemberForm() {
 
   return (
     <div className="min-h-screen bg-ibbiCream p-6">
-      <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-soft p-6">
+      <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-soft p-6">
         <h1 className="font-display text-xl text-ibbiNavy mb-4">Cadastro de pessoa</h1>
         {status && (
           <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-3 animate-shake">

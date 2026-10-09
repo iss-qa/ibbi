@@ -82,12 +82,14 @@ export default function PlatformDashboard() {
           action={<button type="button" className="text-xs text-ibbiBlue" onClick={() => setShowTable((v) => !v)}>{showTable ? 'Ver gráfico' : 'Ver tabela'}</button>}
         >
           {showTable ? (
-            <table className="w-full text-sm">
+            <div className="overflow-x-auto">
+            <table className="w-full text-sm whitespace-nowrap [&_td+td]:pl-3 [&_th+th]:pl-3">
               <thead><tr className="text-left text-slate-500"><th className="py-1">Mês</th><th>Faturado</th><th>Recebido</th><th>Novas igrejas</th></tr></thead>
               <tbody className="tabular-nums">
                 {serie.map((s) => <tr key={s.mes} className="border-t border-slate-100"><td className="py-1">{s.label}</td><td>{brl(s.faturado)}</td><td>{brl(s.recebido)}</td><td>{s.novasIgrejas}</td></tr>)}
               </tbody>
             </table>
+            </div>
           ) : (
             <ResponsiveContainer width="100%" height={260}>
               <BarChart data={serie} margin={{ top: 8, right: 8, left: 0, bottom: 0 }} barGap={2}>

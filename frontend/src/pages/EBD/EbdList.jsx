@@ -80,8 +80,8 @@ export default function EbdList() {
         }
       />
 
-      <div className="bg-white rounded-xl shadow-soft p-4 mb-4">
-        <div className="grid md:grid-cols-4 gap-3">
+      <div className="bg-white rounded-2xl shadow-soft p-4 mb-4">
+        <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3">
           <input
             className="border rounded-lg px-3 py-2"
             placeholder="Buscar por tema"
@@ -111,15 +111,15 @@ export default function EbdList() {
 
       <div className="grid gap-4">
         {aulas.map((aula) => (
-          <div key={aula._id} className="bg-white rounded-xl shadow-soft p-4 flex items-center justify-between">
-            <button className="text-left" onClick={() => navigate(`/ebd/${aula._id}`)}>
+          <div key={aula._id} className="bg-white rounded-2xl shadow-soft p-4 flex items-center justify-between gap-3">
+            <button className="text-left min-w-0" onClick={() => navigate(`/ebd/${aula._id}`)}>
               <h3 className="font-display text-lg text-ibbiNavy">
                 EBD - {aula.classe} - {new Date(aula.data).toLocaleDateString('pt-BR')}
               </h3>
               <p className="text-xs text-slate-500 mt-1">Tema: {aula.tema || '-'}</p>
               <p className="text-xs text-slate-400 mt-1">Congregação: {aula.congregacao || '-'}</p>
             </button>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap justify-end items-center gap-2 shrink-0">
               <button
                 className="text-blue-600 text-sm"
                 onClick={() => {

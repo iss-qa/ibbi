@@ -108,7 +108,7 @@ export default function EbdChamada() {
     <div>
       <Header title={`EBD — ${aula.classe} — ${new Date(aula.data).toLocaleDateString('pt-BR')}`} subtitle={aula.tema || 'Chamada de presença'} />
 
-      <div className="bg-white rounded-xl shadow-soft p-6">
+      <div className="bg-white rounded-2xl shadow-soft p-6">
         <div className="sticky top-0 bg-white z-10 pb-4">
           <div className="grid md:grid-cols-3 gap-4 mb-4">
             <div className="bg-emerald-50 text-emerald-700 rounded-xl p-4">
@@ -136,7 +136,7 @@ export default function EbdChamada() {
         </div>
 
         <div className="mt-6">
-          <div className="hidden md:block">
+          <div className="hidden lg:block overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left">
                 <tr>
@@ -171,7 +171,7 @@ export default function EbdChamada() {
               </tbody>
             </table>
           </div>
-          <div className="md:hidden flex flex-col gap-3">
+          <div className="lg:hidden flex flex-col gap-3">
             {(aula.presencas || []).map((p, idx) => (
               <div key={p.personId} className={`border rounded-xl p-4 flex flex-col gap-3 transition ${p.presente ? 'bg-emerald-50/30 border-emerald-100' : 'bg-white border-slate-200'}`}>
                 <div className="flex items-start justify-between gap-2">

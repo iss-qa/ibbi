@@ -110,7 +110,7 @@ export default function Login() {
             <div className="flex gap-2 items-center">
               <input
                 autoFocus
-                className="flex-1 border border-slate-200 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ibbiBlue"
+                className="flex-1 min-w-0 border border-slate-200 rounded-md px-2 py-1 focus:outline-none focus:ring-2 focus:ring-ibbiBlue"
                 value={igreja}
                 onChange={(e) => setIgreja(e.target.value)}
                 placeholder="código da igreja (ex.: ibbi)"

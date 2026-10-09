@@ -44,7 +44,7 @@ export default function ChartsSection({ growth, byCongregation, byGroup, retenti
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-      <div className="bg-white rounded-xl border border-stone-100 p-4 sm:p-6">
+      <div className="bg-white rounded-2xl border border-stone-100 p-4 sm:p-6">
         <h3 className="font-display text-base sm:text-lg text-ibbiNavy">Crescimento de pessoas</h3>
         <p className="text-xs text-slate-400 mb-4">Novos cadastros nos últimos 6 meses</p>
         {loading.growth ? <SkeletonChart /> : (
@@ -69,7 +69,7 @@ export default function ChartsSection({ growth, byCongregation, byGroup, retenti
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-100 p-4 sm:p-6">
+      <div className="bg-white rounded-2xl border border-stone-100 p-4 sm:p-6">
         <h3 className="font-display text-base sm:text-lg text-ibbiNavy">Pessoas por congregação</h3>
         <p className="text-xs text-slate-400 mb-4">Total por congregação</p>
         {loading.congregation ? <SkeletonChart height="h-[300px]" /> : (
@@ -99,7 +99,7 @@ export default function ChartsSection({ growth, byCongregation, byGroup, retenti
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-100 p-4 sm:p-6">
+      <div className="bg-white rounded-2xl border border-stone-100 p-4 sm:p-6">
         <h3 className="font-display text-base sm:text-lg text-ibbiNavy">Distribuição por grupo</h3>
         <p className="text-xs text-slate-400 mb-4">Proporção por grupo</p>
         {loading.group ? <SkeletonChart height="h-[300px]" /> : (
@@ -131,7 +131,7 @@ export default function ChartsSection({ growth, byCongregation, byGroup, retenti
         )}
       </div>
 
-      <div className="bg-white rounded-xl border border-stone-100 p-4 sm:p-6">
+      <div className="bg-white rounded-2xl border border-stone-100 p-4 sm:p-6">
         <h3 className="font-display text-base sm:text-lg text-ibbiNavy">Taxa de retenção</h3>
         <p className="text-xs text-slate-400 mb-4">Entradas vs saídas por mês</p>
         {loading.retention ? <SkeletonChart /> : (

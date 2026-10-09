@@ -374,12 +374,12 @@ export default function MemberList() {
 
         {/* Link de convite */}
         {inviteLink && (
-          <div className="bg-white rounded-xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
+          <div className="bg-white rounded-2xl border border-slate-100 shadow-sm px-4 py-3 flex items-center gap-3">
             <svg className="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101" />
             </svg>
             <input
-              className="flex-1 text-sm text-slate-600 bg-transparent border-none outline-none truncate"
+              className="flex-1 min-w-0 text-sm text-slate-600 bg-transparent border-none outline-none truncate"
               value={inviteLink}
               readOnly
             />
@@ -396,7 +396,7 @@ export default function MemberList() {
         )}
 
         {/* Filtros */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm p-2 sm:px-4 sm:py-3 mx-4 sm:mx-0">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm p-2 sm:px-4 sm:py-3 mx-4 sm:mx-0">
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
             <div className="relative col-span-2">
               <svg className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -454,7 +454,7 @@ export default function MemberList() {
         </div>
 
         {/* Tabela */}
-        <div className="bg-white rounded-xl border border-slate-100 shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl border border-slate-100 shadow-sm md:overflow-hidden">
           <div className="flex items-center justify-between px-3 sm:px-4 py-3 border-b border-slate-100">
             <div className="flex items-center gap-2 sm:gap-3">
               <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
@@ -497,11 +497,11 @@ export default function MemberList() {
             </div>
           </div>
 
-          <div className="overflow-x-auto w-full">
+          <div className="md:overflow-x-auto w-full">
             <table className="w-full text-sm">
             <thead>
               <tr className="bg-stone-50 text-left">
-                <th className="px-3 py-2.5 sm:px-4 sm:py-2.5 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wide max-w-0 sm:max-w-none">Pessoa</th>
+                <th className="px-3 py-2.5 sm:px-4 sm:py-2.5 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wide">Pessoa</th>
                 <th className="px-3 py-2.5 sm:px-4 sm:py-2.5 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wide hidden md:table-cell">Tipo</th>
                 <th className="px-3 py-2.5 sm:px-4 sm:py-2.5 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wide hidden md:table-cell">Grupo</th>
                 <th className="px-3 py-2.5 sm:px-4 sm:py-2.5 text-[10px] sm:text-xs font-semibold text-slate-400 uppercase tracking-wide hidden md:table-cell">Status</th>
@@ -533,7 +533,7 @@ export default function MemberList() {
               ) : (
                 items.map((row) => (
                   <tr key={row._id} className="hover:bg-stone-50/60 transition group">
-                    <td className="px-3 py-2 sm:px-4 sm:py-3">
+                    <td className="px-3 py-2 sm:px-4 sm:py-3 max-w-0 w-full md:max-w-none md:w-auto">
                       <div className="flex items-center gap-2 sm:gap-3">
                         <div className="relative shrink-0">
                           <Avatar nome={row.nome} fotoUrl={row.fotoUrl} />
@@ -651,7 +651,7 @@ export default function MemberList() {
 
           {/* Paginação */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-stone-50">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-slate-100 bg-stone-50 rounded-b-2xl">
               <p className="text-xs text-slate-500">
                 Página {page} de {totalPages} &mdash; {total} registro{total !== 1 ? 's' : ''}
               </p>

@@ -143,12 +143,12 @@ export default function GrupoEncontroPage() {
         <Card title="Frequência" subtitle="Últimas 16 semanas · ordenado por faltas seguidas">
           {!freq ? <p className="text-sm text-slate-500">Carregando...</p> : (
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm [&_th]:whitespace-nowrap [&_th+th]:pl-3 [&_td+td]:pl-3">
                 <thead><tr className="text-left text-slate-500 border-b border-slate-100"><th className="py-2">Nome</th><th className="text-right">Presenças</th><th className="text-right">Frequência</th><th className="text-right">Faltas seguidas</th><th className="pl-3">Situação</th></tr></thead>
                 <tbody>
                   {freq.map((p) => (
                     <tr key={p.personId} className="border-b border-slate-50">
-                      <td className="py-2">{p.nome}</td>
+                      <td className="py-2 min-w-[9rem]">{p.nome}</td>
                       <td className="text-right tabular-nums">{p.presencas}/{p.totalAulas}</td>
                       <td className="text-right tabular-nums">{p.totalAulas ? `${p.taxaPresenca}%` : '—'}</td>
                       <td className="text-right tabular-nums">{p.faltasConsecutivas || 0}</td>

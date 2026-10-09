@@ -315,8 +315,8 @@ export default function Sidebar({ user, isOpen, onClose }) {
     <>
       <aside
         aria-label="Menu principal"
-        className={`fixed inset-y-0 left-0 z-40 w-[min(18rem,85vw)] rounded-r-3xl md:rounded-3xl bg-ibbiNavy text-white flex flex-col shadow-2xl md:shadow-soft transform transition-transform duration-200 ease-out md:sticky md:top-3 md:m-3 md:mr-0 md:w-64 md:h-[calc(100dvh-1.5rem)] md:translate-x-0 shrink-0 ${
-          isOpen ? 'translate-x-0' : '-translate-x-full'
+        className={`fixed inset-y-0 left-0 z-40 w-[min(18rem,85vw)] rounded-r-3xl lg:rounded-3xl bg-ibbiNavy text-white flex flex-col lg:shadow-soft transform transition-transform duration-200 ease-out lg:sticky lg:top-3 lg:m-3 lg:mr-0 lg:w-64 lg:h-[calc(100dvh-1.5rem)] lg:translate-x-0 shrink-0 ${
+          isOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
         }`}
       >
         <div className="px-4 pt-6 pb-4 flex items-center gap-3">
@@ -328,7 +328,7 @@ export default function Sidebar({ user, isOpen, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="md:hidden w-9 h-9 -mr-1 rounded-full flex items-center justify-center text-white/70 hover:bg-white/10"
+            className="lg:hidden w-9 h-9 -mr-1 rounded-full flex items-center justify-center text-white/70 hover:bg-white/10"
             aria-label="Fechar menu"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" d="M6 6l12 12M18 6L6 18" /></svg>

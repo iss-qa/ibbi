@@ -44,7 +44,7 @@ function Composer({ person, onSent }) {
       <div className="flex items-end gap-2">
         <textarea
           rows={1}
-          className="flex-1 resize-none rounded-2xl bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 max-h-32"
+          className="flex-1 min-w-0 resize-none rounded-2xl bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-600 max-h-32"
           placeholder={person.celular ? `Mensagem para ${person.nome.split(' ')[0]} — use {nome} para personalizar` : 'Pessoa sem celular cadastrado'}
           value={texto}
           disabled={!person.celular || sending}
@@ -107,7 +107,7 @@ export default function WhatsAppCentral({ embedded = false }) {
 
       <div className="rounded-2xl overflow-hidden shadow-soft border border-black/5 bg-white flex h-[calc(100vh-10rem)] min-h-[480px]">
         {/* Lista de conversas */}
-        <aside className={`${selected ? 'hidden md:flex' : 'flex'} w-full md:w-[340px] lg:w-[380px] flex-col border-r border-slate-200 shrink-0`}>
+        <aside className={`${selected ? 'hidden lg:flex' : 'flex'} w-full lg:w-[340px] xl:w-[380px] flex-col border-r border-slate-200 shrink-0`}>
           <div className="px-3 py-3 border-b border-slate-100 space-y-2" style={{ background: '#f0f2f5' }}>
             <input
               className="w-full rounded-lg bg-white px-3 py-2 text-sm border border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-600"
@@ -150,7 +150,7 @@ export default function WhatsAppCentral({ embedded = false }) {
         </aside>
 
         {/* Conversa */}
-        <section className={`${selected ? 'flex' : 'hidden md:flex'} flex-1 min-w-0 flex-col`}>
+        <section className={`${selected ? 'flex' : 'hidden lg:flex'} flex-1 min-w-0 flex-col`}>
           {!selected ? (
             <div className="flex-1 flex flex-col items-center justify-center text-center p-8" style={{ background: '#f8f9fa' }}>
               <p className="font-display text-xl text-ibbiNavy">Selecione uma pessoa</p>
@@ -164,7 +164,7 @@ export default function WhatsAppCentral({ embedded = false }) {
               emptyText="Nenhuma mensagem enviada para esta pessoa ainda."
               header={(
                 <div className="flex items-center gap-3">
-                  <button type="button" className="md:hidden text-white/90 text-lg" onClick={() => setSelected(null)} aria-label="Voltar">←</button>
+                  <button type="button" className="lg:hidden text-white/90 text-lg" onClick={() => setSelected(null)} aria-label="Voltar">←</button>
                   <Avatar nome={selected.nome} fotoUrl={selected.fotoUrl} size="w-10 h-10" />
                   <div className="min-w-0">
                     <p className="font-semibold leading-tight truncate">{selected.nome}</p>

@@ -37,7 +37,7 @@ export default function Pricing() {
             ['📋 Chamada pelo WhatsApp', 'No domingo o assistente manda a lista da turma; o líder responde "1, 3, 5" ou um áudio e pronto.'],
             ['💛 Cuidado com ausentes', 'Quem faltou recebe uma mensagem acolhedora com o tema da aula; após semanas seguidas, a liderança é alertada.'],
           ].map(([t, d]) => (
-            <div key={t} className="bg-white rounded-xl border border-stone-100 p-5">
+            <div key={t} className="bg-white rounded-2xl border border-stone-100 p-5">
               <h3 className="font-semibold text-ibbiNavy">{t}</h3>
               <p className="text-slate-600 mt-1">{d}</p>
             </div>
