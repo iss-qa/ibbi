@@ -5,7 +5,8 @@ import { useTenant } from '../../context/TenantContext';
 import useAuth from '../../hooks/useAuth';
 import PlanCards from '../../components/PlanCards';
 import IndiqueGanhe from '../../components/IndiqueGanhe';
-import { Badge, Card, KpiCard, brl, fmtDate } from '../../components/ui';
+import PixPaymentModal from '../../components/billing/PixPaymentModal';
+import { Badge, Button, Card, KpiCard, brl, fmtDate } from '../../components/ui';
 
 const STATUS_FATURA = {
   pendente: { color: 'amber', label: 'Em aberto' },
@@ -45,6 +46,7 @@ export default function Subscription() {
   const [data, setData] = useState(null);
   const [ciclo, setCiclo] = useState('mensal');
   const [msg, setMsg] = useState(null);
+  const [pagando, setPagando] = useState(null);
 
   const load = () => api.get('/tenant/billing').then((r) => { setData(r.data); setCiclo(r.data.billing?.ciclo || 'mensal'); }).catch(() => {});
   useEffect(() => { load(); }, []);
@@ -56,13 +58,20 @@ export default function Subscription() {
     }
     if (!window.confirm(`Mudar para o plano ${plan.nome} (${ciclo})? Se houver fatura em aberto neste mês, ela será reajustada para o novo valor.`)) return;
     try {
-      await api.put('/tenant/billing/plan', { plano: plan.id, ciclo });
+      const { data: r } = await api.put('/tenant/billing/plan', { plano: plan.id, ciclo });
       await refresh();
       await load();
-      setMsg({ ok: true, text: `Plano alterado para ${plan.nome}.` });
+      const reaj = r.faturasReajustadas?.[0];
+      setMsg({ ok: true, text: `Plano alterado para ${plan.nome}.${reaj ? ` A fatura do mês foi reajustada para ${brl(reaj.valor)} — pague com o novo Pix.` : ''}` });
     } catch (err) {
       setMsg({ ok: false, text: err?.response?.data?.message || 'Falha ao trocar de plano' });
     }
+  };
+
+  const onPaid = () => {
+    refresh();
+    load();
+    setMsg({ ok: true, text: 'Pagamento confirmado. Obrigado!' });
   };
 
   if (!data || !tenant) return <p className="text-sm text-slate-500">Carregando...</p>;
@@ -74,13 +83,40 @@ export default function Subscription() {
   return (
     <div>
       <Header title="Assinatura" subtitle={tenant.nome} action={<Badge color={st.color}>{st.label}</Badge>} />
-      {isMaster && <IndiqueGanhe />}
-      {['suspensa', 'inadimplente'].includes(data.status) && (
-        <div className="mb-4 rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-900">
-          Há faturas em atraso. {data.status === 'suspensa' ? 'O acesso ao sistema e as automações estão suspensos' : `Com ${data.politica?.suspendAfterDays || 7} dias de atraso o acesso é suspenso`} — regularize abaixo.
+      {data.status === 'suspensa' && (
+        <div className="mb-4 rounded-xl bg-red-50 border border-red-200 p-4 text-sm text-red-900" role="alert">
+          <p className="font-semibold">Acesso suspenso por fatura em atraso.</p>
+          <p className="mt-0.5">O sistema e as automações voltam assim que o Pix for pago — a liberação é automática.</p>
+        </div>
+      )}
+      {data.status === 'inadimplente' && (
+        <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 p-4 text-sm text-amber-900" role="alert">
+          Há fatura vencida. Com {data.politica?.suspendAfterDays || 7} dias de atraso o acesso e as automações são suspensos até o pagamento.
         </div>
       )}
       {msg && <p className={`text-sm mb-4 ${msg.ok ? 'text-emerald-700' : 'text-red-600'}`}>{msg.text}</p>}
+
+      {abertas.length > 0 && (
+        <Card title={abertas.length === 1 ? 'Fatura em aberto' : `${abertas.length} faturas em aberto`} subtitle="Pagamento por Pix, confirmação automática" className="mb-6">
+          <ul className="divide-y divide-slate-100">
+            {[...abertas].sort((a, b) => new Date(a.vencimento) - new Date(b.vencimento)).map((f) => (
+              <li key={f._id} className="py-3 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                <div className="min-w-0 flex-1">
+                  <p className="text-slate-800 break-words">{f.descricao}</p>
+                  <p className="text-xs text-slate-500">Vencimento {fmtDate(f.vencimento)}{f.observacao ? ` · ${f.observacao}` : ''}</p>
+                </div>
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="font-display text-xl text-ibbiNavy tabular-nums">{brl(f.valor)}</span>
+                  <Badge color={STATUS_FATURA[f.status].color}>{STATUS_FATURA[f.status].label}</Badge>
+                  <Button onClick={() => setPagando(f._id)}>Pagar com Pix</Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+
+      {isMaster && <IndiqueGanhe />}
 
       <section className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6">
         <KpiCard label="Plano" value={tenant.planoInfo?.nome || data.plano} hint={data.billing?.isento ? 'Cliente fundador · isento' : `Ciclo ${data.billing?.ciclo}`} />
@@ -111,8 +147,8 @@ export default function Subscription() {
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="tabular-nums font-medium">{brl(f.valor)}</span>
                     <Badge color={s.color}>{s.label}</Badge>
-                    {f.pix?.invoiceUrl && ['pendente', 'vencido'].includes(f.status) && (
-                      <a href={f.pix.invoiceUrl} target="_blank" rel="noreferrer" className="text-ibbiBlue font-medium hover:underline">Pagar com Pix</a>
+                    {['pendente', 'vencido'].includes(f.status) && (
+                      <button type="button" onClick={() => setPagando(f._id)} className="text-ibbiBlue font-medium hover:underline">Pagar</button>
                     )}
                   </div>
                 </li>
@@ -139,6 +175,7 @@ export default function Subscription() {
         <PlanCards plans={data.planos} ciclo={ciclo} current={data.billing?.ciclo === ciclo ? data.plano : null} onSelect={changePlan} selectLabel="Mudar para este plano" />
       </Card>
       )}
+      {pagando && <PixPaymentModal faturaId={pagando} onClose={() => setPagando(null)} onPaid={onPaid} />}
     </div>
   );
 }

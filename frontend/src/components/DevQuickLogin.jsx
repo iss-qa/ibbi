@@ -15,8 +15,9 @@ export const devUser = (key) => (isLocalDev() ? DEV_USERS[key] : null);
 
 const OPTIONS = [
   { key: 'membro', label: 'Membro', desc: 'usuário comum' },
-  { key: 'admin', label: 'Administrador', desc: 'gestão da igreja' },
-  { key: 'plataforma', label: 'Master', desc: 'gestão multi-tenant' },
+  { key: 'admin', label: 'Administrador', desc: 'liderança (admin)' },
+  { key: 'gestor', label: 'Gestor', desc: 'dono da igreja (master)' },
+  { key: 'plataforma', label: 'Plataforma', desc: 'gestão multi-tenant' },
 ];
 
 export default function DevQuickLogin({ onPick }) {
@@ -28,7 +29,7 @@ export default function DevQuickLogin({ onPick }) {
       {available.length === 0 ? (
         <p className="text-xs text-amber-800">Defina VITE_DEV_USERS em frontend/.env.development.local (veja .env.example).</p>
       ) : (
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {available.map((o) => (
             <button
               key={o.key}

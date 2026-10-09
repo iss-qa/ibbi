@@ -470,6 +470,7 @@ npm run build
 
 ## 🧹 Manutenção de dados
 
+- `npm run seed:dev` (só MongoDB local): `membro.teste` (user), `admin.teste` (admin — sem Usuários/Configurações), `master.teste` (master, dono da igreja), senha `Dev@12345`; atalhos em `VITE_DEV_USERS` (`membro`, `admin`, `gestor`, `plataforma`).
 - `node backend/src/scripts/audit-test-users.js [saida.csv]` (com `MONGO_URI` do ambiente): **somente leitura**; lista igrejas, masters e usuários/pessoas com cara de teste (nomes das suítes, sufixo `Mn…`, telefones `000…`, igrejas de teste/demo) em `TESTE` / `REVISAR`. Exclusão só depois de revisar a lista.
 - Operador da plataforma ≠ master da igreja: `PlatformUser` (`PLATFORM_ADMIN_EMAIL/PASSWORD`, painel `/platform`) é o administrador geral do SaaS; `User.role = 'master'` é o dono de **uma** igreja.
 
@@ -506,6 +507,7 @@ npm run build
 - `billing.service.runBillingCycle` (cron 06:00 BRT): fim de trial → fatura (já com Pix) → confere Pix na Woovi (webhook perdido) → vencida → inadimplente (`BILLING_GRACE_DAYS`, 1 dia, só aviso) → suspensa (`BILLING_SUSPEND_AFTER_DAYS`, 7 dias). Igreja suspensa recebe 402 `TENANT_SUSPENDED` (exceto `/api/tenant/*`, onde fica a Assinatura). O pagamento libera na hora (`recomputeStatus`).
 - **Gateway Woovi/OpenPix** (`services/woovi.service.js`; `WOOVI_ENV` + `WOOVI_PROD_APP_ID`/`WOOVI_SANDBOX_APP_ID`). Conta compartilhada com a Juntix: correlationID sempre `pastoria-<fatura>-<n>-<rand>`; o webhook ignora o resto. Webhook único `POST /api/webhooks/openpix` (CHARGE_COMPLETED, CHARGE_EXPIRED, TRANSACTION_RECEIVED), autenticado por `x-webhook-signature` (RSA, chaves em `/api/v1/webhook/public-keys`) ou `Authorization` = `WOOVI_WEBHOOK_SECRET`. **A baixa nunca confia no corpo**: `syncCharge` consulta a cobrança na API. Pix expirado ou valor reajustado → `createGatewayCharge` remove o antigo e gera outro. Woovi responde 400 "Cobrança não encontrada" (não 404) para cobrança inexistente.
 - Troca de plano (`PUT /api/tenant/billing/plan`, master): `repriceOpenInvoices` reajusta a fatura em aberto do mês e troca o Pix. Faturas: master e admin veem/pagam (`GET /api/tenant/billing`, `POST /billing/faturas/:id/pix` → QR em data URL, `GET /billing/faturas/:id` → status com conferência na Woovi). `Invoice` não tem tenantPlugin: sempre filtrar por `tenantId`.
+- Telas: `components/billing/` — `PixPaymentModal` (QR + copia e cola, consulta a fatura a cada 5s até confirmar), `BillingBell` (sino no Dashboard, usa `tenant.faturaAberta` de `GET /api/tenant`) e `BillingAlert` (faixa de fatura vencida). Igreja `suspensa`: o shell (`App.jsx`) leva master/admin para `/assinatura` (liberadas: `/assinatura`, `/profile`) e mostra aviso ao membro.
 - Painel da plataforma: `/platform` (front) e `/api/platform/*` (JWT `aud: platform`, model `PlatformUser`).
 
 ## 🤖 IA e WhatsApp

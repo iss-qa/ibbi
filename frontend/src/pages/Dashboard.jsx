@@ -6,6 +6,8 @@ import useAuth from '../hooks/useAuth';
 import useStaleQuery from '../hooks/useStaleQuery';
 import AniversarianteModal from './AniversarianteModal';
 import OnboardingBanner from '../components/OnboardingBanner';
+import BillingBell from '../components/billing/BillingBell';
+import BillingAlert from '../components/billing/BillingAlert';
 import useCongregacaoScope from '../hooks/useCongregacaoScope';
 
 const ChartsSection = lazy(() => import('../components/dashboard/ChartsSection'));
@@ -278,6 +280,7 @@ export default function Dashboard() {
   return (
     <div className="animate-fade-in pb-10">
       <OnboardingBanner />
+      <BillingAlert />
       <Header
         title={
           <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
@@ -296,6 +299,8 @@ export default function Dashboard() {
         }
         subtitle="Visão geral da igreja"
         action={
+          <>
+          <BillingBell />
           <select
             className="border rounded-lg px-3 py-2 text-sm w-full sm:w-auto disabled:bg-slate-100 disabled:text-slate-500"
             value={congregacao}
@@ -309,6 +314,7 @@ export default function Dashboard() {
               <option key={c} value={c}>{c}</option>
             ))}
           </select>
+          </>
         }
       />
 
