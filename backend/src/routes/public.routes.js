@@ -29,6 +29,9 @@ router.get('/tenants/:slug', async (req, res) => {
   return res.json(serializePublic(tenant));
 });
 
+// Logo da igreja (prévia do link de check-in no WhatsApp)
+router.get('/tenants/:slug/logo', require('../controllers/checkin-share.controller').logo);
+
 router.get('/invitations/:token/tenant', controller.invitationTenant);
 // Cada envio dispara WhatsApp de boas-vindas ao número informado: limite por IP contra spam/banimento
 const inviteSubmitLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 20, standardHeaders: true, legacyHeaders: false });

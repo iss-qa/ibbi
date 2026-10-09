@@ -19,6 +19,7 @@ router.post('/cultos', lideranca, culto.abrir);
 router.get('/cultos/:id', lideranca, culto.get);
 router.post('/cultos/:id/encerrar', lideranca, culto.encerrar);
 router.post('/cultos/:id/presencas', lideranca, culto.addPresenca);
+router.post('/cultos/:id/lideranca', lideranca, culto.enviarLideranca);
 
 router.get('/escalas', lideranca, escala.list);
 router.post('/escalas', lideranca, escala.create);

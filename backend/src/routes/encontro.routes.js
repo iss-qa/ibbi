@@ -13,6 +13,8 @@ router.post('/grupos', c.createGrupo);
 router.get('/grupos/:id', c.getGrupo);
 router.put('/grupos/:id', c.updateGrupo);
 router.post('/grupos/:id/sincronizar', c.syncMembros);
+router.get('/grupos/:id/revisao', c.revisao);
+router.post('/grupos/:id/revisao', c.aplicarRevisao);
 router.post('/grupos/:id/membros', c.addMembro);
 router.delete('/grupos/:id/membros/:personId', c.removeMembro);
 router.get('/grupos/:id/frequencia', c.frequencia);

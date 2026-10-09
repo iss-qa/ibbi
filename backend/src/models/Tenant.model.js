@@ -28,6 +28,7 @@ const TenantSchema = new mongoose.Schema({
   documento: { type: String, trim: true }, // CNPJ
   email: { type: String, trim: true, lowercase: true },
   telefone: { type: String, trim: true },
+  instagram: { type: String, trim: true }, // usuário sem @ (vai no convite do check-in)
   responsavel: { type: String, trim: true },
   cidade: { type: String, trim: true },
   uf: { type: String, trim: true },
@@ -142,6 +143,10 @@ const TenantSchema = new mongoose.Schema({
       hora: { type: String, default: '10:00' }, // horário local das mensagens
       avisarLideranca: { type: Boolean, default: true }, // no dia 30: quem não voltou
       primeirosDias: { type: Boolean, default: true }, // etapas d1 (obrigado) e d2 (oração)
+    },
+    // Check-in do culto: ao abrir, o QR e o convite pronto vão para a liderança encaminhar nos grupos
+    checkin: {
+      avisarLideranca: { type: Boolean, default: true },
     },
     // Escalas de voluntários: lembrete na véspera para quem confirmou
     escalas: {

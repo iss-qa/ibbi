@@ -73,6 +73,12 @@ const updateSettings = async (req, res) => {
   if (!tenant) return res.status(404).json({ message: 'Igreja não encontrada' });
 
   Object.assign(tenant, pick(body, ['nome', 'nomeCurto', 'email', 'telefone', 'responsavel', 'cidade', 'uf', 'timezone', 'programacaoSemanal']));
+  if ('instagram' in body) {
+    // Aceita "@usuario", "usuario" ou o link do perfil
+    const ig = String(body.instagram || '').trim().replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/^@/, '').replace(/[/?#].*$/, '');
+    if (ig && !/^[a-z0-9._]{1,30}$/i.test(ig)) return res.status(400).json({ message: 'Instagram inválido: use só o usuário, ex.: @suaigreja' });
+    tenant.instagram = ig || undefined;
+  }
   if (Array.isArray(body.congregacoes)) {
     const lista = [...new Set(body.congregacoes.map((c) => String(c).trim()).filter(Boolean))];
     if (!lista.length) return res.status(400).json({ message: 'Informe ao menos uma congregação' });

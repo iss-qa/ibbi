@@ -7,6 +7,7 @@ const PresencaSchema = new mongoose.Schema(
     nome: { type: String },
     presente: { type: Boolean, default: true },
     justificativa: { type: String },
+    motivo: { type: String, trim: true, maxlength: 200 }, // texto livre quando a justificativa é "outros"
   },
   { _id: false }
 );

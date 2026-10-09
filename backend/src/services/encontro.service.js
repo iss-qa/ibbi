@@ -26,6 +26,56 @@ const candidatesByCriteria = async (grupo) => {
   });
 };
 
+/**
+ * Compara o grupo com os critérios atuais: quem saiu dos critérios (com o motivo) e quem atende mas
+ * ainda não está no grupo. Nada é alterado aqui; o líder confirma em aplicarRevisao.
+ */
+const revisarCriterios = async (grupo) => {
+  const c = grupo.criterios || {};
+  const candidatos = await candidatesByCriteria(grupo);
+  const atendem = new Set(candidatos.map((p) => String(p._id)));
+  const noGrupo = new Set(grupo.membros.map((m) => String(m.personId)));
+  const lideres = new Set((grupo.lideres || []).map((l) => String(l.personId)));
+  const foraIds = grupo.membros.filter((m) => !atendem.has(String(m.personId))).map((m) => m.personId);
+  const pessoas = new Map((await Person.find({ _id: { $in: foraIds } }).select('status sexo dataNascimento congregacao tipo').lean())
+    .map((p) => [String(p._id), p]));
+  const motivo = (p) => {
+    if (!p) return 'cadastro removido';
+    if (p.status !== 'ativo') return 'inativo';
+    if (p.congregacao !== grupo.congregacao) return `congregação ${p.congregacao || '—'}`;
+    if (c.sexo && p.sexo !== c.sexo) return p.sexo ? p.sexo.toLowerCase() : 'sexo não informado';
+    if (c.tipos?.length && !c.tipos.includes(p.tipo)) return p.tipo || 'tipo não informado';
+    const idade = calculateAge(p.dataNascimento);
+    return idade === null ? 'sem data de nascimento' : `${idade} anos`;
+  };
+  return {
+    pelosCriterios: candidatos.length,
+    fora: grupo.membros.filter((m) => !atendem.has(String(m.personId))).map((m) => ({
+      personId: m.personId, nome: m.nome, manual: Boolean(m.manual), lider: lideres.has(String(m.personId)), motivo: motivo(pessoas.get(String(m.personId))),
+    })).sort((a, b) => String(a.nome).localeCompare(String(b.nome), 'pt-BR')),
+    faltando: candidatos.filter((p) => !noGrupo.has(String(p._id))).map((p) => ({ personId: p._id, nome: p.nome })),
+  };
+};
+
+// Aplica a revisão confirmada: remove os escolhidos (só entre quem saiu dos critérios) e, se pedido, inclui quem falta.
+const aplicarRevisao = async (grupo, { remover = [], adicionar = false } = {}) => {
+  const rev = await revisarCriterios(grupo);
+  const removiveis = new Set(rev.fora.map((f) => String(f.personId)));
+  const tirar = new Set(remover.map(String).filter((id) => removiveis.has(id)));
+  grupo.membros = grupo.membros.filter((m) => !tirar.has(String(m.personId)));
+  let adicionados = 0;
+  if (adicionar) {
+    const candidatos = await candidatesByCriteria(grupo);
+    const noGrupo = new Set(grupo.membros.map((m) => String(m.personId)));
+    candidatos.filter((p) => !noGrupo.has(String(p._id))).forEach((p) => {
+      grupo.membros.push({ personId: p._id, nome: p.nome, celular: p.celular });
+      adicionados += 1;
+    });
+  }
+  await grupo.save();
+  return { removidos: tirar.size, adicionados, totalMembros: grupo.membros.length };
+};
+
 // Acrescenta ao grupo quem atende aos critérios (não remove ninguém).
 const syncMembers = async (grupo) => {
   const atuais = new Set(grupo.membros.map((m) => String(m.personId)));
@@ -80,7 +130,7 @@ const encontroFromAula = (grupo, aula) => ({
   grupoId: grupo._id, grupoNome: grupo.nome, congregacao: aula.congregacao, data: aula.data, atividade: 'aula_ebd',
   tema: aula.tema ? `EBD ${aula.classe} — ${aula.tema}` : `EBD ${aula.classe}`,
   descricao: aula.descricao, fotoUrl: aula.fotoUrl, origem: aula.origem || 'web',
-  presencas: aula.presencas.map((p) => ({ personId: p.personId, nome: p.nome, presente: p.presente, justificativa: p.justificativa })),
+  presencas: aula.presencas.map((p) => ({ personId: p.personId, nome: p.nome, presente: p.presente, justificativa: p.justificativa, motivo: p.motivo })),
   // A retenção da EBD já trata estas faltas: o espelho nunca dispara mensagens.
   ausenciasProcessadasEm: new Date(),
 });
@@ -137,6 +187,8 @@ const migrarEbdParaUnioes = async () => {
 module.exports = {
   ATIVIDADE_LABEL,
   candidatesByCriteria,
+  revisarCriterios,
+  aplicarRevisao,
   syncMembers,
   sortedMembers,
   findEncontro,

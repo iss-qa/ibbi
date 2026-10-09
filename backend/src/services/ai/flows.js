@@ -492,12 +492,17 @@ const listarOracoes = async (dias, ctx) => {
 
 // ── Culto: check-in por QR Code ──────────────────────────────────────────
 const abrirCultoLider = async (congregacao, ctx) => {
-  const { culto } = await cultoSvc.abrirCulto({ congregacao, userId: ctx.actor.userId, userNome: ctx.actor.nome });
+  const { culto, criado } = await cultoSvc.abrirCulto({ congregacao, userId: ctx.actor.userId, userNome: ctx.actor.nome });
   const qr = await cultoSvc.qrDataUrl(culto, 900);
   if (ctx.actor.telefone) {
     await whatsapp.sendImage(ctx.actor.telefone, qr, templates.checkinQrLegenda(culto.titulo, culto.codigo))
       .catch((err) => console.warn('[CULTO] Falha ao enviar QR ao líder:', err.message));
+    // Convite pronto para encaminhar nos grupos
+    await whatsapp.sendText(ctx.actor.telefone, cultoSvc.conviteCheckin(culto))
+      .catch((err) => console.warn('[CULTO] Falha ao enviar o convite ao líder:', err.message));
   }
+  // Demais líderes recebem pela fila (quem abriu já recebeu acima)
+  if (criado) cultoSvc.avisarLideranca(culto, { excluir: [ctx.actor.telefone].filter(Boolean) }).catch((err) => console.warn('[CULTO] Falha ao avisar a liderança:', err.message));
   ctx.conversation.state = { tipo: 'culto_menu', cultoId: String(culto._id) };
   return templates.cultoLider(cultoSvc.resumo(culto));
 };

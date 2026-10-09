@@ -50,6 +50,7 @@ const serializePublic = (tenant) => tenant && ({
   nome: tenant.nome,
   nomeCurto: tenant.nomeCurto || tenant.nome,
   branding: tenant.branding || {},
+  instagram: tenant.instagram,
   congregacoes: tenant.congregacoes || [],
   status: tenant.status,
   demo: Boolean(tenant.demo),
