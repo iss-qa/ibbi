@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Suspense, lazy, useEffect, useState } from 'react';
 import useAuth from './hooks/useAuth';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -66,6 +66,22 @@ function PageFallback() {
         {[0, 1, 2, 3].map((i) => <div key={i} className="h-24 rounded-2xl bg-white/70" />)}
       </div>
       <div className="h-64 rounded-2xl bg-white/70" />
+    </div>
+  );
+}
+
+// Igreja suspensa por fatura em atraso: liderança só usa Assinatura (e o perfil); membro vê o aviso.
+const LIBERADAS_SUSPENSA = ['/assinatura', '/profile'];
+function SuspendedRedirect() {
+  const { pathname } = useLocation();
+  return LIBERADAS_SUSPENSA.includes(pathname) ? null : <Navigate to="/assinatura" replace />;
+}
+
+function SuspendedNotice() {
+  return (
+    <div className="max-w-md mx-auto mt-16 bg-white rounded-2xl shadow-soft p-6 text-center" role="alert">
+      <p className="font-display text-xl text-ibbiNavy">Acesso temporariamente suspenso</p>
+      <p className="text-sm text-slate-600 mt-2">A assinatura da igreja tem uma pendência. Assim que a liderança regularizar, o acesso volta automaticamente.</p>
     </div>
   );
 }
@@ -139,8 +155,11 @@ export default function App() {
                   </div>
                   <div className="flex-1 w-full max-w-[1440px] mx-auto px-4 pt-4 pb-10 md:px-8 md:pt-8 lg:px-10">
                   <DemoBanner />
+                  {tenantLoaded && tenant?.status === 'suspensa' && ['admin', 'master'].includes(user?.role) && <SuspendedRedirect />}
                   {!tenantLoaded ? (
                     <PageFallback />
+                  ) : tenant?.status === 'suspensa' && user?.role === 'user' ? (
+                    <SuspendedNotice />
                   ) : (
                   <Suspense fallback={<PageFallback />}>
                   <Routes>
