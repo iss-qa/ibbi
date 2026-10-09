@@ -16,6 +16,8 @@ if (process.env.NODE_ENV === 'production' || (!isLocalDb && process.env.ALLOW_DE
 const DEV_USERS = [
   { login: 'membro.teste', nome: 'Membro Teste', role: 'user', senha: process.env.DEV_MEMBRO_PASSWORD || 'Dev@12345', tipo: 'membro' },
   { login: 'admin.teste', nome: 'Administrador Teste', role: 'admin', senha: process.env.DEV_ADMIN_PASSWORD || 'Dev@12345', tipo: 'membro' },
+  // Dono da igreja (master): vê Administração (Usuários, Configurações, Assinatura)
+  { login: 'master.teste', nome: 'Gestor Teste', role: 'master', senha: process.env.DEV_MASTER_PASSWORD || 'Dev@12345', tipo: 'membro' },
 ];
 
 const main = async () => {
@@ -32,7 +34,7 @@ const main = async () => {
     } else {
       await User.create({ nome: u.nome, login: u.login, senha: u.senha, role: u.role, personId: person._id, mustChangePassword: false });
     }
-    console.log(`✔ ${u.role.padEnd(5)} ${u.login}`);
+    console.log(`✔ ${u.role.padEnd(6)} ${u.login}`);
   }
   console.log(`✔ plataforma ${process.env.PLATFORM_ADMIN_EMAIL || '(defina PLATFORM_ADMIN_EMAIL/PLATFORM_ADMIN_PASSWORD no .env)'}`);
   await mongoose.disconnect();
